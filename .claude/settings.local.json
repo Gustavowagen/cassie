@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Supabase__list_organizations",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__get_publishable_keys",
+      "mcp__claude_ai_Supabase__get_project_url",
+      "mcp__claude_ai_Supabase__list_tables"
+    ]
+  }
+}
