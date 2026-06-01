@@ -27,6 +27,11 @@ export function Auth() {
         });
         if (error) throw error;
       } else {
+        if (nickname.trim().length === 0) {
+          setError("Nickname cannot be blank.");
+          setLoading(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -81,6 +86,8 @@ export function Auth() {
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
+                  autoComplete="username"
+                  maxLength={30}
                   required
                 />
               </div>
