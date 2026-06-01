@@ -10,6 +10,7 @@ export function Auth() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -26,8 +27,23 @@ export function Auth() {
         });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { nickname: nickname.trim() } },
+        });
+        if (error) {
+          const msg = error.message.toLowerCase();
+          if (
+            msg.includes("profiles_username_key") ||
+            msg.includes("duplicate key") ||
+            msg.includes("already taken") ||
+            msg.includes("database error saving new user")
+          ) {
+            throw new Error("That nickname is already taken.");
+          }
+          throw error;
+        }
       }
       navigate("/");
     } catch (err: unknown) {
@@ -57,6 +73,18 @@ export function Auth() {
                 required
               />
             </div>
+            {mode === "signup" && (
+              <div>
+                <Label htmlFor="nickname">Nickname</Label>
+                <Input
+                  id="nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="password">Password</Label>
               <Input
@@ -80,9 +108,11 @@ export function Auth() {
             {mode === "signin" ? "No account? " : "Have an account? "}
             <button
               className="underline"
-              onClick={() =>
-                setMode((m) => (m === "signin" ? "signup" : "signin"))
-              }
+              onClick={() => {
+                setMode((m) => (m === "signin" ? "signup" : "signin"));
+                setNickname("");
+                setError(null);
+              }}
             >
               {mode === "signin" ? "Sign Up" : "Sign In"}
             </button>
