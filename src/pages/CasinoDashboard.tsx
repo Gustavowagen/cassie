@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Copy, Check, Users, BarChart2, Gamepad2 } from "lucide-react";
+import { Copy, Check, Users, BarChart2, Gamepad2, Gift } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { useCasino } from "../hooks/useCasino";
@@ -17,7 +17,7 @@ type OwnerTab = "games" | "members" | "stats";
 export function CasinoDashboard() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { getCasinoBySlug, joinCasino, getCasinoMembers } = useCasino();
+  const { getCasinoBySlug, joinCasino, getCasinoMembers, giveChips } = useCasino();
   const { currentCasino, membership, setCasino } = useCasinoStore();
   const { user } = useAuthStore();
   useBalance(currentCasino?.id);
@@ -154,21 +154,23 @@ export function CasinoDashboard() {
         </div>
       )}
 
-      {/* Logged in, not a member */}
-      {user && !isMember && !isOwner && (
+      {/* Logged in, not a member (includes owner who hasn't joined yet) */}
+      {user && !isMember && (
         <div className="rounded-xl bg-card border border-border p-10 text-center space-y-4">
           <p className="text-muted-foreground">
-            You haven't joined this casino yet.
+            {isOwner
+              ? "You haven't joined your own casino yet. Join to get a balance and test the games."
+              : "You haven't joined this casino yet."}
           </p>
           <Button onClick={handleJoin}>
-            Join Casino (
+            {isOwner ? "Join as Player" : "Join Casino"} (
             {currentCasino.settings.startingBalance.toLocaleString()} starting
             chips)
           </Button>
         </div>
       )}
 
-      {/* Owner view with tabs */}
+      {/* Owner management tabs */}
       {isOwner && (
         <div>
           <div className="flex gap-1 border-b border-border mb-6">
@@ -203,14 +205,22 @@ export function CasinoDashboard() {
             />
           )}
           {activeTab === "members" && (
-            <MembersTab members={members} loading={membersLoading} />
+            <MembersTab
+              members={members}
+              loading={membersLoading}
+              casinoId={currentCasino.id}
+              onGiveChips={async (userId, amount) => {
+                await giveChips(currentCasino.id, userId, amount);
+                getCasinoMembers(currentCasino.id).then(setMembers);
+              }}
+            />
           )}
           {activeTab === "stats" && <StatsPlaceholder />}
         </div>
       )}
 
-      {/* Member (non-owner) view */}
-      {isMember && !isOwner && (
+      {/* Game section — shown for any member (owner or not) */}
+      {isMember && (
         activeGame === "blackjack" && currentCasino ? (
           <Blackjack
             casinoId={currentCasino.id}
@@ -302,64 +312,116 @@ function StatsPlaceholder() {
 function MembersTab({
   members,
   loading,
+  casinoId: _casinoId,
+  onGiveChips,
 }: {
   members: CasinoMemberWithProfile[];
   loading: boolean;
+  casinoId: string;
+  onGiveChips: (userId: string, amount: number) => Promise<void>;
 }) {
+  const [givingTo, setGivingTo] = useState<string | null>(null);
+  const [chipAmount, setChipAmount] = useState("");
+  const [giving, setGiving] = useState(false);
+  const [giveError, setGiveError] = useState<string | null>(null);
+
+  async function handleGive(userId: string) {
+    const amount = parseInt(chipAmount, 10);
+    if (!amount || amount <= 0) { setGiveError("Enter a positive amount"); return; }
+    setGiving(true);
+    setGiveError(null);
+    try {
+      await onGiveChips(userId, amount);
+      setGivingTo(null);
+      setChipAmount("");
+    } catch (err) {
+      setGiveError(err instanceof Error ? err.message : "Failed to give chips");
+    } finally {
+      setGiving(false);
+    }
+  }
+
   if (loading)
     return <p className="text-muted-foreground text-sm">Loading members...</p>;
 
   if (members.length === 0)
-    return (
-      <p className="text-muted-foreground text-sm">No members yet.</p>
-    );
+    return <p className="text-muted-foreground text-sm">No members yet.</p>;
 
   return (
     <div className="rounded-xl border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/40">
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-              Player
-            </th>
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground">
-              Role
-            </th>
-            <th className="text-right px-4 py-3 font-medium text-muted-foreground">
-              Balance
-            </th>
-            <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
-              Joined
-            </th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Player</th>
+            <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Role</th>
+            <th className="text-right px-4 py-3 font-medium text-muted-foreground">Balance</th>
+            <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Joined</th>
+            <th className="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           {members.map((m) => (
-            <tr
-              key={m.id}
-              className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
-            >
-              <td className="px-4 py-3 font-medium">
-                {m.profile?.username ?? "Unknown"}
-              </td>
-              <td className="px-4 py-3">
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    m.role === "owner"
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {m.role}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-right font-mono">
-                {formatChips(m.balance)}
-              </td>
-              <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell">
-                {new Date(m.joined_at).toLocaleDateString()}
-              </td>
-            </tr>
+            <>
+              <tr
+                key={m.id}
+                className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors"
+              >
+                <td className="px-4 py-3 font-medium">{m.profile?.username ?? "Unknown"}</td>
+                <td className="px-4 py-3 hidden sm:table-cell">
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    m.role === "owner" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {m.role}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right font-mono">{formatChips(m.balance)}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell">
+                  {new Date(m.joined_at).toLocaleDateString()}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGivingTo(givingTo === m.user_id ? null : m.user_id);
+                      setChipAmount("");
+                      setGiveError(null);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <Gift className="h-3 w-3" />
+                    Give chips
+                  </button>
+                </td>
+              </tr>
+              {givingTo === m.user_id && (
+                <tr key={`${m.id}-give`} className="border-b border-border bg-muted/10">
+                  <td colSpan={5} className="px-4 py-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="number"
+                        min={1}
+                        placeholder="Amount"
+                        value={chipAmount}
+                        onChange={(e) => setChipAmount(e.target.value)}
+                        className="w-32 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        onKeyDown={(e) => e.key === "Enter" && handleGive(m.user_id)}
+                      />
+                      <Button size="sm" onClick={() => handleGive(m.user_id)} disabled={giving}>
+                        {giving ? "Sending…" : "Send"}
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => { setGivingTo(null); setGiveError(null); }}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                      {giveError && <span className="text-xs text-destructive">{giveError}</span>}
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </>
           ))}
         </tbody>
       </table>
