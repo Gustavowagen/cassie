@@ -135,6 +135,41 @@ export function settle(state: RoundState): RoundState {
   return state;
 }
 
+function sameRankValue(a: Card, b: Card): boolean {
+  // 10/J/Q/K are all ten-value and count as a pair.
+  return cardValue(a) === cardValue(b);
+}
+
+export function legalActions(state: RoundState): Move[] {
+  if (state.status !== "player_turn") return [];
+  const hand = state.hands[state.activeHand];
+  if (!hand || hand.done) return [];
+
+  const actions: Move[] = ["hit", "stand"];
+  const fresh = hand.cards.length === 2;
+
+  if (fresh && !hand.isSplitAces) {
+    actions.push("double");
+  }
+  if (
+    fresh &&
+    sameRankValue(hand.cards[0], hand.cards[1]) &&
+    state.hands.length < 4
+  ) {
+    actions.push("split");
+  }
+  if (
+    !state.insuranceResolved &&
+    cardValue(state.dealer[0]) === 11 &&
+    state.hands.length === 1 &&
+    state.activeHand === 0 &&
+    hand.cards.length === 2
+  ) {
+    actions.push("insurance");
+  }
+  return actions;
+}
+
 export function startRound(opts: { shoe: Card[]; bet: number }): RoundState {
   const state: RoundState = {
     shoe: [...opts.shoe],

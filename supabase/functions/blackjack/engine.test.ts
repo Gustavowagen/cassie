@@ -120,3 +120,37 @@ describe("shuffle", () => {
     expect(shoe).toEqual(copy);
   });
 });
+
+import { legalActions } from "./engine";
+
+describe("legalActions", () => {
+  it("hit/stand/double on a fresh two-card hand", () => {
+    const shoe = stacked([c("9"), c("7","H"), c("8"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s).sort()).toEqual(["double","hit","stand"]);
+  });
+
+  it("offers split on a matching pair", () => {
+    const shoe = stacked([c("8"), c("7","H"), c("8","D"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s)).toContain("split");
+  });
+
+  it("treats all ten-value cards as a splittable pair", () => {
+    const shoe = stacked([c("K"), c("7","H"), c("10","D"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s)).toContain("split");
+  });
+
+  it("offers insurance only on an ace upcard, as the first decision", () => {
+    const shoe = stacked([c("9"), c("A","H"), c("8"), c("5","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s)).toContain("insurance");
+  });
+
+  it("returns nothing once the round is complete", () => {
+    const shoe = stacked([c("A"), c("5","H"), c("K"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s)).toEqual([]);
+  });
+});
