@@ -170,6 +170,74 @@ export function legalActions(state: RoundState): Move[] {
   return actions;
 }
 
+function clone(state: RoundState): RoundState {
+  return {
+    ...state,
+    shoe: [...state.shoe],
+    dealer: [...state.dealer],
+    hands: state.hands.map((h) => ({ ...h, cards: [...h.cards] })),
+  };
+}
+
+// Dealer reveals and draws until reaching 17+ (stands on all 17, incl. soft).
+function playDealer(state: RoundState): void {
+  const anyLive = state.hands.some((h) => handValue(h.cards).value <= 21);
+  if (anyLive) {
+    while (handValue(state.dealer).value < 17) {
+      state.dealer.push(draw(state));
+    }
+  }
+}
+
+// Move to the next unfinished hand; if none remain, run the dealer and settle.
+function advance(state: RoundState): RoundState {
+  const next = state.hands.findIndex((h, i) => i > state.activeHand && !h.done);
+  if (next !== -1) {
+    state.activeHand = next;
+    return state;
+  }
+  state.status = "dealer_turn";
+  playDealer(state);
+  return settle(state);
+}
+
+export function applyMove(prev: RoundState, move: Move, _handIndex?: number): RoundState {
+  if (!legalActions(prev).includes(move)) {
+    throw new Error(`illegal move: ${move}`);
+  }
+  const state = clone(prev);
+  const hand = state.hands[state.activeHand];
+
+  switch (move) {
+    case "hit": {
+      hand.cards.push(draw(state));
+      if (isBust(hand.cards)) {
+        hand.done = true;
+        return advance(state);
+      }
+      return state;
+    }
+    case "stand": {
+      hand.done = true;
+      return advance(state);
+    }
+    case "double": {
+      hand.bet *= 2;
+      hand.doubled = true;
+      hand.cards.push(draw(state));
+      hand.done = true;
+      return advance(state);
+    }
+    case "split":
+    case "insurance":
+      return applySplitOrInsurance(state, move);
+  }
+}
+
+function applySplitOrInsurance(_state: RoundState, _move: Move): RoundState {
+  throw new Error("not implemented");
+}
+
 export function startRound(opts: { shoe: Card[]; bet: number }): RoundState {
   const state: RoundState = {
     shoe: [...opts.shoe],

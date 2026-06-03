@@ -122,6 +122,7 @@ describe("shuffle", () => {
 });
 
 import { legalActions } from "./engine";
+import { applyMove } from "./engine";
 
 describe("legalActions", () => {
   it("hit/stand/double on a fresh two-card hand", () => {
@@ -152,5 +153,46 @@ describe("legalActions", () => {
     const shoe = stacked([c("A"), c("5","H"), c("K"), c("6","H")]);
     const s = startRound({ shoe, bet: 1000 });
     expect(legalActions(s)).toEqual([]);
+  });
+});
+
+describe("applyMove: hit/stand/double + dealer", () => {
+  it("hit adds a card; bust loses the hand", () => {
+    const shoe = stacked([c("9"), c("7","H"), c("8"), c("6","H"), c("K")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "hit");
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).toBe("lose");
+  });
+
+  it("stand passes to the dealer, who stands on all 17", () => {
+    const shoe = stacked([c("10"), c("10","H"), c("9"), c("7","H")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "stand");
+    expect(s.status).toBe("complete");
+    expect(s.dealer.length).toBe(2);
+    expect(s.hands[0].outcome).toBe("win");
+    expect(s.hands[0].payout).toBe(2000);
+  });
+
+  it("dealer draws until 17 then stands", () => {
+    const shoe = stacked([c("10"), c("5","H"), c("9"), c("6","H"), c("9","D")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "stand");
+    expect(handValue(s.dealer).value).toBe(20);
+    expect(s.hands[0].outcome).toBe("lose");
+  });
+
+  it("double draws exactly one card, doubles the bet, ends the hand", () => {
+    const shoe = stacked([c("5"), c("10","H"), c("6"), c("7","H"), c("9","D")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "double");
+    expect(s.hands[0].bet).toBe(2000);
+    expect(s.hands[0].cards.length).toBe(3);
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).toBe("win");
+    expect(s.hands[0].payout).toBe(4000);
+  });
+
+  it("rejects an illegal move", () => {
+    const shoe = stacked([c("5"), c("10","H"), c("6"), c("7","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(() => applyMove(s, "insurance")).toThrow();
   });
 });
