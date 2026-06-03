@@ -196,3 +196,49 @@ describe("applyMove: hit/stand/double + dealer", () => {
     expect(() => applyMove(s, "insurance")).toThrow();
   });
 });
+
+describe("split", () => {
+  it("splits a pair into two hands, each dealt a card; play continues on hand 0", () => {
+    const shoe = stacked([c("8"), c("9","H"), c("8","D"), c("7","H"), c("3"), c("2","D")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "split");
+    expect(s.hands.length).toBe(2);
+    expect(s.hands[0].cards).toEqual([c("8"), c("3")]);
+    expect(s.hands[1].cards).toEqual([c("8","D"), c("2","D")]);
+    expect(s.hands[0].bet).toBe(1000);
+    expect(s.hands[1].bet).toBe(1000);
+    expect(s.activeHand).toBe(0);
+    expect(s.status).toBe("player_turn");
+  });
+
+  it("split aces get one card each and are done immediately", () => {
+    const shoe = stacked([c("A"), c("9","H"), c("A","D"), c("7","H"), c("K"), c("Q","D")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "split");
+    expect(s.hands.length).toBe(2);
+    expect(s.hands[0].cards.length).toBe(2);
+    expect(s.hands[1].cards.length).toBe(2);
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).not.toBe("blackjack");
+  });
+});
+
+describe("insurance", () => {
+  it("taking insurance on dealer blackjack pays 2:1 and ends the round", () => {
+    const shoe = stacked([c("9"), c("A","H"), c("8"), c("K","H")]);
+    let s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s)).toContain("insurance");
+    s = applyMove(s, "insurance");
+    expect(s.status).toBe("complete");
+    expect(s.insuranceBet).toBe(500);
+    expect(s.insurancePayout).toBe(1500);
+    expect(s.hands[0].outcome).toBe("lose");
+  });
+
+  it("declining (hitting) on an ace upcard peeks; no dealer BJ continues play", () => {
+    const shoe = stacked([c("9"), c("A","H"), c("8"), c("5","H"), c("2","D")]);
+    let s = startRound({ shoe, bet: 1000 });
+    s = applyMove(s, "hit");
+    expect(s.insuranceResolved).toBe(true);
+    expect(s.status).toBe("player_turn");
+    expect(handValue(s.hands[0].cards).value).toBe(19);
+  });
+});

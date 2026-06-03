@@ -208,6 +208,19 @@ export function applyMove(prev: RoundState, move: Move, _handIndex?: number): Ro
   const state = clone(prev);
   const hand = state.hands[state.activeHand];
 
+  // Ace-upcard peek: the first non-insurance action closes the insurance
+  // window and the dealer peeks. If the dealer has blackjack, the round ends
+  // before the player's move takes effect.
+  if (
+    move !== "insurance" &&
+    !state.insuranceResolved &&
+    cardValue(state.dealer[0]) === 11
+  ) {
+    state.insuranceResolved = true;
+    const peeked = resolveAcePeek(state);
+    if (peeked.status === "complete") return peeked;
+  }
+
   switch (move) {
     case "hit": {
       hand.cards.push(draw(state));
@@ -234,8 +247,52 @@ export function applyMove(prev: RoundState, move: Move, _handIndex?: number): Ro
   }
 }
 
-function applySplitOrInsurance(_state: RoundState, _move: Move): RoundState {
-  throw new Error("not implemented");
+function applySplitOrInsurance(state: RoundState, move: Move): RoundState {
+  if (move === "insurance") {
+    state.insuranceBet = Math.floor(state.baseBet / 2);
+    state.insuranceResolved = true;
+    return resolveAcePeek(state);
+  }
+  // move === "split"
+  const hand = state.hands[state.activeHand];
+  const [first, second] = hand.cards;
+  const splittingAces = first.rank === "A";
+
+  const handA: PlayerHand = {
+    cards: [first],
+    bet: state.baseBet,
+    doubled: false,
+    isSplitAces: splittingAces,
+    done: false,
+  };
+  const handB: PlayerHand = {
+    cards: [second],
+    bet: state.baseBet,
+    doubled: false,
+    isSplitAces: splittingAces,
+    done: false,
+  };
+  state.hands.splice(state.activeHand, 1, handA, handB);
+
+  handA.cards.push(draw(state));
+  handB.cards.push(draw(state));
+
+  if (splittingAces) {
+    handA.done = true;
+    handB.done = true;
+  }
+  if (handA.done) {
+    return advance(state);
+  }
+  return state;
+}
+
+// Called once the insurance decision is made on an ace upcard.
+function resolveAcePeek(state: RoundState): RoundState {
+  if (cardValue(state.dealer[0]) === 11 && isBlackjack(state.dealer)) {
+    return settle(state);
+  }
+  return state;
 }
 
 export function startRound(opts: { shoe: Card[]; bet: number }): RoundState {
