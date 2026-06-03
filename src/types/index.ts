@@ -15,16 +15,28 @@ export interface Casino {
   owner_id: string;
   name: string;
   slug: string;
+  join_code: string;
   description: string | null;
   theme: CasinoTheme;
   settings: CasinoSettings;
   is_active: boolean;
+  member_count: number;
   created_at: string;
+}
+
+export interface CasinoMemberWithProfile {
+  id: string;
+  casino_id: string;
+  user_id: string;
+  balance: number;
+  role: "owner" | "member";
+  joined_at: string;
+  profile: { username: string | null; avatar_url: string | null } | null;
 }
 
 export interface Profile {
   id: string;
-  username: string;
+  username: string | null;
   avatar_url: string | null;
 }
 
@@ -43,4 +55,37 @@ export interface GameType {
   description: string | null;
   min_bet: number;
   max_bet: number;
+}
+
+export interface CasinoGame {
+  casino_id: string;
+  game_type_id: string;
+  is_active: boolean;
+}
+
+// Mirror of the edge function's sanitized output (engine.ts BlackjackState).
+export type Rank = "A"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"|"10"|"J"|"Q"|"K";
+export type Suit = "S"|"H"|"D"|"C";
+export interface Card { rank: Rank; suit: Suit }
+export type Move = "hit"|"stand"|"double"|"split"|"insurance";
+export type BlackjackStatus = "player_turn"|"dealer_turn"|"complete";
+export type BlackjackOutcome = "win"|"lose"|"push"|"blackjack";
+
+export interface BlackjackHandView {
+  cards: Card[];
+  value: number;
+  bet: number;
+  doubled: boolean;
+  outcome?: BlackjackOutcome;
+  payout?: number;
+}
+export interface BlackjackState {
+  roundId: string;
+  status: BlackjackStatus;
+  dealer: { cards: Card[]; value: number | null; hidden: boolean };
+  hands: BlackjackHandView[];
+  activeHand: number;
+  legalActions: Move[];
+  insuranceOffered: boolean;
+  balance: number;
 }
