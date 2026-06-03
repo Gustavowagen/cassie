@@ -242,3 +242,29 @@ describe("insurance", () => {
     expect(handValue(s.hands[0].cards).value).toBe(19);
   });
 });
+
+import { sanitize } from "./engine";
+
+describe("sanitize", () => {
+  it("hides the dealer hole card and value during player_turn", () => {
+    const shoe = stacked([c("9"), c("7","H"), c("8"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    const view = sanitize(s, "round-1", 5000);
+    expect(view.dealer.cards).toEqual([c("7","H")]);
+    expect(view.dealer.hidden).toBe(true);
+    expect(view.dealer.value).toBeNull();
+    expect(view.hands[0].value).toBe(17);
+    expect(view.legalActions.sort()).toEqual(["double","hit","stand"]);
+    expect(view.balance).toBe(5000);
+    expect((view as unknown as { shoe?: unknown }).shoe).toBeUndefined();
+  });
+
+  it("reveals the full dealer hand once complete", () => {
+    const shoe = stacked([c("10"), c("10","H"), c("9"), c("7","H")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "stand");
+    const view = sanitize(s, "round-1", 5000);
+    expect(view.dealer.hidden).toBe(false);
+    expect(view.dealer.cards.length).toBe(2);
+    expect(view.dealer.value).toBe(17);
+  });
+});

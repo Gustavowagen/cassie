@@ -330,3 +330,49 @@ export function startRound(opts: { shoe: Card[]; bet: number }): RoundState {
   }
   return state;
 }
+
+export interface BlackjackHandView {
+  cards: Card[];
+  value: number;
+  bet: number;
+  doubled: boolean;
+  outcome?: Outcome;
+  payout?: number;
+}
+
+export interface BlackjackState {
+  roundId: string;
+  status: Status;
+  dealer: { cards: Card[]; value: number | null; hidden: boolean };
+  hands: BlackjackHandView[];
+  activeHand: number;
+  legalActions: Move[];
+  insuranceOffered: boolean;
+  balance: number;
+}
+
+export function sanitize(state: RoundState, roundId: string, balance: number): BlackjackState {
+  const hideHole = state.status === "player_turn";
+  const dealerCards = hideHole ? state.dealer.slice(0, 1) : state.dealer;
+  return {
+    roundId,
+    status: state.status,
+    dealer: {
+      cards: dealerCards,
+      value: hideHole ? null : handValue(state.dealer).value,
+      hidden: hideHole,
+    },
+    hands: state.hands.map((h) => ({
+      cards: h.cards,
+      value: handValue(h.cards).value,
+      bet: h.bet,
+      doubled: h.doubled,
+      outcome: h.outcome,
+      payout: h.payout,
+    })),
+    activeHand: state.activeHand,
+    legalActions: legalActions(state),
+    insuranceOffered: legalActions(state).includes("insurance"),
+    balance,
+  };
+}
