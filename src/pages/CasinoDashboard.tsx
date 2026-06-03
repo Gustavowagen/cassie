@@ -215,8 +215,8 @@ export function CasinoDashboard() {
           <Blackjack
             casinoId={currentCasino.id}
             balance={membership?.balance ?? 0}
-            minBet={500}
-            maxBet={100000}
+            minBet={gameTypes.find((g) => g.id === "blackjack")?.min_bet ?? 500}
+            maxBet={gameTypes.find((g) => g.id === "blackjack")?.max_bet ?? 100000}
             onExit={() => setActiveGame(null)}
           />
         ) : (
