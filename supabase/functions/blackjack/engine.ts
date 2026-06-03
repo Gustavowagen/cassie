@@ -85,3 +85,88 @@ export function shuffle(cards: Card[], rng: Rng): Card[] {
   }
   return out;
 }
+
+function draw(state: RoundState): Card {
+  const card = state.shoe.shift();
+  if (!card) throw new Error("shoe empty");
+  return card;
+}
+
+function dealerHasBlackjack(state: RoundState): boolean {
+  return isBlackjack(state.dealer);
+}
+
+// Compute outcome + payout for every hand and mark the round complete.
+// Assumes dealer hand is final. payout = chips returned to the player (stake incl.).
+export function settle(state: RoundState): RoundState {
+  const dealerBJ = isBlackjack(state.dealer);
+  const dealerVal = handValue(state.dealer).value;
+  const dealerBust = dealerVal > 21;
+
+  for (const hand of state.hands) {
+    const playerBJ = isBlackjack(hand.cards) && !hand.isSplitAces && state.hands.length === 1;
+    const playerVal = handValue(hand.cards).value;
+    if (playerVal > 21) {
+      hand.outcome = "lose";
+      hand.payout = 0;
+    } else if (playerBJ && dealerBJ) {
+      hand.outcome = "push";
+      hand.payout = hand.bet;
+    } else if (playerBJ) {
+      hand.outcome = "blackjack";
+      hand.payout = Math.floor(hand.bet * 2.5);
+    } else if (dealerBJ) {
+      hand.outcome = "lose";
+      hand.payout = 0;
+    } else if (dealerBust || playerVal > dealerVal) {
+      hand.outcome = "win";
+      hand.payout = hand.bet * 2;
+    } else if (playerVal < dealerVal) {
+      hand.outcome = "lose";
+      hand.payout = 0;
+    } else {
+      hand.outcome = "push";
+      hand.payout = hand.bet;
+    }
+  }
+
+  state.insurancePayout = state.insuranceBet > 0 && dealerBJ ? state.insuranceBet * 3 : 0;
+  state.status = "complete";
+  return state;
+}
+
+export function startRound(opts: { shoe: Card[]; bet: number }): RoundState {
+  const state: RoundState = {
+    shoe: [...opts.shoe],
+    dealer: [],
+    hands: [{
+      cards: [],
+      bet: opts.bet,
+      doubled: false,
+      isSplitAces: false,
+      done: false,
+    }],
+    activeHand: 0,
+    baseBet: opts.bet,
+    insuranceBet: 0,
+    insuranceResolved: false,
+    insurancePayout: 0,
+    status: "player_turn",
+  };
+
+  state.hands[0].cards.push(draw(state));
+  state.dealer.push(draw(state));
+  state.hands[0].cards.push(draw(state));
+  state.dealer.push(draw(state));
+
+  const upcard = state.dealer[0];
+  const playerBJ = isBlackjack(state.hands[0].cards);
+
+  if (cardValue(upcard) === 10 && dealerHasBlackjack(state)) {
+    return settle(state);
+  }
+  if (playerBJ) {
+    return settle(state);
+  }
+  return state;
+}

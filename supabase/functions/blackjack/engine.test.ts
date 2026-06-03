@@ -47,6 +47,47 @@ describe("isBust", () => {
 });
 
 import { buildShoe, shuffle, NUM_DECKS } from "./engine";
+import { startRound } from "./engine";
+
+// Build a shoe whose FRONT cards are dealt in order: P1, D1(up), P2, D2(hole), ...
+function stacked(order: Card[]): Card[] {
+  return [...order, ...buildShoe()];
+}
+
+describe("startRound", () => {
+  it("deals two cards each, player gets index 0 and 2", () => {
+    const shoe = stacked([c("9"), c("7","H"), c("8"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(s.hands[0].cards).toEqual([c("9"), c("8")]);
+    expect(s.dealer).toEqual([c("7","H"), c("6","H")]);
+    expect(s.baseBet).toBe(1000);
+    expect(s.status).toBe("player_turn");
+  });
+
+  it("settles immediately when player has blackjack and dealer does not", () => {
+    const shoe = stacked([c("A"), c("5","H"), c("K"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).toBe("blackjack");
+    expect(s.hands[0].payout).toBe(2500);
+  });
+
+  it("peeks on a 10 upcard and ends the round on dealer blackjack", () => {
+    const shoe = stacked([c("9"), c("K","H"), c("8"), c("A","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).toBe("lose");
+    expect(s.hands[0].payout).toBe(0);
+  });
+
+  it("both blackjack pushes", () => {
+    const shoe = stacked([c("A"), c("K","H"), c("K"), c("A","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).toBe("push");
+    expect(s.hands[0].payout).toBe(1000);
+  });
+});
 
 describe("buildShoe", () => {
   it("creates 52 * NUM_DECKS cards", () => {
