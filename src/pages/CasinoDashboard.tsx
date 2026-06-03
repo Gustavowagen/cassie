@@ -63,7 +63,7 @@ export function CasinoDashboard() {
     getCasinoMembers(currentCasino.id)
       .then(setMembers)
       .finally(() => setMembersLoading(false));
-  }, [isOwner, currentCasino?.id, activeTab]);
+  }, [isOwner, currentCasino?.id, activeTab, membership?.id]);
 
   async function handleJoin() {
     if (!currentCasino) return;
