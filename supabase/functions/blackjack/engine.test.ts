@@ -45,3 +45,37 @@ describe("isBust", () => {
     expect(isBust([c("K"), c("A")])).toBe(false);
   });
 });
+
+import { buildShoe, shuffle, NUM_DECKS } from "./engine";
+
+describe("buildShoe", () => {
+  it("creates 52 * NUM_DECKS cards", () => {
+    expect(buildShoe().length).toBe(52 * NUM_DECKS);
+  });
+  it("has the right per-deck composition", () => {
+    const shoe = buildShoe();
+    const aces = shoe.filter((c) => c.rank === "A").length;
+    expect(aces).toBe(4 * NUM_DECKS);
+  });
+});
+
+describe("shuffle", () => {
+  it("is a permutation (same multiset) and deterministic for a fixed rng", () => {
+    const shoe = buildShoe();
+    const shuffled = shuffle(shoe, () => 0);
+    expect(shuffled.length).toBe(shoe.length);
+    const count = (arr: typeof shoe) =>
+      arr.reduce<Record<string, number>>((m, c) => {
+        const k = c.rank + c.suit;
+        m[k] = (m[k] ?? 0) + 1;
+        return m;
+      }, {});
+    expect(count(shuffled)).toEqual(count(shoe));
+  });
+  it("does not mutate the input", () => {
+    const shoe = buildShoe();
+    const copy = [...shoe];
+    shuffle(shoe, () => 0.5);
+    expect(shoe).toEqual(copy);
+  });
+});

@@ -61,3 +61,27 @@ export function isBlackjack(cards: Card[]): boolean {
 export function isBust(cards: Card[]): boolean {
   return handValue(cards).value > 21;
 }
+
+export const NUM_DECKS = 6;
+
+export function buildShoe(numDecks: number = NUM_DECKS): Card[] {
+  const shoe: Card[] = [];
+  for (let d = 0; d < numDecks; d++) {
+    for (const suit of SUITS) {
+      for (const rank of RANKS) {
+        shoe.push({ rank, suit });
+      }
+    }
+  }
+  return shoe;
+}
+
+// Fisher-Yates using injected rng; returns a new array, does not mutate input.
+export function shuffle(cards: Card[], rng: Rng): Card[] {
+  const out = [...cards];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
