@@ -154,18 +154,14 @@ export function CasinoDashboard() {
         </div>
       )}
 
-      {/* Logged in, not a member (includes owner who hasn't joined yet) */}
-      {user && !isMember && (
+      {/* Logged in, not a member */}
+      {user && !isMember && !isOwner && (
         <div className="rounded-xl bg-card border border-border p-10 text-center space-y-4">
           <p className="text-muted-foreground">
-            {isOwner
-              ? "You haven't joined your own casino yet. Join to get a balance and test the games."
-              : "You haven't joined this casino yet."}
+            You haven't joined this casino yet.
           </p>
           <Button onClick={handleJoin}>
-            {isOwner ? "Join as Player" : "Join Casino"} (
-            {currentCasino.settings.startingBalance.toLocaleString()} starting
-            chips)
+            Join Casino ({currentCasino.settings.startingBalance.toLocaleString()} starting chips)
           </Button>
         </div>
       )}
