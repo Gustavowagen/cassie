@@ -29,7 +29,11 @@ export function useBalance(casinoId: string | undefined) {
           table: "casino_members",
           filter: `casino_id=eq.${casinoId}`,
         },
-        (payload) => setMembership(payload.new as CasinoMember)
+        (payload) => {
+          if ((payload.new as CasinoMember).user_id === user.id) {
+            setMembership(payload.new as CasinoMember);
+          }
+        }
       )
       .subscribe();
 

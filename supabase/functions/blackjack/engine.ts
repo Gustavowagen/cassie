@@ -154,7 +154,7 @@ export function legalActions(state: RoundState): Move[] {
   if (
     fresh &&
     sameRankValue(hand.cards[0], hand.cards[1]) &&
-    state.hands.length < 4
+    state.hands.length < 3
   ) {
     actions.push("split");
   }
@@ -334,6 +334,7 @@ export function startRound(opts: { shoe: Card[]; bet: number }): RoundState {
 export interface BlackjackHandView {
   cards: Card[];
   value: number;
+  soft: boolean;
   bet: number;
   doubled: boolean;
   outcome?: Outcome;
@@ -343,7 +344,7 @@ export interface BlackjackHandView {
 export interface BlackjackState {
   roundId: string;
   status: Status;
-  dealer: { cards: Card[]; value: number | null; hidden: boolean };
+  dealer: { cards: Card[]; value: number | null; soft: boolean; hidden: boolean };
   hands: BlackjackHandView[];
   activeHand: number;
   legalActions: Move[];
@@ -354,22 +355,28 @@ export interface BlackjackState {
 export function sanitize(state: RoundState, roundId: string, balance: number): BlackjackState {
   const hideHole = state.status === "player_turn";
   const dealerCards = hideHole ? state.dealer.slice(0, 1) : state.dealer;
+  const dealerHv = handValue(state.dealer);
   return {
     roundId,
     status: state.status,
     dealer: {
       cards: dealerCards,
-      value: hideHole ? null : handValue(state.dealer).value,
+      value: hideHole ? null : dealerHv.value,
+      soft: hideHole ? false : dealerHv.soft,
       hidden: hideHole,
     },
-    hands: state.hands.map((h) => ({
-      cards: h.cards,
-      value: handValue(h.cards).value,
-      bet: h.bet,
-      doubled: h.doubled,
-      outcome: h.outcome,
-      payout: h.payout,
-    })),
+    hands: state.hands.map((h) => {
+      const { value, soft } = handValue(h.cards);
+      return {
+        cards: h.cards,
+        value,
+        soft,
+        bet: h.bet,
+        doubled: h.doubled,
+        outcome: h.outcome,
+        payout: h.payout,
+      };
+    }),
     activeHand: state.activeHand,
     legalActions: legalActions(state),
     insuranceOffered: legalActions(state).includes("insurance"),

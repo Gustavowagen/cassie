@@ -17,6 +17,8 @@ const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  // Let the browser cache the preflight so it isn't repeated before every action.
+  "Access-Control-Max-Age": "86400",
 };
 
 function json(body: unknown, status = 200): Response {
@@ -55,20 +57,17 @@ Deno.serve(async (req) => {
     if (body.action === "start") {
       const { casino_id, bet } = body as { casino_id: string; bet: number };
 
-      // Membership + balance (RLS-scoped to the caller).
-      const { data: member } = await userClient
-        .from("casino_members")
-        .select("balance")
-        .eq("casino_id", casino_id)
-        .eq("user_id", user.id)
-        .single();
+      // Membership/balance and bet limits don't depend on each other — fetch both at once.
+      const [{ data: member }, { data: gt }] = await Promise.all([
+        userClient
+          .from("casino_members")
+          .select("balance")
+          .eq("casino_id", casino_id)
+          .eq("user_id", user.id)
+          .single(),
+        admin.from("game_types").select("min_bet, max_bet").eq("id", "blackjack").single(),
+      ]);
       if (!member) return json({ error: "You are not a member of this casino" }, 403);
-
-      const { data: gt } = await admin
-        .from("game_types")
-        .select("min_bet, max_bet")
-        .eq("id", "blackjack")
-        .single();
       if (!Number.isInteger(bet) || bet < gt!.min_bet || bet > gt!.max_bet) {
         return json({ error: `Bet must be between ${gt!.min_bet} and ${gt!.max_bet}` }, 400);
       }
@@ -91,25 +90,34 @@ Deno.serve(async (req) => {
         balance += credited;
       }
 
-      const { data: round } = await admin
-        .from("blackjack_rounds")
-        .insert({ casino_id, user_id: user.id, state, status: state.status })
-        .select("id")
-        .single();
-
-      await admin.from("casino_members").update({ balance })
-        .eq("casino_id", casino_id).eq("user_id", user.id);
-      await admin.from("transactions").insert({
-        casino_id, user_id: user.id, amount: -bet, balance_after: member.balance - bet,
-        game_type_id: "blackjack", description: "Blackjack bet",
-      });
+      // Persisting the round and applying the balance/transaction side effects
+      // are independent writes — run them together instead of one-by-one.
+      const writes: Promise<unknown>[] = [
+        admin.from("casino_members").update({ balance })
+          .eq("casino_id", casino_id).eq("user_id", user.id),
+        admin.from("transactions").insert({
+          casino_id, user_id: user.id, amount: -bet, balance_after: member.balance - bet,
+          game_type_id: "blackjack", description: "Blackjack bet",
+        }),
+      ];
       if (state.status === "complete") {
-        await admin.from("transactions").insert({
-          casino_id, user_id: user.id,
-          amount: balance - (member.balance - bet), balance_after: balance,
-          game_type_id: "blackjack", description: "Blackjack payout",
-        });
+        writes.push(
+          admin.from("transactions").insert({
+            casino_id, user_id: user.id,
+            amount: balance - (member.balance - bet), balance_after: balance,
+            game_type_id: "blackjack", description: "Blackjack payout",
+          })
+        );
       }
+
+      const [{ data: round }] = await Promise.all([
+        admin
+          .from("blackjack_rounds")
+          .insert({ casino_id, user_id: user.id, state, status: state.status })
+          .select("id")
+          .single(),
+        ...writes,
+      ]);
 
       return json(sanitize(state, round!.id, balance));
     }
@@ -147,28 +155,46 @@ Deno.serve(async (req) => {
       }
 
       let balance = member!.balance - extraStake;
-      if (extraStake > 0) {
-        await admin.from("transactions").insert({
-          casino_id: round.casino_id, user_id: user.id,
-          amount: -extraStake, balance_after: balance,
-          game_type_id: "blackjack", description: `Blackjack ${move}`,
-        });
-      }
+      let credited = 0;
       if (next.status === "complete") {
-        const credited = next.hands.reduce((s, h) => s + (h.payout ?? 0), 0) + next.insurancePayout;
+        credited = next.hands.reduce((s, h) => s + (h.payout ?? 0), 0) + next.insurancePayout;
         balance += credited;
-        await admin.from("transactions").insert({
-          casino_id: round.casino_id, user_id: user.id,
-          amount: credited, balance_after: balance,
-          game_type_id: "blackjack", description: "Blackjack payout",
-        });
       }
 
-      await admin.from("blackjack_rounds")
-        .update({ state: next, status: next.status, updated_at: new Date().toISOString() })
-        .eq("id", round_id);
-      await admin.from("casino_members").update({ balance })
-        .eq("casino_id", round.casino_id).eq("user_id", user.id);
+      // The round state always needs persisting. A plain hit/stand never
+      // touches the balance, so only queue the money writes when something
+      // actually changed, and fire everything in parallel.
+      const writes: Promise<unknown>[] = [
+        admin.from("blackjack_rounds")
+          .update({ state: next, status: next.status, updated_at: new Date().toISOString() })
+          .eq("id", round_id),
+      ];
+      if (balance !== member!.balance) {
+        writes.push(
+          admin.from("casino_members").update({ balance })
+            .eq("casino_id", round.casino_id).eq("user_id", user.id)
+        );
+      }
+      if (extraStake > 0) {
+        writes.push(
+          admin.from("transactions").insert({
+            casino_id: round.casino_id, user_id: user.id,
+            amount: -extraStake, balance_after: balance,
+            game_type_id: "blackjack", description: `Blackjack ${move}`,
+          })
+        );
+      }
+      if (next.status === "complete") {
+        writes.push(
+          admin.from("transactions").insert({
+            casino_id: round.casino_id, user_id: user.id,
+            amount: credited, balance_after: balance,
+            game_type_id: "blackjack", description: "Blackjack payout",
+          })
+        );
+      }
+
+      await Promise.all(writes);
 
       return json(sanitize(next, round_id, balance));
     }

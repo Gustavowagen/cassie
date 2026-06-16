@@ -74,6 +74,7 @@ export type BlackjackOutcome = "win"|"lose"|"push"|"blackjack";
 export interface BlackjackHandView {
   cards: Card[];
   value: number;
+  soft: boolean;
   bet: number;
   doubled: boolean;
   outcome?: BlackjackOutcome;
@@ -82,7 +83,7 @@ export interface BlackjackHandView {
 export interface BlackjackState {
   roundId: string;
   status: BlackjackStatus;
-  dealer: { cards: Card[]; value: number | null; hidden: boolean };
+  dealer: { cards: Card[]; value: number | null; soft: boolean; hidden: boolean };
   hands: BlackjackHandView[];
   activeHand: number;
   legalActions: Move[];

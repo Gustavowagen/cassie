@@ -31,6 +31,8 @@ const OUTCOME_COPY: Record<BlackjackOutcome, { title: string; tone: string }> = 
   lose: { title: "Dealer Wins", tone: "#fca5a5" },
 };
 
+type CardSize = "normal" | "sm" | "xs";
+
 // ---------------------------------------------------------------------------
 // Playing card
 // ---------------------------------------------------------------------------
@@ -38,15 +40,29 @@ function PlayingCard({
   card,
   faceDown,
   index,
+  size = "normal",
 }: {
   card?: Card;
   faceDown?: boolean;
   index: number;
+  size?: CardSize;
 }) {
   const isRed = card ? RED_SUITS.includes(card.suit) : false;
+  const sizeClass =
+    size === "xs"
+      ? "h-16 w-[2.75rem]"
+      : size === "sm"
+      ? "h-20 w-[3.5rem]"
+      : "h-24 w-[4.25rem] sm:h-28 sm:w-20";
+  const rankClass =
+    size === "xs" ? "text-xs" : size === "sm" ? "text-sm" : "text-base sm:text-lg";
+  const suitSmClass =
+    size === "xs" ? "text-xs" : size === "sm" ? "text-sm" : "text-base sm:text-lg";
+  const suitBigClass =
+    size === "xs" ? "text-lg" : size === "sm" ? "text-xl" : "text-2xl sm:text-3xl";
   return (
     <div
-      className="bj-card-deal relative h-24 w-[4.25rem] shrink-0 sm:h-28 sm:w-20"
+      className={`bj-card-deal relative ${sizeClass} shrink-0`}
       style={{ animationDelay: `${index * 110}ms` }}
     >
       {faceDown || !card ? (
@@ -59,18 +75,12 @@ function PlayingCard({
           style={{ color: isRed ? "#c0192b" : "#16181d" }}
         >
           <div className="flex flex-col items-start leading-none">
-            <span className="text-base font-bold sm:text-lg" style={{ fontFamily: "'Cinzel', serif" }}>
+            <span className={`${rankClass} font-bold`} style={{ fontFamily: "'Cinzel', serif" }}>
               {card.rank}
             </span>
-            <span className="text-base sm:text-lg">{SUIT_GLYPH[card.suit]}</span>
+            <span className={suitSmClass}>{SUIT_GLYPH[card.suit]}</span>
           </div>
-          <span className="self-center text-2xl sm:text-3xl">{SUIT_GLYPH[card.suit]}</span>
-          <div className="flex rotate-180 flex-col items-start leading-none">
-            <span className="text-base font-bold sm:text-lg" style={{ fontFamily: "'Cinzel', serif" }}>
-              {card.rank}
-            </span>
-            <span className="text-base sm:text-lg">{SUIT_GLYPH[card.suit]}</span>
-          </div>
+          <span className={`self-center ${suitBigClass}`}>{SUIT_GLYPH[card.suit]}</span>
         </div>
       )}
     </div>
@@ -238,7 +248,10 @@ export function Blackjack({
                     )}
                   </div>
                 </div>
-                <ValuePill value={state.dealer.hidden ? null : state.dealer.value} />
+                <ValuePill
+                  value={state.dealer.hidden ? null : state.dealer.value}
+                  soft={!state.dealer.hidden && state.dealer.soft}
+                />
               </>
             ) : (
               <div className="mt-3 flex -space-x-6">
@@ -264,43 +277,61 @@ export function Blackjack({
           {/* Player area */}
           <section className="flex flex-1 flex-col items-center justify-end">
             {state ? (
-              <div className="flex w-full flex-wrap items-end justify-center gap-5">
-                {state.hands.map((hand, hi) => {
-                  const isActive =
-                    state.status === "player_turn" && hi === state.activeHand;
-                  return (
-                    <div
-                      key={`h-${hi}`}
-                      className={[
-                        "flex flex-col items-center rounded-2xl px-3 py-3 transition-all duration-300",
-                        isActive
-                          ? "bj-active-hand bg-amber-300/10"
-                          : "opacity-80",
-                      ].join(" ")}
-                    >
-                      <div className="flex -space-x-6 sm:-space-x-7">
-                        {hand.cards.map((c, i) => (
-                          <PlayingCard key={`h-${hi}-${i}`} card={c} index={i} />
-                        ))}
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <ValuePill value={hand.value} />
-                        {hand.doubled && (
-                          <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[0.6rem] uppercase tracking-widest text-amber-200">
-                            Doubled
+              (() => {
+                const handCount = state.hands.length;
+                const cardSize: CardSize =
+                  handCount >= 3 ? "xs" : handCount >= 2 ? "sm" : "normal";
+                const overlapClass =
+                  handCount >= 3
+                    ? "flex -space-x-3"
+                    : handCount >= 2
+                    ? "flex -space-x-4"
+                    : "flex -space-x-6 sm:-space-x-7";
+                return (
+                  <div className="flex w-full flex-wrap items-end justify-center gap-3">
+                    {state.hands.map((hand, hi) => {
+                      const isActive =
+                        state.status === "player_turn" && hi === state.activeHand;
+                      return (
+                        <div
+                          key={`h-${hi}`}
+                          className={[
+                            "flex flex-col items-center rounded-2xl px-2 py-2 transition-all duration-300",
+                            isActive
+                              ? "bj-active-hand bg-amber-300/10"
+                              : "opacity-80",
+                          ].join(" ")}
+                        >
+                          <div className={overlapClass}>
+                            {hand.cards.map((c, i) => (
+                              <PlayingCard
+                                key={`h-${hi}-${i}`}
+                                card={c}
+                                index={i}
+                                size={cardSize}
+                              />
+                            ))}
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <ValuePill value={hand.value} soft={hand.soft} />
+                            {hand.doubled && (
+                              <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[0.6rem] uppercase tracking-widest text-amber-200">
+                                Doubled
+                              </span>
+                            )}
+                          </div>
+                          <span className="mt-1 text-[0.65rem] uppercase tracking-widest text-amber-100/60">
+                            Bet {formatChips(hand.bet)}
                           </span>
-                        )}
-                      </div>
-                      <span className="mt-1 text-[0.65rem] uppercase tracking-widest text-amber-100/60">
-                        Bet {formatChips(hand.bet)}
-                      </span>
-                      {isComplete && hand.outcome && (
-                        <HandOutcome outcome={hand.outcome} payout={hand.payout} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                          {isComplete && hand.outcome && (
+                            <HandOutcome outcome={hand.outcome} payout={hand.payout} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             ) : (
               <div className="flex flex-col items-center pb-2">
                 {bet > 0 && <ChipStack amount={bet} />}
@@ -368,10 +399,12 @@ function LabelTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ValuePill({ value }: { value: number | null }) {
+function ValuePill({ value, soft }: { value: number | null; soft?: boolean }) {
+  const display =
+    value === null ? "?" : soft ? `${value - 10}/${value}` : String(value);
   return (
     <div className="mt-2 flex h-7 min-w-[2.5rem] items-center justify-center rounded-full border border-amber-300/40 bg-black/50 px-3 text-sm font-semibold text-amber-100 backdrop-blur">
-      {value === null ? "?" : value}
+      {display}
     </div>
   );
 }
@@ -383,6 +416,7 @@ function HandOutcome({
   outcome: BlackjackOutcome;
   payout?: number;
 }) {
+  if (outcome === "lose") return null;
   const copy = OUTCOME_COPY[outcome];
   return (
     <div className="mt-2 flex flex-col items-center">
@@ -405,8 +439,11 @@ function ResultBanner({ state }: { state: import("../../types").BlackjackState }
     (h) => h.outcome === "win" || h.outcome === "blackjack"
   );
   const allLose = state.hands.every((h) => h.outcome === "lose");
-  const title = anyWin ? "Winner" : allLose ? "House Wins" : "Push";
-  const tone = anyWin ? "#fbbf24" : allLose ? "#fca5a5" : "#cbd5e1";
+
+  if (allLose) return null;
+
+  const title = anyWin ? "Winner" : "Push";
+  const tone = anyWin ? "#fbbf24" : "#cbd5e1";
 
   return (
     <div className="bj-banner mt-4 flex items-center justify-center rounded-xl border border-amber-300/40 bg-gradient-to-b from-black/60 to-black/30 py-3 backdrop-blur">

@@ -22,7 +22,7 @@ export function useCasino() {
         description: data.description,
         owner_id: user.id,
         settings: {
-          startingBalance: 0,
+          startingBalance: 10000,
           allowPublicJoin: true,
           maxMembers: 500,
         },

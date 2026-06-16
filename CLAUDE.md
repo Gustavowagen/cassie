@@ -10,7 +10,7 @@ Platform for creating and joining free play-money online casinos. Built with Vit
 
 ## Supabase
 
-- Project: jackpot-jungle (`tvivhadsgtvfvxwpahef`)
+- Project: online-cassie (`tvivhadsgtvfvxwpahef`)
 - Region: eu-west-1
 - URL: https://tvivhadsgtvfvxwpahef.supabase.co
 - Migrations in `supabase/migrations/` — apply via Supabase MCP (`apply_migration`)

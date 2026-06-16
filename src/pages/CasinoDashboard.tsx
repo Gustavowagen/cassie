@@ -215,13 +215,13 @@ export function CasinoDashboard() {
         </div>
       )}
 
-      {/* Game section — shown for any member (owner or not) */}
-      {isMember && (
+      {/* Game section — shown for members and owners */}
+      {(isMember || isOwner) && (
         activeGame === "blackjack" && currentCasino ? (
           <Blackjack
             casinoId={currentCasino.id}
             balance={membership?.balance ?? 0}
-            minBet={gameTypes.find((g) => g.id === "blackjack")?.min_bet ?? 500}
+            minBet={gameTypes.find((g) => g.id === "blackjack")?.min_bet ?? 1}
             maxBet={gameTypes.find((g) => g.id === "blackjack")?.max_bet ?? 100000}
             onExit={() => setActiveGame(null)}
           />
@@ -229,6 +229,7 @@ export function CasinoDashboard() {
           <MemberGamesTab
             gameTypes={gameTypes.filter((g) => enabledIds.has(g.id))}
             onPlay={(id) => setActiveGame(id)}
+            isOwner={isOwner}
           />
         )
       )}
@@ -266,15 +267,18 @@ function OwnerGamesTab({
 }
 
 function MemberGamesTab({
-  gameTypes, onPlay,
+  gameTypes, onPlay, isOwner,
 }: {
   gameTypes: GameType[];
   onPlay: (id: string) => void;
+  isOwner?: boolean;
 }) {
   if (gameTypes.length === 0)
     return (
       <div className="rounded-xl bg-card border border-border p-10 text-center text-muted-foreground">
-        No games yet — check back after the owner enables them.
+        {isOwner
+          ? "Enable games in the Games tab above to start playing."
+          : "No games yet — check back after the owner enables them."}
       </div>
     );
   return (

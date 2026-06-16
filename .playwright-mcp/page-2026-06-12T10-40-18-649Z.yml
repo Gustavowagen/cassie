@@ -1,0 +1,28 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - button "Sign in" [ref=e7] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e56]:
+      - generic [ref=e58]: Sign In
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - text: Email
+            - textbox "Email" [ref=e62]: bjornar.berge.07@gmail.com
+          - generic [ref=e63]:
+            - text: Password
+            - textbox "Password" [ref=e64]: test1234
+          - paragraph [ref=e78]: Invalid login credentials
+          - button "Sign In" [ref=e65] [cursor=pointer]
+        - generic [ref=e66]:
+          - separator [ref=e67]
+          - generic [ref=e68]: or
+          - separator [ref=e69]
+        - button "Continue with Google" [ref=e70] [cursor=pointer]:
+          - img [ref=e71]
+          - text: Continue with Google
+        - paragraph [ref=e76]:
+          - text: No account?
+          - button "Sign Up" [ref=e77] [cursor=pointer]
