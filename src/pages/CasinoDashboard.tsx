@@ -11,6 +11,7 @@ import { formatChips, gradientFromColor } from "../lib/utils";
 import type { CasinoMemberWithProfile, GameType, CasinoGame } from "../types";
 import { useGames } from "../hooks/useGames";
 import { Blackjack } from "../components/games/Blackjack";
+import { Modal } from "../components/ui/modal";
 
 type OwnerTab = "games" | "members" | "stats";
 
@@ -217,7 +218,15 @@ export function CasinoDashboard() {
 
       {/* Game section — shown for members and owners */}
       {(isMember || isOwner) && (
-        activeGame === "blackjack" && currentCasino ? (
+        <MemberGamesTab
+          gameTypes={gameTypes.filter((g) => enabledIds.has(g.id))}
+          onPlay={(id) => setActiveGame(id)}
+          isOwner={isOwner}
+        />
+      )}
+
+      {activeGame === "blackjack" && currentCasino && (
+        <Modal onClose={() => setActiveGame(null)}>
           <Blackjack
             casinoId={currentCasino.id}
             balance={membership?.balance ?? 0}
@@ -225,13 +234,7 @@ export function CasinoDashboard() {
             maxBet={gameTypes.find((g) => g.id === "blackjack")?.max_bet ?? 100000}
             onExit={() => setActiveGame(null)}
           />
-        ) : (
-          <MemberGamesTab
-            gameTypes={gameTypes.filter((g) => enabledIds.has(g.id))}
-            onPlay={(id) => setActiveGame(id)}
-            isOwner={isOwner}
-          />
-        )
+        </Modal>
       )}
     </div>
   );

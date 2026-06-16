@@ -191,7 +191,7 @@ export function Blackjack({
   };
 
   return (
-    <div className="bj-root relative min-h-screen w-full overflow-hidden text-white">
+    <div className="bj-root relative h-[85vh] max-h-[800px] w-full overflow-hidden text-white">
       <BlackjackStyles />
 
       {/* Atmosphere: felt, vignette, grain */}
@@ -199,7 +199,7 @@ export function Blackjack({
       <div className="bj-vignette absolute inset-0" />
       <div className="bj-grain absolute inset-0" />
 
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col px-4 pb-8 pt-5">
+      <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col overflow-y-auto px-4 pb-8 pt-5">
         {/* Top bar */}
         <header className="flex items-center justify-between">
           <button

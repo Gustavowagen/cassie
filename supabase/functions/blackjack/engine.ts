@@ -145,7 +145,10 @@ export function legalActions(state: RoundState): Move[] {
   const hand = state.hands[state.activeHand];
   if (!hand || hand.done) return [];
 
-  const actions: Move[] = ["hit", "stand"];
+  const actions: Move[] = ["stand"];
+  if (handValue(hand.cards).value < 21) {
+    actions.push("hit");
+  }
   const fresh = hand.cards.length === 2;
 
   if (fresh && !hand.isSplitAces) {
