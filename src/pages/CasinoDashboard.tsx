@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Copy, Check, Users, BarChart2, Gamepad2, Gift } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { Copy, Check, Users, BarChart2, Gift } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { useCasino } from "../hooks/useCasino";
@@ -12,8 +12,13 @@ import type { CasinoMemberWithProfile, GameType, CasinoGame } from "../types";
 import { useGames } from "../hooks/useGames";
 import { Blackjack } from "../components/games/Blackjack";
 import { Modal } from "../components/ui/modal";
+import { GameTile } from "../components/GameTile";
 
-type OwnerTab = "games" | "members" | "stats";
+// Game types with a real playable UI. Others can be enabled by the owner
+// but won't show on this page until they're implemented.
+const PLAYABLE_GAME_IDS = new Set(["blackjack"]);
+
+type OwnerTab = "members" | "stats";
 
 export function CasinoDashboard() {
   const { slug } = useParams<{ slug: string }>();
@@ -23,12 +28,12 @@ export function CasinoDashboard() {
   const { user } = useAuthStore();
   useBalance(currentCasino?.id);
 
-  const [activeTab, setActiveTab] = useState<OwnerTab>("games");
+  const [activeTab, setActiveTab] = useState<OwnerTab>("members");
   const [members, setMembers] = useState<CasinoMemberWithProfile[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
 
-  const { listGameTypes, listCasinoGames, enableGame, disableGame } = useGames();
+  const { listGameTypes, listCasinoGames } = useGames();
   const [gameTypes, setGameTypes] = useState<GameType[]>([]);
   const [casinoGames, setCasinoGames] = useState<CasinoGame[]>([]);
   const [activeGame, setActiveGame] = useState<string | null>(null);
@@ -40,13 +45,6 @@ export function CasinoDashboard() {
   }, [currentCasino?.id]);
 
   const enabledIds = new Set(casinoGames.map((g) => g.game_type_id));
-
-  async function toggleGame(id: string, enabled: boolean) {
-    if (!currentCasino) return;
-    if (enabled) await disableGame(currentCasino.id, id);
-    else await enableGame(currentCasino.id, id);
-    setCasinoGames(await listCasinoGames(currentCasino.id));
-  }
 
   useEffect(() => {
     if (!slug) return;
@@ -173,7 +171,6 @@ export function CasinoDashboard() {
           <div className="flex gap-1 border-b border-border mb-6">
             {(
               [
-                { id: "games", label: "Games", icon: Gamepad2 },
                 { id: "members", label: "Members", icon: Users },
                 { id: "stats", label: "Statistics", icon: BarChart2 },
               ] as { id: OwnerTab; label: string; icon: React.ElementType }[]
@@ -194,13 +191,6 @@ export function CasinoDashboard() {
             ))}
           </div>
 
-          {activeTab === "games" && (
-            <OwnerGamesTab
-              gameTypes={gameTypes}
-              enabledIds={enabledIds}
-              onToggle={toggleGame}
-            />
-          )}
           {activeTab === "members" && (
             <MembersTab
               members={members}
@@ -218,10 +208,13 @@ export function CasinoDashboard() {
 
       {/* Game section — shown for members and owners */}
       {(isMember || isOwner) && (
-        <MemberGamesTab
-          gameTypes={gameTypes.filter((g) => enabledIds.has(g.id))}
+        <GameOverview
+          gameTypes={gameTypes.filter(
+            (g) => enabledIds.has(g.id) && PLAYABLE_GAME_IDS.has(g.id)
+          )}
           onPlay={(id) => setActiveGame(id)}
           isOwner={isOwner}
+          slug={slug}
         />
       )}
 
@@ -240,66 +233,36 @@ export function CasinoDashboard() {
   );
 }
 
-function OwnerGamesTab({
-  gameTypes, enabledIds, onToggle,
-}: {
-  gameTypes: GameType[];
-  enabledIds: Set<string>;
-  onToggle: (id: string, enabled: boolean) => void;
-}) {
-  if (gameTypes.length === 0)
-    return <p className="text-muted-foreground text-sm">Loading games...</p>;
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {gameTypes.map((g) => {
-        const on = enabledIds.has(g.id);
-        return (
-          <div key={g.id} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between">
-            <div>
-              <p className="font-semibold">{g.name}</p>
-              <p className="text-sm text-muted-foreground">{g.description}</p>
-            </div>
-            <Button variant={on ? "secondary" : "default"} size="sm" onClick={() => onToggle(g.id, on)}>
-              {on ? "Enabled" : "Enable"}
-            </Button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function MemberGamesTab({
-  gameTypes, onPlay, isOwner,
+function GameOverview({
+  gameTypes, onPlay, isOwner, slug,
 }: {
   gameTypes: GameType[];
   onPlay: (id: string) => void;
   isOwner?: boolean;
+  slug?: string;
 }) {
   if (gameTypes.length === 0)
     return (
-      <div className="rounded-xl bg-card border border-border p-10 text-center text-muted-foreground">
-        {isOwner
-          ? "Enable games in the Games tab above to start playing."
-          : "No games yet — check back after the owner enables them."}
+      <div className="rounded-xl bg-card border border-border p-10 text-center text-muted-foreground space-y-3">
+        <p>No games available yet.</p>
+        {isOwner && (
+          <Link
+            to={`/casino/${slug}/admin`}
+            className="text-sm text-primary hover:underline"
+          >
+            Enable games from the admin page →
+          </Link>
+        )}
       </div>
     );
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {gameTypes.map((g) => (
-        <button
-          key={g.id}
-          onClick={() => g.id === "blackjack" && onPlay(g.id)}
-          disabled={g.id !== "blackjack"}
-          className="rounded-xl border border-border bg-card p-5 text-left hover:border-primary transition-colors disabled:opacity-50"
-        >
-          <p className="font-semibold">{g.name}</p>
-          <p className="text-sm text-muted-foreground">{g.description}</p>
-          <span className="text-xs text-primary mt-2 inline-block">
-            {g.id === "blackjack" ? "Play now →" : "Coming soon"}
-          </span>
-        </button>
-      ))}
+    <div>
+      <h2 className="text-lg font-semibold mb-3">Games</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+        {gameTypes.map((g) => (
+          <GameTile key={g.id} game={g} onPlay={onPlay} />
+        ))}
+      </div>
     </div>
   );
 }
