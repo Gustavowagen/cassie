@@ -16,6 +16,62 @@ const NUMBER_ROWS: number[][] = [
   [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
   [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
 ];
+const NUM_COLS = NUMBER_ROWS[0].length; // 12
+
+function splitKey(a: number, b: number) {
+  return `sp_${[a, b].sort((x, y) => x - y).join("_")}`;
+}
+function cornerKey(ns: number[]) {
+  return `cn_${[...ns].sort((x, y) => x - y).join("_")}`;
+}
+
+// Placeable inside-combination targets over the 3×12 number grid. `cx`/`cy` are
+// fractions (0–1) of the grid body: a chip/hotspot sits on the shared edge of a
+// split or the meeting vertex of a corner. Must mirror the server's INSIDE_COMBOS.
+type Spot = { key: string; cx: number; cy: number; numbers: number[]; type: "split" | "corner" };
+const INSIDE_SPOTS: Spot[] = (() => {
+  const spots: Spot[] = [];
+  const rows = NUMBER_ROWS;
+  // Horizontal splits — shared vertical edge between adjacent columns.
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < NUM_COLS - 1; c++) {
+      const a = rows[r][c], b = rows[r][c + 1];
+      spots.push({ key: splitKey(a, b), cx: (c + 1) / NUM_COLS, cy: (r + 0.5) / 3, numbers: [a, b], type: "split" });
+    }
+  // Vertical splits — shared horizontal edge between adjacent rows.
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < NUM_COLS; c++) {
+      const a = rows[r][c], b = rows[r + 1][c];
+      spots.push({ key: splitKey(a, b), cx: (c + 0.5) / NUM_COLS, cy: (r + 1) / 3, numbers: [a, b], type: "split" });
+    }
+  // Corners — the four numbers meeting at an interior vertex.
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < NUM_COLS - 1; c++) {
+      const ns = [rows[r][c], rows[r][c + 1], rows[r + 1][c], rows[r + 1][c + 1]];
+      spots.push({ key: cornerKey(ns), cx: (c + 1) / NUM_COLS, cy: (r + 1) / 3, numbers: ns, type: "corner" });
+    }
+  return spots;
+})();
+
+// A stacked casino chip showing its total value. Rendered click-through so a
+// tap always reaches the cell/hotspot beneath it (chips stack on re-bet).
+function Chip({ amount, size = 24 }: { amount: number; size?: number }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full text-black font-black leading-none"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(7, Math.round(size * 0.34)),
+        background: "radial-gradient(circle at 35% 28%, #fff7dd, #f5c518 52%, #b8860b 100%)",
+        border: "2px dashed rgba(255,255,255,0.85)",
+        boxShadow: "0 0 0 2px #b45309, 0 0 0 3px rgba(255,255,255,0.45), 0 1px 3px rgba(0,0,0,0.6)",
+      }}
+    >
+      {formatChips(amount)}
+    </span>
+  );
+}
 
 const WIN_PARTICLES = Array.from({ length: 18 }, (_, i) => ({
   angle: (360 / 18) * i,
@@ -390,24 +446,9 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
   const FELT = "#1a6b2e";
   const WIN_GLOW = "shadow-[0_0_0_2px_rgba(250,204,21,0.9),0_0_16px_4px_rgba(250,204,21,0.65)]";
 
-  function BetChip({ betKey }: { betKey: string }) {
-    const amt = bets[betKey] ?? 0;
-    if (!amt) return null;
-    return (
-      <span
-        className="absolute -top-1.5 -right-1.5 z-10 flex items-center justify-center rounded-full text-black text-[8px] font-black leading-none px-[3px]"
-        style={{
-          minWidth: 16,
-          height: 16,
-          background: "radial-gradient(circle at 35% 30%, #fef3c7, #f5c518 55%, #b8860b 100%)",
-          boxShadow: "0 0 0 1.5px rgba(255,255,255,0.9), 0 0 0 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.6)",
-        }}
-      >
-        {formatChips(amt)}
-      </span>
-    );
-  }
-
+  // Straight-up bets on numbers (incl. 0/00) show their chip in the felt overlay
+  // (InsideOverlay) so a split/corner chip can straddle a shared edge. Number
+  // cells therefore render just the label; the chip is drawn on top of them.
   function NumCell({ n, style }: { n: number; style?: React.CSSProperties }) {
     const key = `n${n}`;
     const col = numColor(n);
@@ -416,25 +457,29 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
     return (
       <div
         onClick={() => placeBet(key)}
-        className={`relative cursor-pointer select-none font-bold text-white text-[11px] transition hover:brightness-125 flex items-center justify-center ${bg} ${(bets[key] ?? 0) > 0 ? "ring-2 ring-inset ring-yellow-400" : ""} ${isWin ? `z-10 ${WIN_GLOW}` : ""}`}
+        className={`relative cursor-pointer select-none font-bold text-white text-[11px] transition hover:brightness-125 flex items-center justify-center ${bg} ${isWin ? `z-10 ${WIN_GLOW}` : ""}`}
         style={style}
       >
         {numLabel(n)}
-        <BetChip betKey={key} />
       </div>
     );
   }
 
   function ZeroCell({ betKey, label, style }: { betKey: string; label: string; style?: React.CSSProperties }) {
+    const amt = bets[betKey] ?? 0;
     const isWin = result !== null && betKey === `n${result}`;
     return (
       <div
         onClick={() => placeBet(betKey)}
-        className={`relative cursor-pointer select-none font-bold text-white text-xs transition hover:brightness-125 flex items-center justify-center ${(bets[betKey] ?? 0) > 0 ? "ring-2 ring-inset ring-yellow-400" : ""} ${isWin ? `z-10 ${WIN_GLOW}` : ""}`}
+        className={`relative cursor-pointer select-none font-bold text-white text-xs transition hover:brightness-125 flex items-center justify-center ${isWin ? `z-10 ${WIN_GLOW}` : ""}`}
         style={{ background: FELT, ...style }}
       >
         {label}
-        <BetChip betKey={betKey} />
+        {amt > 0 && (
+          <span className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <Chip amount={amt} size={22} />
+          </span>
+        )}
       </div>
     );
   }
@@ -459,7 +504,11 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
         ) : (
           label
         )}
-        <BetChip betKey={betKey} />
+        {hasBet && (
+          <span className="absolute -top-1 -right-1 z-10 pointer-events-none">
+            <Chip amount={bets[betKey]} size={18} />
+          </span>
+        )}
       </div>
     );
   }
@@ -600,6 +649,73 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
               {NUMBER_ROWS[2].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 4, gridColumn: i + 2 }} />)}
               <OutCell betKey="c3" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 4, gridColumn: 14 }} />
 
+              {/* Inside-bet layer over the 3×12 number grid: split/corner hotspots
+                  plus every straight/split/corner chip. The container is
+                  click-through; only the hotspots re-enable pointer events, so a
+                  tap on a number's body still lands a straight-up bet. */}
+              <div
+                style={{ gridRow: "2 / 5", gridColumn: "2 / 14", position: "relative", pointerEvents: "none", zIndex: 5 }}
+              >
+                {/* Placement targets on shared edges (splits) and vertices (corners) */}
+                {INSIDE_SPOTS.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    aria-label={`${s.type === "corner" ? "Corner" : "Split"} bet on ${[...s.numbers].sort((a, b) => a - b).join(", ")}`}
+                    onClick={() => placeBet(s.key)}
+                    className="rw-hotspot absolute rounded-full"
+                    style={{
+                      left: `${s.cx * 100}%`,
+                      top: `${s.cy * 100}%`,
+                      width: s.type === "corner" ? 24 : 20,
+                      height: s.type === "corner" ? 24 : 20,
+                      transform: "translate(-50%, -50%)",
+                      pointerEvents: spinning ? "none" : "auto",
+                    }}
+                  />
+                ))}
+                {/* Straight-up chips, centred on each number */}
+                {NUMBER_ROWS.map((row, r) =>
+                  row.map((n, c) => {
+                    const amt = bets[`n${n}`] ?? 0;
+                    if (!amt) return null;
+                    return (
+                      <span
+                        key={`chip-n${n}`}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${((c + 0.5) / NUM_COLS) * 100}%`,
+                          top: `${((r + 0.5) / 3) * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                          zIndex: 20,
+                        }}
+                      >
+                        <Chip amount={amt} size={24} />
+                      </span>
+                    );
+                  })
+                )}
+                {/* Split / corner chips straddling their shared edge or vertex */}
+                {INSIDE_SPOTS.map((s) => {
+                  const amt = bets[s.key] ?? 0;
+                  if (!amt) return null;
+                  return (
+                    <span
+                      key={`chip-${s.key}`}
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${s.cx * 100}%`,
+                        top: `${s.cy * 100}%`,
+                        transform: "translate(-50%, -50%)",
+                        zIndex: 20,
+                      }}
+                    >
+                      <Chip amount={amt} size={22} />
+                    </span>
+                  );
+                })}
+              </div>
+
               {/* Row 5: Dozens */}
               <div style={{ gridRow: 5, gridColumn: 1, background: FELT }} />
               <OutCell betKey="d1" label="1 TO 12"  className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "2 / 6" }} />
@@ -669,6 +785,18 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
 function RouletteStyles() {
   return (
     <style>{`
+      /* Split/corner placement targets: invisible until hovered, then a golden
+         dot hints that a chip can be dropped on this edge or vertex. */
+      .rw-hotspot {
+        background: transparent;
+        cursor: pointer;
+        transition: background 120ms ease, box-shadow 120ms ease;
+      }
+      .rw-hotspot:hover {
+        background: radial-gradient(circle, rgba(250,204,21,0.9) 0 45%, rgba(250,204,21,0.35) 46% 100%);
+        box-shadow: 0 0 0 1.5px rgba(250,204,21,0.9), 0 0 8px 2px rgba(250,204,21,0.55);
+      }
+
       .rw-win-overlay {
         animation: rwOverlayFade 2400ms ease-out both;
       }

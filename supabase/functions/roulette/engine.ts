@@ -2,12 +2,57 @@ export type BetMap = Record<string, number>;
 
 export const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
-// n0..n36 straight bets, n37 = "00", plus the standard outside bets.
+// The 3×12 body of the felt (display order, top row → bottom row). Splits and
+// corners are derived from adjacency in this grid, so only real neighbours are
+// bettable — 0 / 00 are intentionally excluded from these inside combinations.
+const NUMBER_ROWS: number[][] = [
+  [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
+  [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+  [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
+];
+
+function splitKey(a: number, b: number): string {
+  return `sp_${[a, b].sort((x, y) => x - y).join("_")}`;
+}
+function cornerKey(ns: number[]): string {
+  return `cn_${[...ns].sort((x, y) => x - y).join("_")}`;
+}
+
+// Inside combination bets keyed by canonical id → { covered numbers, return
+// multiplier }. Split pays 17:1 (18× incl. stake), corner pays 8:1 (9×).
+export const INSIDE_COMBOS: Map<string, { numbers: number[]; mult: number }> = (() => {
+  const combos = new Map<string, { numbers: number[]; mult: number }>();
+  const rows = NUMBER_ROWS;
+  const cols = 12;
+  // Horizontal splits: neighbours within a row.
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < cols - 1; c++) {
+      const a = rows[r][c], b = rows[r][c + 1];
+      combos.set(splitKey(a, b), { numbers: [a, b], mult: 18 });
+    }
+  // Vertical splits: neighbours across adjacent rows.
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < cols; c++) {
+      const a = rows[r][c], b = rows[r + 1][c];
+      combos.set(splitKey(a, b), { numbers: [a, b], mult: 18 });
+    }
+  // Corners: the four numbers meeting at an interior grid vertex.
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < cols - 1; c++) {
+      const ns = [rows[r][c], rows[r][c + 1], rows[r + 1][c], rows[r + 1][c + 1]];
+      combos.set(cornerKey(ns), { numbers: ns, mult: 9 });
+    }
+  return combos;
+})();
+
+// n0..n36 straight bets, n37 = "00", the standard outside bets, plus every
+// valid split/corner combination.
 const VALID_KEYS = new Set<string>([
   ...Array.from({ length: 37 }, (_, n) => `n${n}`),
   "n37",
   "red", "black", "even", "odd", "low", "high",
   "d1", "d2", "d3", "c1", "c2", "c3",
+  ...INSIDE_COMBOS.keys(),
 ]);
 
 export function numColor(n: number): "red" | "black" | "green" {
@@ -52,8 +97,12 @@ export function calcPayout(result: number, bets: BetMap): number {
   for (const [key, amount] of Object.entries(bets)) {
     if (!amount) continue;
     let mult = 0;
+    const combo = INSIDE_COMBOS.get(key);
     if (key === `n${result}`) {
       mult = 36;
+    } else if (combo) {
+      // Splits/corners only ever cover 1–36, so a 0/00 result never matches.
+      if (combo.numbers.includes(result)) mult = combo.mult;
     } else if (!isZero) {
       if (key === "red" && color === "red") mult = 2;
       else if (key === "black" && color === "black") mult = 2;
