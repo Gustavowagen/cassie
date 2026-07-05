@@ -16,10 +16,13 @@ import { formatChips, gradientFromColor } from "../lib/utils";
 import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino } from "../types";
 import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
+import { Dice } from "../components/games/Dice";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
 
-const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette"]);
+// Game types with a real playable UI. Others can be enabled by the owner
+// but won't show on this page until they're implemented.
+const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice"]);
 const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice"];
 
 type OwnerTab = "games" | "members" | "stats" | "settings";
@@ -298,6 +301,15 @@ export function CasinoDashboard() {
               balance={membership?.balance ?? 0}
               minBet={gameTypeMap["roulette"]?.min_bet ?? 100}
               maxBet={gameTypeMap["roulette"]?.max_bet ?? 100000}
+              onExit={() => setActiveGame(null)}
+            />
+          )}
+          {activeGame.game_type_id === "dice" && (
+            <Dice
+              casinoId={currentCasino.id}
+              balance={membership?.balance ?? 0}
+              minBet={gameTypeMap["dice"]?.min_bet ?? 100}
+              maxBet={gameTypeMap["dice"]?.max_bet ?? 50000}
               onExit={() => setActiveGame(null)}
             />
           )}
