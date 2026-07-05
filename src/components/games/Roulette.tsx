@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "../ui/button";
 import { supabase } from "../../lib/supabase";
 import { formatChips } from "../../lib/utils";
-import { CHIPS_BY_TIER, formatChipLabel, TIER_LABELS, type Tier } from "../../lib/stakeTiers";
+import { CHIPS_BY_TIER, formatChipLabel, TIER_LABELS, type Tier, type ChipDef } from "../../lib/stakeTiers";
 import { X } from "lucide-react";
 
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
@@ -53,19 +53,37 @@ const INSIDE_SPOTS: Spot[] = (() => {
   return spots;
 })();
 
-// A stacked casino chip showing its total value. Rendered click-through so a
-// tap always reaches the cell/hotspot beneath it (chips stack on re-bet).
+// Every denomination across the stake tiers, ascending — used to colour a
+// placed chip by its value the way real casino chips are keyed to a colour.
+const CHIP_SCALE: ChipDef[] = Object.values(CHIPS_BY_TIER)
+  .flat()
+  .sort((a, b) => a.value - b.value);
+
+function chipStyleFor(amount: number): ChipDef {
+  let def = CHIP_SCALE[0];
+  for (const c of CHIP_SCALE) {
+    if (amount >= c.value) def = c;
+    else break;
+  }
+  return def;
+}
+
+// A stacked casino chip showing its total value, coloured by that value.
+// Rendered click-through so a tap always reaches the cell/hotspot beneath it
+// (chips stack on re-bet).
 function Chip({ amount, size = 24 }: { amount: number; size?: number }) {
+  const { ring, face, text } = chipStyleFor(amount);
   return (
     <span
-      className="inline-flex items-center justify-center rounded-full text-black font-black leading-none"
+      className="inline-flex items-center justify-center rounded-full font-black leading-none"
       style={{
         width: size,
         height: size,
         fontSize: Math.max(7, Math.round(size * 0.34)),
-        background: "radial-gradient(circle at 35% 28%, #fff7dd, #f5c518 52%, #b8860b 100%)",
-        border: "2px dashed rgba(255,255,255,0.85)",
-        boxShadow: "0 0 0 2px #b45309, 0 0 0 3px rgba(255,255,255,0.45), 0 1px 3px rgba(0,0,0,0.6)",
+        color: text,
+        background: `radial-gradient(circle at 35% 28%, rgba(255,255,255,0.55), ${face} 46%, ${ring} 100%)`,
+        border: "2px dashed rgba(255,255,255,0.7)",
+        boxShadow: `0 0 0 2px ${ring}, 0 0 0 3px rgba(255,255,255,0.4), 0 1px 3px rgba(0,0,0,0.6)`,
       }}
     >
       {formatChips(amount)}
