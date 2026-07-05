@@ -67,15 +67,20 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (loading) return;
     draggingRef.current = true;
     (e.target as Element).setPointerCapture(e.pointerId);
     updateFromTrackClientX(e.clientX);
   }
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (loading) return;
     if (!draggingRef.current) return;
     updateFromTrackClientX(e.clientX);
   }
   function onPointerUp() {
+    draggingRef.current = false;
+  }
+  function onPointerCancel() {
     draggingRef.current = false;
   }
 
@@ -206,6 +211,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
             className="relative h-3 rounded-full cursor-pointer touch-none select-none"
             style={{
               background:
