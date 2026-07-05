@@ -94,3 +94,16 @@ export interface BlackjackState {
   insuranceOffered: boolean;
   balance: number;
 }
+
+export type DiceDirection = "under" | "over";
+
+export interface DiceResult {
+  roll: number;
+  target: number;
+  direction: DiceDirection;
+  winChance: number;
+  multiplier: number;
+  won: boolean;
+  payout: number;
+  balance: number;
+}
