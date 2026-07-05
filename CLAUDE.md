@@ -48,6 +48,17 @@ Platform for creating and joining free play-money online casinos. Built with Vit
 3. In `CasinoDashboard.tsx`, render the component when that game_type is in `enabledGames`.
 4. Use the `transactions` table to record bet/win with `supabase.from('transactions').insert(...)`.
 
+## Test Account
+
+A pre-seeded admin account exists for Playwright testing and UI verification:
+
+- **Email**: `claudetest.cassie@gmail.com`
+- **Password**: `ClaudeTest123!`
+- **Nickname**: ClaudeTest
+- **Role**: admin in all casinos, 1,000,000 chips starting balance
+
+Use this account when you need to sign in via Playwright to verify UI changes. If the account is missing, re-create it: sign up with the credentials above, then run SQL to confirm the email (`UPDATE auth.users SET email_confirmed_at = now() WHERE email = 'claudetest.cassie@gmail.com'`) and grant admin access to all casinos.
+
 ## Mobile
 
 The app is designed mobile-first (Tailwind responsive classes). Future Capacitor/React Native conversion: all business logic lives in hooks and stores, decoupled from the browser DOM.

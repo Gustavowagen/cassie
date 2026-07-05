@@ -29,8 +29,9 @@ export interface CasinoMemberWithProfile {
   casino_id: string;
   user_id: string;
   balance: number;
-  role: "owner" | "member";
+  role: "member" | "admin";
   joined_at: string;
+  last_played_at: string | null;
   profile: { username: string | null; avatar_url: string | null } | null;
 }
 
@@ -45,8 +46,9 @@ export interface CasinoMember {
   casino_id: string;
   user_id: string;
   balance: number;
-  role: "owner" | "member";
+  role: "member" | "admin";
   joined_at: string;
+  last_played_at: string | null;
 }
 
 export interface GameType {
@@ -58,8 +60,10 @@ export interface GameType {
 }
 
 export interface CasinoGame {
+  id: string;
   casino_id: string;
   game_type_id: string;
+  custom_name: string;
   is_active: boolean;
 }
 

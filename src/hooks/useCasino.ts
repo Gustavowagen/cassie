@@ -98,6 +98,31 @@ export function useCasino() {
     if (error) throw error;
   }
 
+  async function setMemberRole(casinoId: string, targetUserId: string, newRole: "member" | "admin") {
+    const { error } = await supabase.rpc("set_member_role", {
+      p_casino_id: casinoId,
+      p_target_user_id: targetUserId,
+      p_new_role: newRole,
+    });
+    if (error) throw error;
+  }
+
+  async function getMemberProfitLoss(
+    casinoId: string,
+    userId: string,
+    from?: Date,
+    to?: Date,
+  ): Promise<number> {
+    const { data, error } = await supabase.rpc("get_member_profit_loss", {
+      p_casino_id: casinoId,
+      p_user_id: userId,
+      p_from: from?.toISOString() ?? null,
+      p_to: to?.toISOString() ?? null,
+    });
+    if (error) throw error;
+    return data as number;
+  }
+
   return {
     createCasino,
     joinCasino,
@@ -106,5 +131,7 @@ export function useCasino() {
     getCasinoBySlug,
     getCasinoMembers,
     giveChips,
+    setMemberRole,
+    getMemberProfitLoss,
   };
 }

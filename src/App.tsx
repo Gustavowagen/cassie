@@ -6,7 +6,6 @@ import { Home } from "./pages/Home";
 import { Auth } from "./pages/Auth";
 import { CreateCasino } from "./pages/CreateCasino";
 import { CasinoDashboard } from "./pages/CasinoDashboard";
-import { CasinoAdmin } from "./pages/CasinoAdmin";
 import { ConfirmEmail } from "./pages/ConfirmEmail";
 import { SetupNickname } from "./pages/SetupNickname";
 import { NotFound } from "./pages/NotFound";
@@ -28,14 +27,6 @@ function AppRoutes() {
         }
       />
       <Route path="/casino/:slug" element={<CasinoDashboard />} />
-      <Route
-        path="/casino/:slug/admin"
-        element={
-          <AuthGuard>
-            <CasinoAdmin />
-          </AuthGuard>
-        }
-      />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

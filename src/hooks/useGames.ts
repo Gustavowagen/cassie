@@ -12,26 +12,26 @@ export function useGames() {
     const { data, error } = await supabase
       .from("casino_games")
       .select("*")
-      .eq("casino_id", casinoId);
+      .eq("casino_id", casinoId)
+      .order("custom_name");
     if (error) throw error;
     return (data ?? []) as CasinoGame[];
   }
 
-  async function enableGame(casinoId: string, gameTypeId: string): Promise<void> {
-    const { error } = await supabase
+  async function createGame(casinoId: string, gameTypeId: string, customName: string): Promise<CasinoGame> {
+    const { data, error } = await supabase
       .from("casino_games")
-      .upsert({ casino_id: casinoId, game_type_id: gameTypeId, is_active: true });
+      .insert({ casino_id: casinoId, game_type_id: gameTypeId, custom_name: customName, is_active: true })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as CasinoGame;
+  }
+
+  async function deleteGame(id: string): Promise<void> {
+    const { error } = await supabase.from("casino_games").delete().eq("id", id);
     if (error) throw error;
   }
 
-  async function disableGame(casinoId: string, gameTypeId: string): Promise<void> {
-    const { error } = await supabase
-      .from("casino_games")
-      .delete()
-      .eq("casino_id", casinoId)
-      .eq("game_type_id", gameTypeId);
-    if (error) throw error;
-  }
-
-  return { listGameTypes, listCasinoGames, enableGame, disableGame };
+  return { listGameTypes, listCasinoGames, createGame, deleteGame };
 }

@@ -30,6 +30,10 @@ export interface RoundState {
 
 export type Rng = () => number;
 
+export function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export const RANKS: Rank[] = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 export const SUITS: Suit[] = ["S","H","D","C"];
 
@@ -114,7 +118,7 @@ export function settle(state: RoundState): RoundState {
       hand.payout = hand.bet;
     } else if (playerBJ) {
       hand.outcome = "blackjack";
-      hand.payout = Math.floor(hand.bet * 2.5);
+      hand.payout = roundMoney(hand.bet * 2.5);
     } else if (dealerBJ) {
       hand.outcome = "lose";
       hand.payout = 0;
@@ -252,7 +256,7 @@ export function applyMove(prev: RoundState, move: Move, _handIndex?: number): Ro
 
 function applySplitOrInsurance(state: RoundState, move: Move): RoundState {
   if (move === "insurance") {
-    state.insuranceBet = Math.floor(state.baseBet / 2);
+    state.insuranceBet = roundMoney(state.baseBet / 2);
     state.insuranceResolved = true;
     return resolveAcePeek(state);
   }

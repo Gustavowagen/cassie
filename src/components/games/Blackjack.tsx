@@ -3,18 +3,11 @@ import { ArrowLeft, Coins, RotateCcw } from "lucide-react";
 import { Button } from "../ui/button";
 import { useBlackjack } from "../../hooks/useBlackjack";
 import { formatChips } from "../../lib/utils";
+import { CHIPS_BY_TIER, formatChipLabel, roundMoney, TIER_LABELS, type ChipDef, type Tier } from "../../lib/stakeTiers";
 import type { Card, Move, BlackjackOutcome } from "../../types";
 
 const SUIT_GLYPH: Record<Card["suit"], string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
 const RED_SUITS: Card["suit"][] = ["H", "D"];
-
-// Chip denominations with their classic casino colours.
-const CHIPS: { value: number; ring: string; face: string; text: string }[] = [
-  { value: 100, ring: "#1f2937", face: "#374151", text: "#f3f4f6" },
-  { value: 500, ring: "#7f1d1d", face: "#b91c1c", text: "#fee2e2" },
-  { value: 1000, ring: "#1e3a8a", face: "#2563eb", text: "#dbeafe" },
-  { value: 5000, ring: "#3b0764", face: "#7c3aed", text: "#ede9fe" },
-];
 
 const ACTION_LABEL: Record<Move, string> = {
   hit: "Hit",
@@ -92,7 +85,7 @@ function Chip({
   onClick,
   disabled,
 }: {
-  chip: (typeof CHIPS)[number];
+  chip: ChipDef;
   onClick: () => void;
   disabled?: boolean;
 }) {
@@ -116,7 +109,7 @@ function Chip({
         className="relative text-sm font-bold tracking-tight"
         style={{ color: chip.text, fontFamily: "'Cinzel', serif" }}
       >
-        {formatChips(chip.value)}
+        {formatChipLabel(chip.value)}
       </span>
     </button>
   );
@@ -160,6 +153,7 @@ export function Blackjack({
 }) {
   const { state, loading, error, start, act, reset } = useBlackjack(casinoId);
   const [bet, setBet] = useState(0);
+  const [tier, setTier] = useState<Tier>("medium");
 
   const roundActive = state !== null && state.status !== "complete";
   const isComplete = state !== null && state.status === "complete";
@@ -167,7 +161,7 @@ export function Blackjack({
   const availableBalance = displayBalance;
 
   const addChip = (value: number) => {
-    setBet((b) => Math.min(maxBet, Math.min(availableBalance, b + value)));
+    setBet((b) => roundMoney(Math.min(maxBet, Math.min(availableBalance, b + value))));
   };
 
   const betValid = bet >= minBet && bet <= maxBet && bet <= availableBalance;
@@ -191,7 +185,7 @@ export function Blackjack({
   };
 
   return (
-    <div className="bj-root relative h-[85vh] max-h-[800px] w-full overflow-hidden text-white">
+    <div className="bj-root relative h-[92vh] min-h-[700px] max-h-[900px] w-full overflow-hidden text-white">
       <BlackjackStyles />
 
       {/* Atmosphere: felt, vignette, grain */}
@@ -199,9 +193,9 @@ export function Blackjack({
       <div className="bj-vignette absolute inset-0" />
       <div className="bj-grain absolute inset-0" />
 
-      <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col overflow-y-auto px-4 pb-8 pt-5">
+      <div className="relative z-10 mx-auto flex h-full max-w-3xl flex-col overflow-hidden px-4 pb-5 pt-4">
         {/* Top bar */}
-        <header className="flex items-center justify-between">
+        <header className="flex shrink-0 items-center justify-between">
           <button
             type="button"
             onClick={onExit}
@@ -219,7 +213,7 @@ export function Blackjack({
         </header>
 
         {/* Title arch */}
-        <div className="mt-3 text-center">
+        <div className="mt-2 shrink-0 text-center">
           <h1
             className="text-2xl font-bold uppercase tracking-[0.3em] text-amber-200 drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] sm:text-3xl"
             style={{ fontFamily: "'Cinzel', serif" }}
@@ -232,9 +226,9 @@ export function Blackjack({
         </div>
 
         {/* The felt table */}
-        <div className="bj-table relative mt-5 flex flex-1 flex-col rounded-[2rem] border border-amber-300/25 p-4 sm:p-6">
+        <div className="bj-table relative mt-4 flex min-h-0 flex-1 flex-col rounded-[2rem] border border-amber-300/25 p-3 sm:p-4">
           {/* Dealer area */}
-          <section className="flex flex-col items-center">
+          <section className="flex shrink-0 flex-col items-center">
             <LabelTag>Dealer</LabelTag>
             {state ? (
               <>
@@ -266,7 +260,7 @@ export function Blackjack({
           </section>
 
           {/* Center divider with table arc text */}
-          <div className="relative my-5 flex items-center justify-center">
+          <div className="relative my-3 flex shrink-0 items-center justify-center">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-300/30 to-transparent" />
             <span className="px-4 text-center text-[0.6rem] uppercase tracking-[0.3em] text-amber-100/40">
               Insurance pays 2 to 1
@@ -275,7 +269,7 @@ export function Blackjack({
           </div>
 
           {/* Player area */}
-          <section className="flex flex-1 flex-col items-center justify-end">
+          <section className="flex min-h-0 flex-1 flex-col items-center justify-end">
             {state ? (
               (() => {
                 const handCount = state.hands.length;
@@ -288,47 +282,50 @@ export function Blackjack({
                     ? "flex -space-x-4"
                     : "flex -space-x-6 sm:-space-x-7";
                 return (
-                  <div className="flex w-full flex-wrap items-end justify-center gap-3">
-                    {state.hands.map((hand, hi) => {
-                      const isActive =
-                        state.status === "player_turn" && hi === state.activeHand;
-                      return (
-                        <div
-                          key={`h-${hi}`}
-                          className={[
-                            "flex flex-col items-center rounded-2xl px-2 py-2 transition-all duration-300",
-                            isActive
-                              ? "bj-active-hand bg-amber-300/10"
-                              : "opacity-80",
-                          ].join(" ")}
-                        >
-                          <div className={overlapClass}>
-                            {hand.cards.map((c, i) => (
-                              <PlayingCard
-                                key={`h-${hi}-${i}`}
-                                card={c}
-                                index={i}
-                                size={cardSize}
-                              />
-                            ))}
-                          </div>
-                          <div className="mt-2 flex items-center gap-2">
-                            <ValuePill value={hand.value} soft={hand.soft} />
-                            {hand.doubled && (
-                              <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[0.6rem] uppercase tracking-widest text-amber-200">
-                                Doubled
-                              </span>
+                  <div className="flex w-full flex-col items-center gap-2">
+                    <div className="flex w-full flex-wrap items-end justify-center gap-3">
+                      {state.hands.map((hand, hi) => {
+                        const isActive =
+                          state.status === "player_turn" && hi === state.activeHand;
+                        return (
+                          <div
+                            key={`h-${hi}`}
+                            className={[
+                              "flex flex-col items-center rounded-2xl px-2 py-2 transition-all duration-300",
+                              isActive
+                                ? "bj-active-hand bg-amber-300/10"
+                                : "opacity-80",
+                            ].join(" ")}
+                          >
+                            <div className={overlapClass}>
+                              {hand.cards.map((c, i) => (
+                                <PlayingCard
+                                  key={`h-${hi}-${i}`}
+                                  card={c}
+                                  index={i}
+                                  size={cardSize}
+                                />
+                              ))}
+                            </div>
+                            <div className="mt-2 flex items-center gap-2">
+                              <ValuePill value={hand.value} soft={hand.soft} />
+                              {hand.doubled && (
+                                <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[0.6rem] uppercase tracking-widest text-amber-200">
+                                  Doubled
+                                </span>
+                              )}
+                            </div>
+                            <span className="mt-1 text-[0.65rem] uppercase tracking-widest text-amber-100/60">
+                              Bet {formatChips(hand.bet)}
+                            </span>
+                            {isComplete && hand.outcome && (
+                              <HandOutcome outcome={hand.outcome} payout={hand.payout} />
                             )}
                           </div>
-                          <span className="mt-1 text-[0.65rem] uppercase tracking-widest text-amber-100/60">
-                            Bet {formatChips(hand.bet)}
-                          </span>
-                          {isComplete && hand.outcome && (
-                            <HandOutcome outcome={hand.outcome} payout={hand.payout} />
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    {isComplete && <ResultBanner state={state} />}
                   </div>
                 );
               })()
@@ -346,19 +343,14 @@ export function Blackjack({
           </section>
         </div>
 
-        {/* Result banner */}
-        {isComplete && state && (
-          <ResultBanner state={state} />
-        )}
-
         {error && (
-          <div className="mt-3 rounded-lg border border-red-400/40 bg-red-950/50 px-4 py-2 text-center text-sm text-red-200">
+          <div className="mt-2 shrink-0 rounded-lg border border-red-400/40 bg-red-950/50 px-4 py-2 text-center text-sm text-red-200">
             {error}
           </div>
         )}
 
         {/* Control deck */}
-        <div className="mt-4">
+        <div className="mt-3 shrink-0">
           {roundActive ? (
             <ActionBar
               actions={state.legalActions}
@@ -374,6 +366,8 @@ export function Blackjack({
               betValid={betValid}
               loading={loading}
               isComplete={isComplete}
+              tier={tier}
+              onTierChange={setTier}
               onAddChip={addChip}
               onClear={() => setBet(0)}
               onDeal={handleDeal}
@@ -446,7 +440,7 @@ function ResultBanner({ state }: { state: import("../../types").BlackjackState }
   const tone = anyWin ? "#fbbf24" : "#cbd5e1";
 
   return (
-    <div className="bj-banner mt-4 flex items-center justify-center rounded-xl border border-amber-300/40 bg-gradient-to-b from-black/60 to-black/30 py-3 backdrop-blur">
+    <div className="bj-banner mt-2 flex w-full items-center justify-center rounded-xl border border-amber-300/40 bg-gradient-to-b from-black/60 to-black/30 py-2 backdrop-blur">
       <div className="flex flex-col items-center">
         <span
           className="text-xl font-bold uppercase tracking-[0.35em]"
@@ -473,7 +467,6 @@ function ActionBar({
   loading: boolean;
   onAction: (m: Move) => void;
 }) {
-  // Render strictly from the supplied legal actions.
   const order: Move[] = ["hit", "stand", "double", "split", "insurance"];
   const ordered = order.filter((m) => actions.includes(m));
   return (
@@ -510,6 +503,8 @@ function BettingControls({
   betValid,
   loading,
   isComplete,
+  tier,
+  onTierChange,
   onAddChip,
   onClear,
   onDeal,
@@ -521,15 +516,39 @@ function BettingControls({
   betValid: boolean;
   loading: boolean;
   isComplete: boolean;
+  tier: Tier;
+  onTierChange: (t: Tier) => void;
   onAddChip: (v: number) => void;
   onClear: () => void;
   onDeal: () => void;
 }) {
+  const chips = CHIPS_BY_TIER[tier];
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
+      {/* Stake tier selector */}
+      <div className="flex items-center justify-center gap-1">
+        {(["low", "medium", "high"] as Tier[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => onTierChange(t)}
+            className={[
+              "rounded-lg px-4 py-1 text-xs font-bold uppercase tracking-[0.2em] transition-all duration-150",
+              tier === t
+                ? "bg-amber-400/20 text-amber-200 ring-1 ring-amber-300/50"
+                : "text-amber-100/40 hover:text-amber-100/70",
+            ].join(" ")}
+            style={{ fontFamily: "'Cinzel', serif" }}
+          >
+            {TIER_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
+      {/* Chip buttons */}
       <div className="flex items-center justify-center gap-3">
-        {CHIPS.map((chip) => {
-          const wouldExceed = bet + chip.value > maxBet;
+        {chips.map((chip) => {
+          const wouldExceed = roundMoney(bet + chip.value) > maxBet;
           const tooPoor = chip.value > availableBalance;
           return (
             <Chip

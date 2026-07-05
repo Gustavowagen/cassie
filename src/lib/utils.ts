@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatChips(amount: number): string {
-  return amount.toLocaleString("en-US");
+  return amount.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
 export function slugify(text: string): string {

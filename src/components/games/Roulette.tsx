@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "../ui/button";
 import { supabase } from "../../lib/supabase";
 import { formatChips } from "../../lib/utils";
+import { CHIPS_BY_TIER, formatChipLabel, TIER_LABELS, type Tier } from "../../lib/stakeTiers";
 import { X } from "lucide-react";
 
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
@@ -15,8 +16,6 @@ const NUMBER_ROWS: number[][] = [
   [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
   [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
 ];
-
-const CHIP_VALUES = [10, 50, 100, 500, 1_000, 5_000];
 
 const WIN_PARTICLES = Array.from({ length: 18 }, (_, i) => ({
   angle: (360 / 18) * i,
@@ -284,7 +283,9 @@ interface Props {
 
 export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: Props) {
   const [bets, setBets] = useState<BetMap>({});
-  const [chip, setChip] = useState(CHIP_VALUES[0]);
+  const [tier, setTier] = useState<Tier>("medium");
+  const chipValues = CHIPS_BY_TIER[tier];
+  const [chip, setChip] = useState(chipValues[0].value);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<number | null>(null);
   const [payout, setPayout] = useState<number | null>(null);
@@ -294,6 +295,11 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
   const [winId, setWinId] = useState(0);
   const spinRef = useRef(false);
   const wheelRef = useRef<WheelHandle>(null);
+
+  function changeTier(t: Tier) {
+    setTier(t);
+    setChip(CHIPS_BY_TIER[t][0].value);
+  }
 
   function placeBet(key: string) {
     if (spinning) return;
@@ -514,10 +520,28 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
 
         {/* Table + controls */}
         <div className="flex flex-col flex-1 p-3 min-w-0 min-h-0">
+          {/* Stake tier selector */}
+          <div className="flex items-center gap-1 mb-1.5 shrink-0">
+            {(["low", "medium", "high"] as Tier[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => changeTier(t)}
+                className={`rounded-lg px-3 py-0.5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors ${
+                  tier === t
+                    ? "bg-yellow-400/20 text-yellow-300 ring-1 ring-yellow-300/50"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {TIER_LABELS[t]}
+              </button>
+            ))}
+          </div>
+
           {/* Chip selector */}
           <div className="flex items-center gap-1.5 mb-3 flex-wrap shrink-0">
             <span className="text-xs text-muted-foreground mr-0.5">Chip:</span>
-            {CHIP_VALUES.map((v) => (
+            {chipValues.map(({ value: v }) => (
               <button
                 key={v}
                 type="button"
@@ -528,7 +552,7 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
                     : "border-border text-muted-foreground hover:text-foreground hover:border-foreground"
                 }`}
               >
-                {formatChips(v)}
+                {formatChipLabel(v)}
               </button>
             ))}
           </div>

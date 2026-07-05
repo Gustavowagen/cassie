@@ -4,9 +4,11 @@ import { createPortal } from "react-dom";
 export function Modal({
   onClose,
   children,
+  size = "lg",
 }: {
   onClose: () => void;
   children: React.ReactNode;
+  size?: "md" | "lg" | "xl";
 }) {
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -27,7 +29,7 @@ export function Modal({
         className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      <div className="relative z-10 max-h-screen w-full max-w-3xl overflow-hidden sm:max-h-[92vh] sm:rounded-2xl sm:shadow-2xl">
+      <div className={`relative z-10 max-h-screen w-full overflow-hidden sm:max-h-[92vh] sm:rounded-2xl sm:shadow-2xl ${size === "md" ? "max-w-md" : size === "xl" ? "max-w-[1260px]" : "max-w-3xl"}`}>
         {children}
       </div>
     </div>,

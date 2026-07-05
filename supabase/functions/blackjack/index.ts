@@ -5,6 +5,7 @@ import {
   sanitize,
   buildShoe,
   shuffle,
+  roundMoney,
   type RoundState,
   type Move,
 } from "./engine.ts";
@@ -68,10 +69,14 @@ Deno.serve(async (req) => {
         admin.from("game_types").select("min_bet, max_bet").eq("id", "blackjack").single(),
       ]);
       if (!member) return json({ error: "You are not a member of this casino" }, 403);
-      if (!Number.isInteger(bet) || bet < gt!.min_bet || bet > gt!.max_bet) {
+      if (typeof bet !== "number" || !isFinite(bet) || bet <= 0) {
+        return json({ error: "Invalid bet" }, 400);
+      }
+      const validBet = roundMoney(bet);
+      if (validBet < Number(gt!.min_bet) || validBet > Number(gt!.max_bet)) {
         return json({ error: `Bet must be between ${gt!.min_bet} and ${gt!.max_bet}` }, 400);
       }
-      if (bet > member.balance) return json({ error: "Insufficient balance" }, 400);
+      if (validBet > member.balance) return json({ error: "Insufficient balance" }, 400);
 
       // One active round at a time.
       await admin
@@ -81,13 +86,13 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id)
         .neq("status", "complete");
 
-      const state = startRound({ shoe: shuffle(buildShoe(), rng), bet });
+      const state = startRound({ shoe: shuffle(buildShoe(), rng), bet: validBet });
 
       // Deduct the stake now; credit any immediate (blackjack/peek) payout.
-      let balance = member.balance - bet;
+      let balance = roundMoney(member.balance - validBet);
       if (state.status === "complete") {
         const credited = state.hands.reduce((s, h) => s + (h.payout ?? 0), 0) + state.insurancePayout;
-        balance += credited;
+        balance = roundMoney(balance + credited);
       }
 
       // Persisting the round and applying the balance/transaction side effects
@@ -96,7 +101,7 @@ Deno.serve(async (req) => {
         admin.from("casino_members").update({ balance })
           .eq("casino_id", casino_id).eq("user_id", user.id),
         admin.from("transactions").insert({
-          casino_id, user_id: user.id, amount: -bet, balance_after: member.balance - bet,
+          casino_id, user_id: user.id, amount: -validBet, balance_after: roundMoney(member.balance - validBet),
           game_type_id: "blackjack", description: "Blackjack bet",
         }),
       ];
@@ -104,7 +109,7 @@ Deno.serve(async (req) => {
         writes.push(
           admin.from("transactions").insert({
             casino_id, user_id: user.id,
-            amount: balance - (member.balance - bet), balance_after: balance,
+            amount: roundMoney(balance - (member.balance - validBet)), balance_after: balance,
             game_type_id: "blackjack", description: "Blackjack payout",
           })
         );
