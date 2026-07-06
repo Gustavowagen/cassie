@@ -43,7 +43,7 @@ function roleBadgeClass(role: "creator" | "admin" | "member"): string {
 export function CasinoDashboard() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { getCasinoBySlug, joinCasino, getCasinoMembers, giveChips, setMemberRole, getMemberProfitLoss } = useCasino();
+  const { getCasinoBySlug, joinCasino, getCasinoMembers, giveChips, removeChips, setMemberRole, getMemberProfitLoss } = useCasino();
   const { currentCasino, membership, setCasino } = useCasinoStore();
   const { user } = useAuthStore();
   useBalance(currentCasino?.id);
@@ -105,6 +105,18 @@ export function CasinoDashboard() {
   async function handleGiveChips(userId: string, amount: number) {
     if (!currentCasino) return;
     await giveChips(currentCasino.id, userId, amount);
+    getCasinoMembers(currentCasino.id).then((updated) => {
+      setMembers(updated);
+      if (selectedMember) {
+        const refreshed = updated.find((m) => m.user_id === userId);
+        if (refreshed) setSelectedMember(refreshed);
+      }
+    });
+  }
+
+  async function handleRemoveChips(userId: string, amount: number) {
+    if (!currentCasino) return;
+    await removeChips(currentCasino.id, userId, amount);
     getCasinoMembers(currentCasino.id).then((updated) => {
       setMembers(updated);
       if (selectedMember) {
@@ -352,6 +364,7 @@ export function CasinoDashboard() {
             isCreator={isOwner}
             onClose={() => setSelectedMember(null)}
             onGiveChips={handleGiveChips}
+            onRemoveChips={handleRemoveChips}
             onRoleChange={handleRoleChange}
             getMemberProfitLoss={getMemberProfitLoss}
           />
@@ -887,6 +900,7 @@ function MemberPopup({
   isCreator,
   onClose,
   onGiveChips,
+  onRemoveChips,
   onRoleChange,
   getMemberProfitLoss,
 }: {
@@ -896,6 +910,7 @@ function MemberPopup({
   isCreator: boolean;
   onClose: () => void;
   onGiveChips: (userId: string, amount: number) => Promise<void>;
+  onRemoveChips: (userId: string, amount: number) => Promise<void>;
   onRoleChange: (userId: string, newRole: "member" | "admin") => Promise<void>;
   getMemberProfitLoss: (casinoId: string, userId: string, from?: Date, to?: Date) => Promise<number>;
 }) {
@@ -908,6 +923,8 @@ function MemberPopup({
   const [chipAmount, setChipAmount] = useState("");
   const [giving, setGiving] = useState(false);
   const [giveError, setGiveError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [changingRole, setChangingRole] = useState(false);
   const [roleError, setRoleError] = useState<string | null>(null);
 
@@ -937,6 +954,7 @@ function MemberPopup({
     if (!amount || amount <= 0) { setGiveError("Enter a positive amount"); return; }
     setGiving(true);
     setGiveError(null);
+    setRemoveError(null);
     try {
       await onGiveChips(member.user_id, amount);
       setChipAmount("");
@@ -944,6 +962,22 @@ function MemberPopup({
       setGiveError(err instanceof Error ? err.message : "Failed to give chips");
     } finally {
       setGiving(false);
+    }
+  }
+
+  async function handleRemove() {
+    const amount = parseFloat(chipAmount);
+    if (!amount || amount <= 0) { setRemoveError("Enter a positive amount"); return; }
+    setRemoving(true);
+    setRemoveError(null);
+    setGiveError(null);
+    try {
+      await onRemoveChips(member.user_id, amount);
+      setChipAmount("");
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : "Failed to remove chips");
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -1090,7 +1124,7 @@ function MemberPopup({
         )}
 
         <div>
-          <p className="text-xs text-muted-foreground mb-2">Give chips</p>
+          <p className="text-xs text-muted-foreground mb-2">Give or remove chips</p>
           <div className="flex gap-2">
             <input
               type="number"
@@ -1101,11 +1135,21 @@ function MemberPopup({
               onKeyDown={(e) => e.key === "Enter" && handleGive()}
               className="w-32 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <Button size="sm" onClick={handleGive} disabled={giving}>
-              {giving ? "Sending…" : "Send"}
+            <Button size="sm" onClick={handleGive} disabled={giving || removing}>
+              {giving ? "Sending…" : "Give"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRemove}
+              disabled={giving || removing}
+              className="text-destructive border-destructive/40 hover:bg-destructive/10"
+            >
+              {removing ? "Removing…" : "Remove"}
             </Button>
           </div>
           {giveError && <p className="text-xs text-destructive mt-1">{giveError}</p>}
+          {removeError && <p className="text-xs text-destructive mt-1">{removeError}</p>}
         </div>
       </div>
     </div>
