@@ -107,3 +107,14 @@ export interface DiceResult {
   payout: number;
   balance: number;
 }
+
+export interface ChipTransaction {
+  id: string;
+  user_id: string;
+  username: string | null;
+  admin_id: string | null;
+  admin_username: string | null;
+  amount: number;
+  balance_after: number;
+  created_at: string;
+}
