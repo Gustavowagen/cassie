@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Copy, Check, Users, BarChart2, X, ChevronRight, Gamepad2, Settings, Trash2 } from "lucide-react";
+import { Copy, Check, Users, BarChart2, X, ChevronRight, Gamepad2, Settings, Trash2, ArrowLeftRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -19,13 +19,14 @@ import { Roulette } from "../components/games/Roulette";
 import { Dice } from "../components/games/Dice";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
+import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
 const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice"]);
 const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice"];
 
-type OwnerTab = "games" | "members" | "stats" | "settings";
+type OwnerTab = "games" | "members" | "stats" | "trades" | "settings";
 
 function displayRole(member: CasinoMemberWithProfile, casinoOwnerId: string): "creator" | "admin" | "member" {
   if (member.user_id === casinoOwnerId) return "creator";
@@ -220,6 +221,7 @@ export function CasinoDashboard() {
                 { id: "games", label: "Games", icon: Gamepad2 },
                 { id: "members", label: "Members", icon: Users },
                 { id: "stats", label: "Statistics", icon: BarChart2 },
+                { id: "trades", label: "Trades", icon: ArrowLeftRight },
                 { id: "settings", label: "Settings", icon: Settings },
               ] as { id: OwnerTab; label: string; icon: React.ElementType }[]
             ).map(({ id, label, icon: Icon }) => (
@@ -255,6 +257,9 @@ export function CasinoDashboard() {
             />
           )}
           {activeTab === "stats" && <StatsTab casinoId={currentCasino.id} />}
+          {activeTab === "trades" && (
+            <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn />
+          )}
           {activeTab === "settings" && (
             <SettingsTab
               casinoId={currentCasino.id}
