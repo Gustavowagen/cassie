@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { formatChips } from "../../lib/utils";
@@ -37,6 +37,18 @@ interface Props {
   onExit: () => void;
 }
 
+// Precomputed burst of flying bills for the win animation (deterministic so
+// every win looks intentional rather than random-jittery).
+const CASH_PARTICLES = Array.from({ length: 10 }, (_, i) => {
+  const angle = (i - 4.5) * 16; // fan upwards (0deg = straight up after rotate+translateY)
+  return {
+    angle,
+    dist: 90 + (i % 3) * 45,
+    delay: (i % 5) * 40,
+    spin: i % 2 === 0 ? 240 : -240,
+  };
+});
+
 export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit }: Props) {
   const { result, loading, error: rollError, roll: rollDice } = useDice(casinoId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
@@ -44,6 +56,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
   const [target, setTarget] = useState(50);
   const [direction, setDirection] = useState<DiceDirection>("under");
   const [formError, setFormError] = useState<string | null>(null);
+  const [winId, setWinId] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
 
@@ -114,6 +127,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
     try {
       const res = await rollDice(bet, target, direction);
       setLocalBalance(res.balance);
+      if (res.won) setWinId((id) => id + 1);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Bet failed");
     }
@@ -124,9 +138,10 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
 
   return (
     <div
-      className="bg-card rounded-2xl overflow-hidden flex flex-col"
+      className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
       style={{ width: "min(98vw, 1000px)", height: "min(90vh, 620px)" }}
     >
+      <DiceStyles />
       <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
         <div>
           <p className="font-bold text-base">Dice</p>
@@ -137,14 +152,31 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
         </button>
       </div>
 
-      {result && (
+      {/* Win celebration — plays once per winning roll (~950ms), then fades out
+          on its own. Nothing is shown on a loss. pointer-events-none so it never
+          blocks the next bet. */}
+      {result?.won && winId > 0 && (
         <div
-          className={`px-5 py-2 text-center font-bold text-white text-sm shrink-0 ${
-            result.won ? "bg-emerald-700" : "bg-red-700"
-          }`}
+          key={winId}
+          className="dc-win-overlay absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
         >
-          Rolled {result.roll.toFixed(2)} —{" "}
-          {result.won ? `Won ${formatChips(result.payout)} chips` : `Lost ${formatChips(bet)} chips`}
+          {CASH_PARTICLES.map((p, i) => (
+            <span
+              key={i}
+              className="dc-cash"
+              style={{
+                "--dc-rot": `${p.angle}deg`,
+                "--dc-dist": `-${p.dist}px`,
+                "--dc-spin": `${p.spin}deg`,
+                animationDelay: `${p.delay}ms`,
+              } as CSSProperties}
+            >
+              💵
+            </span>
+          ))}
+          <p className="dc-win-text text-3xl font-black text-emerald-400 drop-shadow-[0_2px_8px_rgba(16,185,129,0.6)]">
+            +{formatChips(result.payout)} chips
+          </p>
         </div>
       )}
 
@@ -281,5 +313,53 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
         </div>
       </div>
     </div>
+  );
+}
+
+// Scoped styles for the win celebration. Everything finishes within ~950ms.
+function DiceStyles() {
+  return (
+    <style>{`
+      .dc-win-overlay {
+        animation: dcOverlayFade 950ms ease-out both;
+      }
+      @keyframes dcOverlayFade {
+        0%, 70% { opacity: 1; }
+        100%    { opacity: 0; }
+      }
+
+      .dc-win-text {
+        animation: dcWinPop 950ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      @keyframes dcWinPop {
+        0%   { opacity: 0; transform: scale(0.5) translateY(16px); }
+        25%  { opacity: 1; transform: scale(1.12) translateY(0); }
+        40%  { transform: scale(1); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+
+      .dc-cash {
+        position: absolute;
+        top: 50%; left: 50%;
+        font-size: 22px;
+        line-height: 1;
+        animation: dcCashFly 800ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+      }
+      @keyframes dcCashFly {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) rotate(var(--dc-rot)) translateY(0) rotate(0deg) scale(0.6);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) rotate(var(--dc-rot)) translateY(var(--dc-dist)) rotate(var(--dc-spin)) scale(1.1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .dc-cash { display: none; }
+        .dc-win-overlay, .dc-win-text { animation: none; opacity: 0; }
+      }
+    `}</style>
   );
 }
