@@ -146,7 +146,7 @@ export function CasinoDashboard() {
         className="rounded-2xl overflow-hidden border border-border"
         style={{ background: gradientFromColor(theme.primaryColor) }}
       >
-        <div className="p-6 md:p-8 flex items-start gap-5">
+        <div className="p-6 md:p-8 flex flex-wrap items-start gap-5">
           {hasLogo && (
             <img
               src={theme.logoUrl!}
@@ -154,8 +154,8 @@ export function CasinoDashboard() {
               className="h-20 w-20 rounded-xl object-cover border-2 border-white/20 shadow-lg shrink-0"
             />
           )}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow">
+          <div className="flex-1 min-w-[10rem]">
+            <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow break-words">
               {name}
             </h1>
             {description && (
