@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Casino, CasinoMemberWithProfile } from "../types";
+import type { Casino, CasinoMemberWithProfile, ChipTransaction } from "../types";
 import { slugify } from "../lib/utils";
 
 export function useCasino() {
@@ -123,6 +123,20 @@ export function useCasino() {
     return data as number;
   }
 
+  async function listChipTransactions(
+    casinoId: string,
+    from: Date,
+    to: Date,
+  ): Promise<ChipTransaction[]> {
+    const { data, error } = await supabase.rpc("list_chip_transactions", {
+      p_casino_id: casinoId,
+      p_from: from.toISOString(),
+      p_to: to.toISOString(),
+    });
+    if (error) throw error;
+    return (data ?? []) as ChipTransaction[];
+  }
+
   return {
     createCasino,
     joinCasino,
@@ -133,5 +147,6 @@ export function useCasino() {
     giveChips,
     setMemberRole,
     getMemberProfitLoss,
+    listChipTransactions,
   };
 }
