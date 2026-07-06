@@ -53,6 +53,7 @@ export function CasinoDashboard() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [selectedMember, setSelectedMember] = useState<CasinoMemberWithProfile | null>(null);
+  const [chipHistoryOpen, setChipHistoryOpen] = useState(true);
 
   const { listGameTypes, listCasinoGames, createGame, deleteGame } = useGames();
   const [gameTypes, setGameTypes] = useState<GameType[]>([]);
@@ -281,11 +282,30 @@ export function CasinoDashboard() {
 
       {/* Game section — shown for regular members who don't have the tab bar */}
       {isMember && !canManageMembers && (
-        <GameOverview
-          casinoGames={casinoGames}
-          onPlay={(instance) => setActiveGame(instance)}
-          canAdmin={false}
-        />
+        <>
+          <GameOverview
+            casinoGames={casinoGames}
+            onPlay={(instance) => setActiveGame(instance)}
+            canAdmin={false}
+          />
+          <div className="rounded-xl border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setChipHistoryOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold"
+            >
+              My Chip History
+              <ChevronRight
+                className={`h-4 w-4 transition-transform ${chipHistoryOpen ? "rotate-90" : ""}`}
+              />
+            </button>
+            {chipHistoryOpen && (
+              <div className="px-4 pb-4">
+                <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn={false} />
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Game modal */}
