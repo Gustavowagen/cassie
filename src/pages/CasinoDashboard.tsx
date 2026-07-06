@@ -292,6 +292,7 @@ export function CasinoDashboard() {
             <button
               type="button"
               onClick={() => setChipHistoryOpen((v) => !v)}
+              aria-expanded={chipHistoryOpen}
               className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold"
             >
               My Chip History
