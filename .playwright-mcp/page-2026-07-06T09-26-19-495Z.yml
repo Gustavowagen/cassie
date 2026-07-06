@@ -1,0 +1,45 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e80]: C
+      - button "Sign out" [ref=e81] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e158]:
+      - generic [ref=e160]:
+        - img "Bjørnar Berge" [ref=e161]
+        - generic [ref=e162]:
+          - heading "Bjørnar Berge" [level=1] [ref=e163]
+          - paragraph [ref=e164]: ccczcsz
+          - generic [ref=e165]:
+            - generic [ref=e166]: 13 members
+            - 'button "Code: 69A1E0" [ref=e167] [cursor=pointer]':
+              - generic [ref=e168]: "Code: 69A1E0"
+              - img [ref=e169]
+        - generic [ref=e172]: 991,442.4 chips
+      - generic [ref=e173]:
+        - generic [ref=e174]:
+          - button "Games" [ref=e175] [cursor=pointer]:
+            - img [ref=e176]
+            - text: Games
+          - button "Members" [ref=e178] [cursor=pointer]:
+            - img [ref=e179]
+            - text: Members
+          - button "Statistics" [ref=e184] [cursor=pointer]:
+            - img [ref=e185]
+            - text: Statistics
+          - button "Trades" [ref=e186] [cursor=pointer]:
+            - img [ref=e187]
+            - text: Trades
+          - button "Settings" [ref=e190] [cursor=pointer]:
+            - img [ref=e191]
+            - text: Settings
+        - generic [ref=e205]:
+          - generic [ref=e206]:
+            - button "Today" [ref=e207] [cursor=pointer]
+            - button "7d" [ref=e208] [cursor=pointer]
+            - button "30d" [ref=e209] [cursor=pointer]
+            - button "All time" [active] [ref=e210] [cursor=pointer]
+            - button "Custom" [ref=e211] [cursor=pointer]
+          - paragraph [ref=e212]: No chip grants or removals in this period.
