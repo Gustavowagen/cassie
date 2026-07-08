@@ -21,7 +21,8 @@ export function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-// Fisher-Yates partial shuffle: pick `count` unique indices from [0, GRID_SIZE).
+// Full Fisher-Yates shuffle, then take the first `count` indices — picks
+// `count` unique values from [0, GRID_SIZE) uniformly at random.
 export function placeMines(count: number, rng: Rng): number[] {
   const pool = Array.from({ length: GRID_SIZE }, (_, i) => i);
   for (let i = pool.length - 1; i > 0; i--) {
