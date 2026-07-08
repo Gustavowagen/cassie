@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "../ui/button";
+import { MuteButton } from "../ui/MuteButton";
 import { supabase } from "../../lib/supabase";
 import { formatChips } from "../../lib/utils";
 import { CHIPS_BY_TIER, formatChipLabel, TIER_LABELS, type Tier, type ChipDef } from "../../lib/stakeTiers";
-import { X } from "lucide-react";
+import { playTone, playWinChime } from "../../lib/sound";
+import { Play, RotateCcw, X } from "lucide-react";
 
 const RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
@@ -149,6 +151,7 @@ const BALL_TRACK_R = 138; // outer groove the ball orbits in
 const BALL_POCKET_R = 96; // resting radius inside a pocket
 const BALL_R = 5;
 const SPIN_MS = 5000;
+const MIN_TICK_GAP_MS = 60; // floor on time between wheel-tick sounds so fast early clicks don't overlap into a blur
 
 function easeOutCubic(t: number) { return 1 - Math.pow(1 - t, 3); }
 function easeOutQuart(t: number) { return 1 - Math.pow(1 - t, 4); }
@@ -177,6 +180,8 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
   const hasLanded = useRef(false);
   const raf = useRef(0);
   const pendingResolve = useRef<(() => void) | null>(null);
+  const lastPocketRef = useRef<number | null>(null);
+  const lastTickTimeRef = useRef(0);
 
   useEffect(() => () => {
     cancelAnimationFrame(raf.current);
@@ -218,6 +223,8 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
         const firstSpin = !hasLanded.current;
         const t0 = performance.now();
         pendingResolve.current = resolve;
+        lastPocketRef.current = null;
+        lastTickTimeRef.current = 0;
 
         const frame = (now: number) => {
           const t = Math.min((now - t0) / SPIN_MS, 1);
@@ -233,6 +240,26 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
             ball.setAttribute("cx", (CX + rr * Math.cos(a)).toFixed(2));
             ball.setAttribute("cy", (CY + rr * Math.sin(a)).toFixed(2));
             ball.setAttribute("opacity", firstSpin ? Math.min(1, t * 12).toFixed(2) : "1");
+          }
+
+          // Click each time the ball crosses into a new pocket, like it's
+          // catching on the frets. Angular speed is the derivative of
+          // easeOutQuart, so it naturally rattles fast at launch and slows
+          // into a few final clunks as the ball settles. Early on the ball
+          // crosses several pockets per frame; a hard minimum gap between
+          // tones stops those from overlapping into one continuous shrill
+          // tone and keeps every tick audible as a distinct click.
+          const pocketIdx = Math.floor(Math.abs(aDeg) / ANG);
+          if (pocketIdx !== lastPocketRef.current && now - lastTickTimeRef.current >= MIN_TICK_GAP_MS) {
+            lastPocketRef.current = pocketIdx;
+            lastTickTimeRef.current = now;
+            const speed = Math.min(1, 4 * Math.pow(1 - t, 3));
+            playTone({
+              freq: 260 + speed * 160,
+              duration: 0.03 + speed * 0.015,
+              volume: 0.015 + speed * 0.035,
+              type: "triangle",
+            });
           }
 
           if (t < 1) {
@@ -252,7 +279,7 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
   }), []);
 
   return (
-    <svg viewBox="0 0 300 300" className="w-full max-w-[400px]">
+    <svg viewBox="0 -10 300 310" className="w-full max-w-[400px]">
       <defs>
         <radialGradient id="rw-wood" cx="40%" cy="35%" r="65%">
           <stop offset="0%" stopColor="#a06030" />
@@ -341,7 +368,7 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
       <circle ref={ballRef} cx={CX} cy={CY - BALL_POCKET_R} r={BALL_R} fill="url(#rw-ball)" opacity={0} />
 
       {/* Fixed top pointer */}
-      <polygon points="150,5 143,21 157,21" fill="#fbbf24" />
+      <polygon points="150,-5 143,11 157,11" fill="#fbbf24" />
     </svg>
   );
 });
@@ -369,6 +396,10 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
   const [winId, setWinId] = useState(0);
   const spinRef = useRef(false);
   const wheelRef = useRef<WheelHandle>(null);
+
+  useEffect(() => {
+    if (winId > 0) playWinChime();
+  }, [winId]);
 
   function changeTier(t: Tier) {
     setTier(t);
@@ -544,9 +575,12 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
           <p className="font-bold text-base">Roulette</p>
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
-        <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <MuteButton />
+          <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Win celebration — plays once per winning spin, then fades on its own.
@@ -771,9 +805,13 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
                 "Click the table to place bets"
               )}
             </p>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
               {Object.keys(previousBets).length > 0 && !spinning && betTotal === 0 && (
-                <Button variant="outline" size="sm" onClick={rebet}>
+                <Button
+                  onClick={rebet}
+                  className="h-12 px-6 rounded-xl bg-gradient-to-b from-sky-400 to-sky-600 text-white font-extrabold tracking-wide border border-sky-300/50 shadow-[0_4px_14px_rgba(56,189,248,0.45)] hover:from-sky-300 hover:to-sky-500 hover:shadow-[0_6px_20px_rgba(56,189,248,0.65)] active:scale-95 transition-all"
+                >
+                  <RotateCcw className="h-4 w-4" />
                   Rebet
                 </Button>
               )}
@@ -783,12 +821,20 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
                 </Button>
               )}
               <Button
-                size="sm"
                 onClick={spin}
                 disabled={spinning || betTotal === 0}
-                className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold border-0 disabled:opacity-50"
+                className={`h-14 px-10 rounded-xl bg-gradient-to-b from-yellow-300 to-amber-500 text-black font-black text-lg tracking-[0.15em] border border-yellow-200/70 shadow-[0_6px_20px_rgba(251,191,36,0.55)] hover:from-yellow-200 hover:to-amber-400 hover:shadow-[0_8px_26px_rgba(251,191,36,0.75)] active:scale-95 transition-all disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100 disabled:from-yellow-300 disabled:to-amber-500 ${
+                  !spinning && betTotal > 0 ? "rw-spin-btn" : ""
+                }`}
               >
-                {spinning ? "Spinning…" : "SPIN"}
+                {spinning ? (
+                  "Spinning…"
+                ) : (
+                  <>
+                    <Play className="h-5 w-5 fill-black" />
+                    SPIN
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -866,8 +912,16 @@ function RouletteStyles() {
         100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--rw-rot)) translateY(var(--rw-dist)) rotate(200deg) scale(0.4); }
       }
 
+      .rw-spin-btn {
+        animation: rwSpinBtnPulse 1800ms ease-in-out infinite;
+      }
+      @keyframes rwSpinBtnPulse {
+        0%, 100% { box-shadow: 0 6px 20px rgba(251,191,36,0.55), 0 0 0 0 rgba(251,191,36,0.5); }
+        50%      { box-shadow: 0 8px 26px rgba(251,191,36,0.8), 0 0 0 7px rgba(251,191,36,0); }
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .rw-win-overlay, .rw-win-card, .rw-win-glow, .rw-win-shine::after, .rw-particle {
+        .rw-win-overlay, .rw-win-card, .rw-win-glow, .rw-win-shine::after, .rw-particle, .rw-spin-btn {
           animation: none;
         }
       }

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Coins, RotateCcw } from "lucide-react";
 import { Button } from "../ui/button";
+import { MuteButton } from "../ui/MuteButton";
 import { useBlackjack } from "../../hooks/useBlackjack";
 import { formatChips } from "../../lib/utils";
+import { playCardFlick } from "../../lib/sound";
 import { CHIPS_BY_TIER, formatChipLabel, roundMoney, TIER_LABELS, type ChipDef, type Tier } from "../../lib/stakeTiers";
-import type { Card, Move, BlackjackOutcome } from "../../types";
+import type { Card, Move, BlackjackOutcome, BlackjackState } from "../../types";
 
 const SUIT_GLYPH: Record<Card["suit"], string> = { S: "♠", H: "♥", D: "♦", C: "♣" };
 const RED_SUITS: Card["suit"][] = ["H", "D"];
@@ -154,6 +156,31 @@ export function Blackjack({
   const { state, loading, error, start, act, reset } = useBlackjack(casinoId);
   const [bet, setBet] = useState(0);
   const [tier, setTier] = useState<Tier>("medium");
+  const prevStateRef = useRef<BlackjackState | null>(null);
+
+  // Diff against the previous round state to figure out what just happened —
+  // the server returns each new state atomically, so "new card" / "dealer
+  // flip" / "dealer draw" are inferred from what changed rather than pushed
+  // as discrete events. The hole-card reveal and a dealer draw sound
+  // identical (same physical motion), so both just count as new dealer
+  // cards. Sounds are staggered to roughly track the felt's per-card deal
+  // animation (bj-card-deal, 110ms stagger).
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    if (state) {
+      const prevPlayerCards = prev ? prev.hands.reduce((s, h) => s + h.cards.length, 0) : 0;
+      const newPlayerCards = state.hands.reduce((s, h) => s + h.cards.length, 0);
+      const playerCardsAdded = Math.max(0, newPlayerCards - prevPlayerCards);
+
+      const prevDealerVisible = prev?.dealer.cards.length ?? 0;
+      const dealerNewCards = Math.max(0, state.dealer.cards.length - prevDealerVisible);
+
+      let step = 0;
+      for (let i = 0; i < playerCardsAdded; i++) playCardFlick({ delay: step++ * 0.12 });
+      for (let i = 0; i < dealerNewCards; i++) playCardFlick({ delay: step++ * 0.13 });
+    }
+    prevStateRef.current = state;
+  }, [state]);
 
   const roundActive = state !== null && state.status !== "complete";
   const isComplete = state !== null && state.status === "complete";
@@ -204,11 +231,14 @@ export function Blackjack({
             <ArrowLeft className="h-4 w-4" />
             Leave
           </button>
-          <div className="flex items-center gap-2 rounded-full border border-amber-300/40 bg-black/40 px-4 py-1.5 backdrop-blur">
-            <Coins className="h-4 w-4 text-amber-300" />
-            <span className="font-semibold tracking-wide text-amber-100" style={{ fontFamily: "'Cinzel', serif" }}>
-              {formatChips(displayBalance)}
-            </span>
+          <div className="flex items-center gap-2">
+            <MuteButton className="rounded-full border border-amber-300/30 bg-black/30 p-2 text-amber-100/80 backdrop-blur transition-colors hover:bg-black/50 hover:text-amber-100" />
+            <div className="flex items-center gap-2 rounded-full border border-amber-300/40 bg-black/40 px-4 py-1.5 backdrop-blur">
+              <Coins className="h-4 w-4 text-amber-300" />
+              <span className="font-semibold tracking-wide text-amber-100" style={{ fontFamily: "'Cinzel', serif" }}>
+                {formatChips(displayBalance)}
+              </span>
+            </div>
           </div>
         </header>
 

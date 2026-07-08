@@ -2,7 +2,9 @@ import { useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
+import { MuteButton } from "../ui/MuteButton";
 import { formatChips } from "../../lib/utils";
+import { playTone } from "../../lib/sound";
 import { useDice } from "../../hooks/useDice";
 import type { DiceDirection } from "../../types";
 
@@ -59,6 +61,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
   const [winId, setWinId] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+  const lastTickPctRef = useRef<number | null>(null);
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const winChance = winChanceFor(target, direction);
@@ -71,11 +74,22 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
     setTarget(winChanceFor(wc, direction));
   }
 
+  // Soft synthesized tick (no audio asset) — pitch rises slightly with
+  // position so dragging left-to-right has a subtle "scale" feel.
+  function playSlideTick(pct: number) {
+    playTone({ freq: 500 + pct * 4, duration: 0.045, volume: 0.06 });
+  }
+
   function updateFromTrackClientX(clientX: number) {
     const track = trackRef.current;
     if (!track) return;
     const rect = track.getBoundingClientRect();
     const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const roundedPct = Math.round(pct * 100);
+    if (lastTickPctRef.current !== roundedPct) {
+      lastTickPctRef.current = roundedPct;
+      playSlideTick(roundedPct);
+    }
     setTargetClamped(roundMoney(pct * 100));
   }
 
@@ -147,9 +161,12 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
           <p className="font-bold text-base">Dice</p>
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
-        <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <MuteButton />
+          <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Win celebration — plays once per winning roll (~950ms), then fades out
