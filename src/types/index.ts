@@ -118,3 +118,19 @@ export interface ChipTransaction {
   balance_after: number;
   created_at: string;
 }
+
+export type MinesOutcome = "cashed_out" | "hit_mine" | "cleared";
+
+export interface MinesState {
+  roundId: string;
+  status: "active" | "complete";
+  minesCount: number;
+  bet: number;
+  revealed: number[];
+  mines: number[] | null;
+  outcome?: MinesOutcome;
+  multiplier: number;
+  nextMultiplier: number | null;
+  payout: number | null;
+  balance: number;
+}

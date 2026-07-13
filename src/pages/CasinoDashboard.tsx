@@ -17,14 +17,15 @@ import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino } from "../t
 import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
 import { Dice } from "../components/games/Dice";
+import { Mines } from "../components/games/Mines";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
-const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice"]);
-const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice"];
+const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines"]);
+const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines"];
 
 type OwnerTab = "games" | "members" | "stats" | "trades" | "settings";
 
@@ -351,6 +352,15 @@ export function CasinoDashboard() {
               onExit={() => setActiveGame(null)}
             />
           )}
+          {activeGame.game_type_id === "mines" && (
+            <Mines
+              casinoId={currentCasino.id}
+              balance={membership?.balance ?? 0}
+              minBet={gameTypeMap["mines"]?.min_bet ?? 100}
+              maxBet={gameTypeMap["mines"]?.max_bet ?? 50000}
+              onExit={() => setActiveGame(null)}
+            />
+          )}
         </Modal>
       )}
 
@@ -416,6 +426,7 @@ const SETTINGS_GAME_ART: Record<string, string> = {
   slots: "/games/slots.svg",
   roulette: "/games/roulette.svg",
   dice: "/games/dice.svg",
+  mines: "/games/mines.svg",
 };
 
 function SettingsTab({

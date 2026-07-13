@@ -56,6 +56,12 @@ export function playWinChime(): void {
   });
 }
 
+// Low descending thud for a loss (e.g. hitting a mine).
+export function playLoseThud(): void {
+  playTone({ freq: 180, duration: 0.35, volume: 0.12, type: "sawtooth" });
+  playTone({ freq: 90, duration: 0.4, volume: 0.1, type: "sine", delay: 0.05 });
+}
+
 function createNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
   const frameCount = Math.max(1, Math.ceil(ctx.sampleRate * duration));
   const buffer = ctx.createBuffer(1, frameCount, ctx.sampleRate);

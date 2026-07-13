@@ -6,6 +6,7 @@ const GAME_ART: Record<string, string> = {
   roulette: "/games/roulette.svg",
   crash: "/games/crash.svg",
   dice: "/games/dice.svg",
+  mines: "/games/mines.svg",
 };
 
 interface Props {
