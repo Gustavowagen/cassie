@@ -2,6 +2,11 @@ import { supabase } from "../lib/supabase";
 import type { Casino, CasinoMemberWithProfile, ChipTransaction } from "../types";
 import { slugify } from "../lib/utils";
 
+export interface PlatformStats {
+  casinoCount: number;
+  playerCount: number;
+}
+
 export function useCasino() {
   async function createCasino(data: {
     name: string;
@@ -192,10 +197,7 @@ export function useCasino() {
     return (data ?? []) as ChipTransaction[];
   }
 
-  async function getPlatformStats(): Promise<{
-    casinoCount: number;
-    playerCount: number;
-  }> {
+  async function getPlatformStats(): Promise<PlatformStats> {
     const [casinos, profiles] = await Promise.all([
       supabase
         .from("casinos")

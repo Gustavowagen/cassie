@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { CasinoTile } from "../components/CasinoTile";
-import { useCasino } from "../hooks/useCasino";
+import { useCasino, type PlatformStats } from "../hooks/useCasino";
 import { useAuthStore } from "../stores/authStore";
 import type { Casino } from "../types";
 
@@ -20,11 +20,6 @@ const TEASER_COUNT = 6;
 // Shared frosted-glass surface used across every card on the homepage.
 const GLASS = "bg-white/5 backdrop-blur-xl border border-white/10";
 const CTA_GRADIENT = "bg-gradient-to-r from-primary to-indigo-400 hover:opacity-90";
-
-interface PlatformStats {
-  casinoCount: number;
-  playerCount: number;
-}
 
 export function Home() {
   const [allCasinos, setAllCasinos] = useState<Casino[]>([]);
@@ -168,22 +163,18 @@ export function Home() {
         {(loading || stats) && (
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className={`rounded-xl ${GLASS} p-4 text-center`}>
-              {loading ? (
+              {loading || !stats ? (
                 <div className="h-7 mx-auto w-12 rounded bg-white/10 animate-pulse" />
               ) : (
-                <div className="text-2xl font-bold">
-                  {stats?.casinoCount ?? 0}
-                </div>
+                <div className="text-2xl font-bold">{stats.casinoCount}</div>
               )}
               <div className="text-xs text-muted-foreground mt-1">Casinos</div>
             </div>
             <div className={`rounded-xl ${GLASS} p-4 text-center`}>
-              {loading ? (
+              {loading || !stats ? (
                 <div className="h-7 mx-auto w-12 rounded bg-white/10 animate-pulse" />
               ) : (
-                <div className="text-2xl font-bold">
-                  {stats?.playerCount ?? 0}
-                </div>
+                <div className="text-2xl font-bold">{stats.playerCount}</div>
               )}
               <div className="text-xs text-muted-foreground mt-1">Players</div>
             </div>
