@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Dice5, Spade, LogIn, Search, Plus } from "lucide-react";
+import { Dice5, Spade, LogIn, Plus, Compass } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { CasinoTile } from "../components/CasinoTile";
 import { useCasino } from "../hooks/useCasino";
 import { useAuthStore } from "../stores/authStore";
 import type { Casino } from "../types";
 
+const TEASER_COUNT = 6;
+
 export function Home() {
   const [allCasinos, setAllCasinos] = useState<Casino[]>([]);
   const [myCasinos, setMyCasinos] = useState<Casino[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const { listCasinos, listMyCasinos } = useCasino();
   const { user, profile } = useAuthStore();
@@ -24,7 +23,7 @@ export function Home() {
     let cancelled = false;
     setLoading(true);
     const tasks: Promise<void>[] = [
-      listCasinos().then((data) => {
+      listCasinos(TEASER_COUNT * 4).then((data) => {
         if (!cancelled) setAllCasinos(data);
       }),
     ];
@@ -45,22 +44,16 @@ export function Home() {
     };
   }, [user?.id]);
 
-  // Debounce search input (~150ms).
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 150);
-    return () => clearTimeout(t);
-  }, [search]);
-
   const myIds = useMemo(
     () => new Set(myCasinos.map((c) => c.id)),
     [myCasinos],
   );
 
-  const filtered = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase();
-    if (!q) return allCasinos;
-    return allCasinos.filter((c) => c.name.toLowerCase().includes(q));
-  }, [allCasinos, debouncedSearch]);
+  // Small teaser of casinos not yet joined — full search/pagination lives on /browse.
+  const teaser = useMemo(
+    () => allCasinos.filter((c) => !myIds.has(c.id)).slice(0, TEASER_COUNT),
+    [allCasinos, myIds],
+  );
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "";
 
@@ -75,7 +68,8 @@ export function Home() {
                 Welcome back, {displayName}
               </h1>
               <p className="text-muted-foreground text-lg max-w-xl">
-                Jump back into your casinos or start a new one.
+                The tables are hot and the chips are stacked — jump back into
+                your casinos, or go find your next big win.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button size="lg" onClick={() => navigate("/create")}>
@@ -84,13 +78,9 @@ export function Home() {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={() => {
-                    document
-                      .getElementById("discover")
-                      ?.scrollIntoView({ behavior: "smooth" });
-                  }}
+                  onClick={() => navigate("/browse")}
                 >
-                  Browse
+                  <Compass className="h-4 w-4 mr-1" /> Browse
                 </Button>
               </div>
             </>
@@ -181,18 +171,15 @@ export function Home() {
       )}
 
       {/* DISCOVER */}
-      <section id="discover" className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
           <h2 className="text-xl font-bold">Discover</h2>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search casinos"
-              className="pl-9"
-            />
-          </div>
+          <Link
+            to="/browse"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Browse all casinos →
+          </Link>
         </div>
 
         {loading ? (
@@ -208,14 +195,14 @@ export function Home() {
               </Button>
             )}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : teaser.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No casinos match "{debouncedSearch}".
+            You've joined every casino there is — nice work.
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filtered.map((c) => (
-              <CasinoTile key={c.id} casino={c} isMember={myIds.has(c.id)} />
+            {teaser.map((c) => (
+              <CasinoTile key={c.id} casino={c} />
             ))}
           </div>
         )}

@@ -5,7 +5,13 @@
       "mcp__claude_ai_Supabase__list_projects",
       "mcp__claude_ai_Supabase__get_publishable_keys",
       "mcp__claude_ai_Supabase__get_project_url",
-      "mcp__claude_ai_Supabase__list_tables"
+      "mcp__claude_ai_Supabase__list_tables",
+      "PowerShell(npm run *)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_run_code_unsafe"
     ]
   }
 }

@@ -46,14 +46,60 @@ export function useCasino() {
     return data;
   }
 
-  async function listCasinos(): Promise<Casino[]> {
-    const { data, error } = await supabase
+  async function listCasinos(limit?: number): Promise<Casino[]> {
+    let query = supabase
       .from("casinos")
       .select("*")
       .eq("is_active", true)
       .order("created_at", { ascending: false });
+    if (limit) query = query.limit(limit);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as Casino[];
+  }
+
+  // Paginated, searchable list of casinos the user hasn't joined yet — used by
+  // the /browse page so we never pull the whole casinos table client-side.
+  async function listJoinableCasinos(params: {
+    userId: string;
+    search?: string;
+    offset: number;
+    limit: number;
+  }): Promise<{ casinos: Casino[]; hasMore: boolean }> {
+    const { userId, search, offset, limit } = params;
+
+    const { data: memberRows, error: memberError } = await supabase
+      .from("casino_members")
+      .select("casino_id")
+      .eq("user_id", userId);
+    if (memberError) throw memberError;
+    const joinedIds = (memberRows ?? []).map((r: any) => r.casino_id);
+
+    let query = supabase
+      .from("casinos")
+      .select("*")
+      .eq("is_active", true);
+
+    if (joinedIds.length > 0) {
+      query = query.not("id", "in", `(${joinedIds.join(",")})`);
+    }
+
+    const term = search?.trim();
+    if (term) {
+      // Double-quote the value per PostgREST filter syntax so commas/parens
+      // in the search term don't get parsed as `.or()` delimiters.
+      const escaped = term.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      query = query.or(
+        `name.ilike."%${escaped}%",join_code.ilike."%${escaped}%"`
+      );
+    }
+
+    const { data, error } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (error) throw error;
+    const casinos = (data ?? []) as Casino[];
+    return { casinos, hasMore: casinos.length === limit };
   }
 
   async function getCasinoBySlug(slug: string): Promise<Casino | null> {
@@ -150,6 +196,7 @@ export function useCasino() {
     createCasino,
     joinCasino,
     listCasinos,
+    listJoinableCasinos,
     listMyCasinos,
     getCasinoBySlug,
     getCasinoMembers,

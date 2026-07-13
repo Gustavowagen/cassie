@@ -5,6 +5,7 @@ import { AuthGuard } from "./components/AuthGuard";
 import { Home } from "./pages/Home";
 import { Auth } from "./pages/Auth";
 import { CreateCasino } from "./pages/CreateCasino";
+import { BrowseCasinos } from "./pages/BrowseCasinos";
 import { CasinoDashboard } from "./pages/CasinoDashboard";
 import { ConfirmEmail } from "./pages/ConfirmEmail";
 import { SetupNickname } from "./pages/SetupNickname";
@@ -23,6 +24,14 @@ function AppRoutes() {
         element={
           <AuthGuard>
             <CreateCasino />
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/browse"
+        element={
+          <AuthGuard>
+            <BrowseCasinos />
           </AuthGuard>
         }
       />

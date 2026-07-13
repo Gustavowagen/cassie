@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Copy, Check, Users, BarChart2, X, ChevronRight, Gamepad2, Settings, Trash2, ArrowLeftRight } from "lucide-react";
+import { Copy, Check, Users, BarChart2, X, ChevronRight, Gamepad2, Settings, Trash2, ArrowLeftRight, ArrowLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -154,6 +154,15 @@ export function CasinoDashboard() {
 
   return (
     <div className="space-y-6">
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to Casinos
+      </button>
+
       {/* Casino header */}
       <div
         className="rounded-2xl overflow-hidden border border-border"
@@ -229,7 +238,7 @@ export function CasinoDashboard() {
       {/* Management tabs — visible to creator and admins */}
       {canManageMembers && (
         <div>
-          <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto">
+          <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto overflow-y-hidden">
             {(
               [
                 { id: "games", label: "Games", icon: Gamepad2 },
