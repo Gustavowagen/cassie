@@ -192,6 +192,25 @@ export function useCasino() {
     return (data ?? []) as ChipTransaction[];
   }
 
+  async function getPlatformStats(): Promise<{
+    casinoCount: number;
+    playerCount: number;
+  }> {
+    const [casinos, profiles] = await Promise.all([
+      supabase
+        .from("casinos")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true),
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+    ]);
+    if (casinos.error) throw casinos.error;
+    if (profiles.error) throw profiles.error;
+    return {
+      casinoCount: casinos.count ?? 0,
+      playerCount: profiles.count ?? 0,
+    };
+  }
+
   return {
     createCasino,
     joinCasino,
@@ -205,5 +224,6 @@ export function useCasino() {
     setMemberRole,
     getMemberProfitLoss,
     listChipTransactions,
+    getPlatformStats,
   };
 }
