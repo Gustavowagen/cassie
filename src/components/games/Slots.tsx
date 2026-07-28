@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
+import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { formatChips } from "../../lib/utils";
 import { playWinChime } from "../../lib/sound";
 import { useSlots } from "../../hooks/useSlots";
@@ -132,6 +133,7 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
         <div className="flex items-center gap-3">
+          <BackdropToggleButton />
           <MuteButton />
           <button
             type="button"
