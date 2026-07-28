@@ -119,6 +119,28 @@ export interface ChipTransaction {
   created_at: string;
 }
 
+export type SlotSymbolId = "dot" | "square" | "diamond" | "star" | "seven";
+
+export interface SlotReel {
+  top: SlotSymbolId;
+  mid: SlotSymbolId;
+  bottom: SlotSymbolId;
+}
+
+export interface SlotWin {
+  symbol: SlotSymbolId;
+  count: 3 | 4 | 5;
+}
+
+// Mirror of the edge function's response (supabase/functions/slots/engine.ts).
+export interface SlotsResult {
+  reels: SlotReel[];
+  win: SlotWin | null;
+  bet: number;
+  payout: number;
+  balance: number;
+}
+
 export type MinesOutcome = "cashed_out" | "hit_mine" | "cleared";
 
 export interface MinesState {
