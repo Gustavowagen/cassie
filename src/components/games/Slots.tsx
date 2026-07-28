@@ -123,7 +123,7 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
   return (
     <div
       className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
-      style={{ width: "min(98vw, 1000px)", height: "min(90vh, 640px)" }}
+      style={{ width: "min(96vw, 1360px)", height: "min(92vh, 800px)" }}
     >
       <SlotsStyles />
       <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
@@ -261,7 +261,10 @@ function SlotsStyles() {
   return (
     <style>{`
       .sl-reels-wrap {
-        --cell: 72px;
+        /* Grows with the viewport (not just the modal) so the reels visibly
+           fill more of the popup's empty space on larger screens, floored
+           for mobile and capped so cells stay proportioned at 4K. */
+        --cell: clamp(64px, 6.5vw, 108px);
         position: relative;
         padding: 14px;
         border-radius: 16px;
