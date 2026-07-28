@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
+import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { supabase } from "../../lib/supabase";
 import { formatChips } from "../../lib/utils";
 import { CHIPS_BY_TIER, formatChipLabel, TIER_LABELS, type Tier, type ChipDef } from "../../lib/stakeTiers";
@@ -54,6 +55,12 @@ const INSIDE_SPOTS: Spot[] = (() => {
     }
   return spots;
 })();
+
+// Same spots, transposed for the portrait board layout (see `verticalBoard`
+// below): the 3-wide/12-tall grid swaps which axis is "3" and which is "12",
+// so a spot's shared-edge position swaps with it. The bet keys/numbers are
+// unchanged — only where the hotspot/chip render.
+const INSIDE_SPOTS_VERTICAL: Spot[] = INSIDE_SPOTS.map((s) => ({ ...s, cx: s.cy, cy: s.cx }));
 
 // Every denomination across the stake tiers, ascending — used to colour a
 // placed chip by its value the way real casino chips are keyed to a colour.
@@ -173,7 +180,7 @@ export interface WheelHandle {
   spinTo(num: number): Promise<void>;
 }
 
-const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_props, ref) {
+const RouletteWheelSVG = forwardRef<WheelHandle, { sizeClassName?: string }>(function RouletteWheelSVG({ sizeClassName }, ref) {
   const rotorRef = useRef<SVGGElement>(null);
   const ballRef = useRef<SVGCircleElement>(null);
   const rotorAngle = useRef(0);
@@ -279,7 +286,7 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
   }), []);
 
   return (
-    <svg viewBox="0 -10 300 310" className="w-full max-w-[400px]">
+    <svg viewBox="0 -10 300 310" className={sizeClassName ?? "w-full max-w-[150px] sm:max-w-[220px] md:max-w-[clamp(320px,25vw,520px)]"}>
       <defs>
         <radialGradient id="rw-wood" cx="40%" cy="35%" r="65%">
           <stop offset="0%" stopColor="#a06030" />
@@ -373,6 +380,24 @@ const RouletteWheelSVG = forwardRef<WheelHandle>(function RouletteWheelSVG(_prop
   );
 });
 
+// Tracks whether the board's available width has dropped below `breakpointPx`
+// — below that, columns in the normal 12-wide layout get too narrow for
+// split/corner hotspots to stay tappable without swallowing straight-up bets,
+// so the table switches to a portrait 3-wide/12-tall layout instead.
+function useNarrowBoard(breakpointPx: number): boolean {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= breakpointPx
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpointPx}px)`);
+    const onChange = () => setNarrow(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [breakpointPx]);
+  return narrow;
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 interface Props {
   casinoId: string;
@@ -396,6 +421,7 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
   const [winId, setWinId] = useState(0);
   const spinRef = useRef(false);
   const wheelRef = useRef<WheelHandle>(null);
+  const verticalBoard = useNarrowBoard(596);
 
   useEffect(() => {
     if (winId > 0) playWinChime();
@@ -444,6 +470,11 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
     setResult(null);
     setPayout(null);
 
+    // The bet is lost the instant it's placed, win or lose — the wheel spin
+    // is cosmetic and must never gate this deduction. Any profit is credited
+    // back only once the ball actually lands.
+    setLocalBalance((b) => b - total);
+
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("roulette", {
         body: { action: "spin", casino_id: casinoId, bets },
@@ -473,13 +504,16 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
       // Run the wheel + ball animation; resolves once the ball has settled.
       await wheelRef.current?.spinTo(r);
 
+      // Only now reveal the true outcome — this is what credits any payout.
       setLocalBalance(newBalance);
+
       setResult(r);
       setPayout(winAmount);
       setPreviousBets(bets);
       setBets({});
       if (winAmount > 0) setWinId((id) => id + 1);
     } catch (err) {
+      setLocalBalance((b) => b + total); // roll back the optimistic deduction
       setError(err instanceof Error ? err.message : "Spin failed");
     } finally {
       setSpinning(false);
@@ -489,6 +523,28 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
 
   const betTotal = totalBet(bets);
   const resultColor = result !== null ? numColor(result) : null;
+
+  // Shared between the actions row (desktop/landscape) and the dedicated row
+  // under the wheel on the portrait board (see `verticalBoard`) so it never
+  // needs to duplicate the click/disabled/pulse logic.
+  const spinButton = (
+    <Button
+      onClick={spin}
+      disabled={spinning || betTotal === 0}
+      className={`h-14 px-10 rounded-xl bg-gradient-to-b from-yellow-300 to-amber-500 text-black font-black text-lg tracking-[0.15em] border border-yellow-200/70 shadow-[0_6px_20px_rgba(251,191,36,0.55)] hover:from-yellow-200 hover:to-amber-400 hover:shadow-[0_8px_26px_rgba(251,191,36,0.75)] active:scale-95 transition-all disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100 disabled:from-yellow-300 disabled:to-amber-500 ${
+        !spinning && betTotal > 0 ? "rw-spin-btn" : ""
+      }`}
+    >
+      {spinning ? (
+        "Spinning…"
+      ) : (
+        <>
+          <Play className="h-5 w-5 fill-black" />
+          SPIN
+        </>
+      )}
+    </Button>
+  );
 
   // ── Cell renderers ────────────────────────────────────────────────────────
 
@@ -565,7 +621,14 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
   return (
     <div
       className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
-      style={{ width: "min(98vw, 1200px)", height: "min(90vh, 800px)" }}
+      style={{
+        width: "min(98vw, 1360px)",
+        // The portrait board is much taller than the landscape one (12 stacked
+        // rows vs. 3) and the wheel renders larger on that layout too, so it
+        // gets nearly the full viewport before falling back to the internal
+        // (main body) scroll to reach the rest.
+        height: verticalBoard ? "min(99vh, 1040px)" : "min(92vh, 860px)",
+      }}
     >
       <RouletteStyles />
 
@@ -576,9 +639,15 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
         <div className="flex items-center gap-3">
+          <BackdropToggleButton />
           <MuteButton />
-          <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
-            <X className="h-5 w-5" />
+          <button
+            type="button"
+            onClick={onExit}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3.5 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+          >
+            <X className="h-4 w-4" />
+            Exit
           </button>
         </div>
       </div>
@@ -614,10 +683,24 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
 
       {/* Main body */}
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
-        {/* Wheel panel */}
-        <div className="flex items-center justify-center bg-zinc-950 p-6 md:w-64 lg:w-80 xl:w-[420px] shrink-0">
-          <RouletteWheelSVG ref={wheelRef} />
+        {/* Wheel panel — capped small on mobile (stacked layout) so it never
+            crowds out the betting board; unconstrained from md: up, where the
+            wheel sits in its own side column instead. */}
+        <div className="flex items-center justify-center bg-zinc-950 p-2 sm:p-4 md:p-6 md:w-[clamp(256px,28vw,560px)] shrink-0">
+          <RouletteWheelSVG
+            ref={wheelRef}
+            sizeClassName={verticalBoard ? "w-full max-w-[260px]" : undefined}
+          />
         </div>
+
+        {/* Portrait layout: SPIN sits in its own row right under the wheel and
+            above the felt, so it's always reachable without scrolling down
+            past the (much taller) board, and never overlaps a bet cell. */}
+        {verticalBoard && (
+          <div className="flex justify-center px-3 pt-2 shrink-0">
+            {spinButton}
+          </div>
+        )}
 
         {/* Table + controls */}
         <div className="flex flex-col flex-1 p-3 min-w-0 min-h-0">
@@ -658,131 +741,266 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
             ))}
           </div>
 
-          {/* Felt table — fixed aspect ratio so cells stay proportioned like a real board, centered in the available space */}
-          <div className="flex-1 min-h-0 flex items-center justify-center">
+          {/* Felt table. Below `verticalBoard`'s breakpoint (596px) the normal 12-wide layout would
+              squeeze number columns down to the point where the fixed-size split/corner hotspots
+              overlap neighbouring numbers and swallow straight-up taps, so it switches to a portrait
+              3-wide/12-tall grid instead — same bet keys and hotspot math, transposed row/column roles
+              (see `INSIDE_SPOTS_VERTICAL`). The landscape layout keeps its min-h/minWidth floor + native
+              horizontal scroll as a fallback for the range just above that breakpoint. */}
+          <div
+            className={
+              verticalBoard
+                ? // No min-h-0 here: the board's fixed-px rows must never be flex-shrunk below
+                  // their content size, or the actions row below would overlap the overflow
+                  // (a shrunk flex box doesn't reserve space for content painted past its edge).
+                  "flex-1 flex items-start justify-center"
+                : "flex-1 min-h-[260px] w-full flex items-center justify-start overflow-x-auto"
+            }
+          >
             <div
-              className="relative rounded-xl p-2"
-              style={{
-                background: "radial-gradient(130% 150% at 30% 10%, #1f7a37 0%, #0d3d1a 75%, #0a3016 100%)",
-                boxShadow:
-                  "0 0 0 1px rgba(250,204,21,0.4), 0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
-                aspectRatio: "1.85 / 1",
-                width: "100%",
-                maxHeight: "100%",
-              }}
+              className="relative rounded-xl p-2 shrink-0"
+              style={
+                verticalBoard
+                  ? {
+                      background: "radial-gradient(130% 150% at 30% 10%, #1f7a37 0%, #0d3d1a 75%, #0a3016 100%)",
+                      boxShadow:
+                        "0 0 0 1px rgba(250,204,21,0.4), 0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
+                      width: "100%",
+                      maxWidth: 420,
+                      margin: "0 auto",
+                    }
+                  : {
+                      background: "radial-gradient(130% 150% at 30% 10%, #1f7a37 0%, #0d3d1a 75%, #0a3016 100%)",
+                      boxShadow:
+                        "0 0 0 1px rgba(250,204,21,0.4), 0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)",
+                      aspectRatio: "1.85 / 1",
+                      width: "100%",
+                      minWidth: 560,
+                      maxHeight: "100%",
+                    }
+              }
             >
-              <div
-                className="relative h-full overflow-hidden rounded-lg"
-                style={{
-                  background: "rgba(255,255,255,0.22)",
-                  display: "grid",
-                  gridTemplateColumns: "40px repeat(12, 1fr) 32px",
-                  gridTemplateRows: "repeat(6, 1fr)",
-                  gap: "1.5px",
-                }}
-              >
-              {/* Row 1: 1 TO 18 / 19 TO 36 header */}
-              <div style={{ gridRow: 1, gridColumn: 1, background: FELT }} />
-              <OutCell betKey="low"  label="1 TO 18"  className="bg-[#1a6b2e] text-xs" style={{ gridRow: 1, gridColumn: "2 / 8" }} />
-              <OutCell betKey="high" label="19 TO 36" className="bg-[#1a6b2e] text-xs" style={{ gridRow: 1, gridColumn: "8 / 14" }} />
-              <div style={{ gridRow: 1, gridColumn: 14, background: FELT }} />
+              {verticalBoard ? (
+                <div
+                  className="relative overflow-hidden rounded-lg"
+                  style={{
+                    background: "rgba(255,255,255,0.22)",
+                    display: "grid",
+                    gridTemplateColumns: "minmax(28px, 40px) repeat(3, minmax(0, 1fr)) minmax(28px, 40px)",
+                    gridTemplateRows: "36px repeat(12, 38px) 34px 44px",
+                    gap: "1.5px",
+                  }}
+                >
+                  {/* Row 1: 00 / 0 header bar (00 gets 1/3 width, 0 gets 2/3 — mirrors the horizontal layout's split) */}
+                  <div style={{ gridRow: 1, gridColumn: 1, background: FELT }} />
+                  <ZeroCell betKey="n37" label="00" style={{ gridRow: 1, gridColumn: 2 }} />
+                  <ZeroCell betKey="n0" label="0" style={{ gridRow: 1, gridColumn: "3 / 5" }} />
+                  <div style={{ gridRow: 1, gridColumn: 5, background: FELT }} />
 
-              {/* Row 2: 00 + numbers [3 6 9…36] + 2:1 */}
-              <ZeroCell betKey="n37" label="00" style={{ gridRow: 2, gridColumn: 1 }} />
-              {NUMBER_ROWS[0].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 2, gridColumn: i + 2 }} />)}
-              <OutCell betKey="c1" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 2, gridColumn: 14 }} />
+                  {/* 12 number rows: row i = old column i, its 3 cells = old NUMBER_ROWS[j][i] */}
+                  {NUMBER_ROWS.flatMap((row, j) =>
+                    row.map((n, i) => <NumCell key={n} n={n} style={{ gridRow: i + 2, gridColumn: j + 2 }} />)
+                  )}
 
-              {/* Row 3: 0 (spans rows 3–4) + numbers [2 5 8…35] + 2:1 */}
-              <ZeroCell betKey="n0" label="0" style={{ gridRow: "3 / 5", gridColumn: 1 }} />
-              {NUMBER_ROWS[1].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 3, gridColumn: i + 2 }} />)}
-              <OutCell betKey="c2" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 3, gridColumn: 14 }} />
+                  {/* Left edge: 1-18 / 19-36 (was the top header row, now spans the number rows instead of columns) */}
+                  <OutCell betKey="low"  label="1 TO 18"  vertical className="bg-[#1a6b2e] text-xs" style={{ gridRow: "2 / 8", gridColumn: 1 }} />
+                  <OutCell betKey="high" label="19 TO 36" vertical className="bg-[#1a6b2e] text-xs" style={{ gridRow: "8 / 14", gridColumn: 1 }} />
 
-              {/* Row 4: numbers [1 4 7…34] + 2:1 */}
-              {NUMBER_ROWS[2].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 4, gridColumn: i + 2 }} />)}
-              <OutCell betKey="c3" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 4, gridColumn: 14 }} />
+                  {/* Right edge: dozens (was the bottom row, now spans the number rows instead of columns) */}
+                  <OutCell betKey="d1" label="1 TO 12"  vertical className="bg-[#1a6b2e]" style={{ gridRow: "2 / 6",  gridColumn: 5 }} />
+                  <OutCell betKey="d2" label="13 TO 24" vertical className="bg-[#1a6b2e]" style={{ gridRow: "6 / 10", gridColumn: 5 }} />
+                  <OutCell betKey="d3" label="25 TO 36" vertical className="bg-[#1a6b2e]" style={{ gridRow: "10 / 14", gridColumn: 5 }} />
 
-              {/* Inside-bet layer over the 3×12 number grid: split/corner hotspots
-                  plus every straight/split/corner chip. The container is
-                  click-through; only the hotspots re-enable pointer events, so a
-                  tap on a number's body still lands a straight-up bet. */}
-              <div
-                style={{ gridRow: "2 / 5", gridColumn: "2 / 14", position: "relative", pointerEvents: "none", zIndex: 5 }}
-              >
-                {/* Placement targets on shared edges (splits) and vertices (corners) */}
-                {INSIDE_SPOTS.map((s) => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    aria-label={`${s.type === "corner" ? "Corner" : "Split"} bet on ${[...s.numbers].sort((a, b) => a - b).join(", ")}`}
-                    onClick={() => placeBet(s.key)}
-                    className="rw-hotspot absolute rounded-full"
-                    style={{
-                      left: `${s.cx * 100}%`,
-                      top: `${s.cy * 100}%`,
-                      width: s.type === "corner" ? 24 : 20,
-                      height: s.type === "corner" ? 24 : 20,
-                      transform: "translate(-50%, -50%)",
-                      pointerEvents: spinning ? "none" : "auto",
-                    }}
-                  />
-                ))}
-                {/* Straight-up chips, centred on each number */}
-                {NUMBER_ROWS.map((row, r) =>
-                  row.map((n, c) => {
-                    const amt = bets[`n${n}`] ?? 0;
+                  {/* Inside-bet layer, transposed to match the 3-wide/12-tall number grid */}
+                  <div
+                    style={{ gridRow: "2 / 14", gridColumn: "2 / 5", position: "relative", pointerEvents: "none", zIndex: 5 }}
+                  >
+                    {INSIDE_SPOTS_VERTICAL.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        aria-label={`${s.type === "corner" ? "Corner" : "Split"} bet on ${[...s.numbers].sort((a, b) => a - b).join(", ")}`}
+                        onClick={() => placeBet(s.key)}
+                        className="rw-hotspot absolute rounded-full"
+                        style={{
+                          left: `${s.cx * 100}%`,
+                          top: `${s.cy * 100}%`,
+                          width: s.type === "corner" ? 24 : 20,
+                          height: s.type === "corner" ? 24 : 20,
+                          transform: "translate(-50%, -50%)",
+                          pointerEvents: spinning ? "none" : "auto",
+                        }}
+                      />
+                    ))}
+                    {NUMBER_ROWS.flatMap((row, j) =>
+                      row.map((n, i) => {
+                        const amt = bets[`n${n}`] ?? 0;
+                        if (!amt) return null;
+                        return (
+                          <span
+                            key={`chip-n${n}`}
+                            className="absolute pointer-events-none"
+                            style={{
+                              left: `${((j + 0.5) / 3) * 100}%`,
+                              top: `${((i + 0.5) / NUM_COLS) * 100}%`,
+                              transform: "translate(-50%, -50%)",
+                              zIndex: 20,
+                            }}
+                          >
+                            <Chip amount={amt} size={22} />
+                          </span>
+                        );
+                      })
+                    )}
+                    {INSIDE_SPOTS_VERTICAL.map((s) => {
+                      const amt = bets[s.key] ?? 0;
+                      if (!amt) return null;
+                      return (
+                        <span
+                          key={`chip-${s.key}`}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${s.cx * 100}%`,
+                            top: `${s.cy * 100}%`,
+                            transform: "translate(-50%, -50%)",
+                            zIndex: 20,
+                          }}
+                        >
+                          <Chip amount={amt} size={20} />
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Row 14: columns (was the right-edge 2:1 column, now a row below the numbers) */}
+                  <div style={{ gridRow: 14, gridColumn: 1, background: FELT }} />
+                  <OutCell betKey="c1" label="2 TO 1" className="bg-[#1a6b2e] text-[10px]" style={{ gridRow: 14, gridColumn: 2 }} />
+                  <OutCell betKey="c2" label="2 TO 1" className="bg-[#1a6b2e] text-[10px]" style={{ gridRow: 14, gridColumn: 3 }} />
+                  <OutCell betKey="c3" label="2 TO 1" className="bg-[#1a6b2e] text-[10px]" style={{ gridRow: 14, gridColumn: 4 }} />
+                  <div style={{ gridRow: 14, gridColumn: 5, background: FELT }} />
+
+                  {/* Row 15: Even money — orientation-agnostic, stays a bottom strip */}
+                  <div style={{ gridRow: 15, gridColumn: "1 / 6", display: "flex", gap: "1.5px" }}>
+                    <OutCell betKey="even"  label="EVEN"  className="bg-[#1a6b2e] flex-1" />
+                    <OutCell betKey="red"   label="RED"   className="bg-red-600 flex-1" />
+                    <OutCell betKey="black" label="BLACK" className="bg-zinc-950 flex-1" />
+                    <OutCell betKey="odd"   label="ODD"   className="bg-[#1a6b2e] flex-1" />
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="relative h-full overflow-hidden rounded-lg"
+                  style={{
+                    background: "rgba(255,255,255,0.22)",
+                    display: "grid",
+                    gridTemplateColumns: "minmax(24px, 40px) repeat(12, minmax(0, 1fr)) minmax(20px, 32px)",
+                    gridTemplateRows: "repeat(6, 1fr)",
+                    gap: "1.5px",
+                  }}
+                >
+                {/* Row 1: 1 TO 18 / 19 TO 36 header */}
+                <div style={{ gridRow: 1, gridColumn: 1, background: FELT }} />
+                <OutCell betKey="low"  label="1 TO 18"  className="bg-[#1a6b2e] text-xs" style={{ gridRow: 1, gridColumn: "2 / 8" }} />
+                <OutCell betKey="high" label="19 TO 36" className="bg-[#1a6b2e] text-xs" style={{ gridRow: 1, gridColumn: "8 / 14" }} />
+                <div style={{ gridRow: 1, gridColumn: 14, background: FELT }} />
+
+                {/* Row 2: 00 + numbers [3 6 9…36] + 2:1 */}
+                <ZeroCell betKey="n37" label="00" style={{ gridRow: 2, gridColumn: 1 }} />
+                {NUMBER_ROWS[0].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 2, gridColumn: i + 2 }} />)}
+                <OutCell betKey="c1" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 2, gridColumn: 14 }} />
+
+                {/* Row 3: 0 (spans rows 3–4) + numbers [2 5 8…35] + 2:1 */}
+                <ZeroCell betKey="n0" label="0" style={{ gridRow: "3 / 5", gridColumn: 1 }} />
+                {NUMBER_ROWS[1].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 3, gridColumn: i + 2 }} />)}
+                <OutCell betKey="c2" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 3, gridColumn: 14 }} />
+
+                {/* Row 4: numbers [1 4 7…34] + 2:1 */}
+                {NUMBER_ROWS[2].map((n, i) => <NumCell key={n} n={n} style={{ gridRow: 4, gridColumn: i + 2 }} />)}
+                <OutCell betKey="c3" label="2 TO 1" vertical className="bg-[#1a6b2e]" style={{ gridRow: 4, gridColumn: 14 }} />
+
+                {/* Inside-bet layer over the 3×12 number grid: split/corner hotspots
+                    plus every straight/split/corner chip. The container is
+                    click-through; only the hotspots re-enable pointer events, so a
+                    tap on a number's body still lands a straight-up bet. */}
+                <div
+                  style={{ gridRow: "2 / 5", gridColumn: "2 / 14", position: "relative", pointerEvents: "none", zIndex: 5 }}
+                >
+                  {/* Placement targets on shared edges (splits) and vertices (corners) */}
+                  {INSIDE_SPOTS.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      aria-label={`${s.type === "corner" ? "Corner" : "Split"} bet on ${[...s.numbers].sort((a, b) => a - b).join(", ")}`}
+                      onClick={() => placeBet(s.key)}
+                      className="rw-hotspot absolute rounded-full"
+                      style={{
+                        left: `${s.cx * 100}%`,
+                        top: `${s.cy * 100}%`,
+                        width: s.type === "corner" ? 24 : 20,
+                        height: s.type === "corner" ? 24 : 20,
+                        transform: "translate(-50%, -50%)",
+                        pointerEvents: spinning ? "none" : "auto",
+                      }}
+                    />
+                  ))}
+                  {/* Straight-up chips, centred on each number */}
+                  {NUMBER_ROWS.map((row, r) =>
+                    row.map((n, c) => {
+                      const amt = bets[`n${n}`] ?? 0;
+                      if (!amt) return null;
+                      return (
+                        <span
+                          key={`chip-n${n}`}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `${((c + 0.5) / NUM_COLS) * 100}%`,
+                            top: `${((r + 0.5) / 3) * 100}%`,
+                            transform: "translate(-50%, -50%)",
+                            zIndex: 20,
+                          }}
+                        >
+                          <Chip amount={amt} size={24} />
+                        </span>
+                      );
+                    })
+                  )}
+                  {/* Split / corner chips straddling their shared edge or vertex */}
+                  {INSIDE_SPOTS.map((s) => {
+                    const amt = bets[s.key] ?? 0;
                     if (!amt) return null;
                     return (
                       <span
-                        key={`chip-n${n}`}
+                        key={`chip-${s.key}`}
                         className="absolute pointer-events-none"
                         style={{
-                          left: `${((c + 0.5) / NUM_COLS) * 100}%`,
-                          top: `${((r + 0.5) / 3) * 100}%`,
+                          left: `${s.cx * 100}%`,
+                          top: `${s.cy * 100}%`,
                           transform: "translate(-50%, -50%)",
                           zIndex: 20,
                         }}
                       >
-                        <Chip amount={amt} size={24} />
+                        <Chip amount={amt} size={22} />
                       </span>
                     );
-                  })
-                )}
-                {/* Split / corner chips straddling their shared edge or vertex */}
-                {INSIDE_SPOTS.map((s) => {
-                  const amt = bets[s.key] ?? 0;
-                  if (!amt) return null;
-                  return (
-                    <span
-                      key={`chip-${s.key}`}
-                      className="absolute pointer-events-none"
-                      style={{
-                        left: `${s.cx * 100}%`,
-                        top: `${s.cy * 100}%`,
-                        transform: "translate(-50%, -50%)",
-                        zIndex: 20,
-                      }}
-                    >
-                      <Chip amount={amt} size={22} />
-                    </span>
-                  );
-                })}
-              </div>
+                  })}
+                </div>
 
-              {/* Row 5: Dozens */}
-              <div style={{ gridRow: 5, gridColumn: 1, background: FELT }} />
-              <OutCell betKey="d1" label="1 TO 12"  className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "2 / 6" }} />
-              <OutCell betKey="d2" label="13 TO 24" className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "6 / 10" }} />
-              <OutCell betKey="d3" label="25 TO 36" className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "10 / 14" }} />
-              <div style={{ gridRow: 5, gridColumn: 14, background: FELT }} />
+                {/* Row 5: Dozens */}
+                <div style={{ gridRow: 5, gridColumn: 1, background: FELT }} />
+                <OutCell betKey="d1" label="1 TO 12"  className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "2 / 6" }} />
+                <OutCell betKey="d2" label="13 TO 24" className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "6 / 10" }} />
+                <OutCell betKey="d3" label="25 TO 36" className="bg-[#1a6b2e]" style={{ gridRow: 5, gridColumn: "10 / 14" }} />
+                <div style={{ gridRow: 5, gridColumn: 14, background: FELT }} />
 
-              {/* Row 6: Even money */}
-              <div style={{ gridRow: 6, gridColumn: 1, background: FELT }} />
-              <OutCell betKey="even"  label="EVEN"  className="bg-[#1a6b2e]" style={{ gridRow: 6, gridColumn: "2 / 5" }} />
-              <OutCell betKey="red"   label="RED"   className="bg-red-600"   style={{ gridRow: 6, gridColumn: "5 / 8" }} />
-              <OutCell betKey="black" label="BLACK" className="bg-zinc-950"  style={{ gridRow: 6, gridColumn: "8 / 11" }} />
-              <OutCell betKey="odd"   label="ODD"   className="bg-[#1a6b2e]" style={{ gridRow: 6, gridColumn: "11 / 14" }} />
-              <div style={{ gridRow: 6, gridColumn: 14, background: FELT }} />
-              </div>
+                {/* Row 6: Even money */}
+                <div style={{ gridRow: 6, gridColumn: 1, background: FELT }} />
+                <OutCell betKey="even"  label="EVEN"  className="bg-[#1a6b2e]" style={{ gridRow: 6, gridColumn: "2 / 5" }} />
+                <OutCell betKey="red"   label="RED"   className="bg-red-600"   style={{ gridRow: 6, gridColumn: "5 / 8" }} />
+                <OutCell betKey="black" label="BLACK" className="bg-zinc-950"  style={{ gridRow: 6, gridColumn: "8 / 11" }} />
+                <OutCell betKey="odd"   label="ODD"   className="bg-[#1a6b2e]" style={{ gridRow: 6, gridColumn: "11 / 14" }} />
+                <div style={{ gridRow: 6, gridColumn: 14, background: FELT }} />
+                </div>
+              )}
               {/* Felt vignette for depth */}
               <div
                 className="pointer-events-none absolute inset-2 rounded-lg"
@@ -820,22 +1038,7 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
                   Clear
                 </Button>
               )}
-              <Button
-                onClick={spin}
-                disabled={spinning || betTotal === 0}
-                className={`h-14 px-10 rounded-xl bg-gradient-to-b from-yellow-300 to-amber-500 text-black font-black text-lg tracking-[0.15em] border border-yellow-200/70 shadow-[0_6px_20px_rgba(251,191,36,0.55)] hover:from-yellow-200 hover:to-amber-400 hover:shadow-[0_8px_26px_rgba(251,191,36,0.75)] active:scale-95 transition-all disabled:opacity-40 disabled:shadow-none disabled:hover:scale-100 disabled:from-yellow-300 disabled:to-amber-500 ${
-                  !spinning && betTotal > 0 ? "rw-spin-btn" : ""
-                }`}
-              >
-                {spinning ? (
-                  "Spinning…"
-                ) : (
-                  <>
-                    <Play className="h-5 w-5 fill-black" />
-                    SPIN
-                  </>
-                )}
-              </Button>
+              {!verticalBoard && spinButton}
             </div>
           </div>
 
