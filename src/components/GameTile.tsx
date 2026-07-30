@@ -1,13 +1,5 @@
 import type { CasinoGame } from "../types";
-
-const GAME_ART: Record<string, string> = {
-  blackjack: "/games/blackjack.svg",
-  slots: "/games/slots.svg",
-  roulette: "/games/roulette.svg",
-  crash: "/games/crash.svg",
-  dice: "/games/dice.svg",
-  mines: "/games/mines.svg",
-};
+import { GAME_ART } from "../lib/gameArt";
 
 interface Props {
   game: CasinoGame;

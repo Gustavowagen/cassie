@@ -22,6 +22,7 @@ import { Slots } from "../components/games/Slots";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
+import { GAME_ART } from "../lib/gameArt";
 
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
@@ -440,14 +441,6 @@ function GameOverview({
   );
 }
 
-const SETTINGS_GAME_ART: Record<string, string> = {
-  blackjack: "/games/blackjack.svg",
-  slots: "/games/slots.svg",
-  roulette: "/games/roulette.svg",
-  dice: "/games/dice.svg",
-  mines: "/games/mines.svg",
-};
-
 function SettingsTab({
   casinoId: _casinoId,
   casino,
@@ -541,7 +534,7 @@ function SettingsTab({
             const isAdding = addingType === gt.id;
             const instances = casinoGames.filter((g) => g.game_type_id === gt.id);
             const playable = PLAYABLE_GAME_IDS.has(gt.id);
-            const art = SETTINGS_GAME_ART[gt.id];
+            const art = GAME_ART[gt.id];
 
             return (
               <div key={gt.id} className="rounded-xl border border-border bg-card overflow-hidden">
