@@ -21,6 +21,7 @@ import { Mines } from "../components/games/Mines";
 import { Slots } from "../components/games/Slots";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
+import { GameSettingsModal } from "../components/GameSettingsModal";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 import { GAME_ART } from "../lib/gameArt";
 
@@ -58,7 +59,7 @@ export function CasinoDashboard() {
   const [selectedMember, setSelectedMember] = useState<CasinoMemberWithProfile | null>(null);
   const [chipHistoryOpen, setChipHistoryOpen] = useState(true);
 
-  const { listGameTypes, listCasinoGames, createGame, deleteGame } = useGames();
+  const { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame } = useGames();
   const [gameTypes, setGameTypes] = useState<GameType[]>([]);
   const [casinoGames, setCasinoGames] = useState<CasinoGame[]>([]);
   const [activeGame, setActiveGame] = useState<CasinoGame | null>(null);
@@ -295,6 +296,10 @@ export function CasinoDashboard() {
                 const newGame = await createGame(currentCasino.id, typeId, customName);
                 setCasinoGames((prev) => [...prev, newGame]);
               }}
+              onUpdate={async (id, customName) => {
+                const updated = await updateGame(id, customName);
+                setCasinoGames((prev) => prev.map((g) => (g.id === id ? updated : g)));
+              }}
               onDelete={async (id) => {
                 await deleteGame(id);
                 setCasinoGames((prev) => prev.filter((g) => g.id !== id));
@@ -441,12 +446,18 @@ function GameOverview({
   );
 }
 
+type GameModalState =
+  | { mode: "create"; gameType: GameType }
+  | { mode: "edit"; game: CasinoGame }
+  | null;
+
 function SettingsTab({
   casinoId: _casinoId,
   casino,
   casinoGames,
   managedGameTypes,
   onCreate,
+  onUpdate,
   onDelete,
 }: {
   casinoId: string;
@@ -454,12 +465,10 @@ function SettingsTab({
   casinoGames: CasinoGame[];
   managedGameTypes: GameType[];
   onCreate: (typeId: string, customName: string) => Promise<void>;
+  onUpdate: (id: string, customName: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const [addingType, setAddingType] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [gameModal, setGameModal] = useState<GameModalState>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [description, setDescription] = useState(casino.description ?? "");
@@ -469,27 +478,6 @@ function SettingsTab({
 
   function countForType(typeId: string) {
     return casinoGames.filter((g) => g.game_type_id === typeId).length;
-  }
-
-  function startAdding(gt: GameType) {
-    setAddingType(gt.id);
-    setNewName(gt.name);
-    setSaveError(null);
-  }
-
-  async function handleCreate() {
-    if (!addingType || !newName.trim()) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await onCreate(addingType, newName.trim());
-      setAddingType(null);
-      setNewName("");
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to add game");
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function handleDelete(id: string) {
@@ -531,7 +519,6 @@ function SettingsTab({
           {managedGameTypes.map((gt) => {
             const count = countForType(gt.id);
             const atMax = count >= 5;
-            const isAdding = addingType === gt.id;
             const instances = casinoGames.filter((g) => g.game_type_id === gt.id);
             const playable = PLAYABLE_GAME_IDS.has(gt.id);
             const art = GAME_ART[gt.id];
@@ -558,56 +545,38 @@ function SettingsTab({
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={atMax || isAdding}
-                    onClick={() => startAdding(gt)}
+                    disabled={atMax}
+                    onClick={() => setGameModal({ mode: "create", gameType: gt })}
                     className="shrink-0 text-xs h-7 px-2.5"
                   >
                     + Add
                   </Button>
                 </div>
 
-                {(instances.length > 0 || isAdding) && (
+                {instances.length > 0 && (
                   <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
                     {instances.map((inst) => (
                       <div key={inst.id} className="flex items-center justify-between">
                         <span className="text-sm">{inst.custom_name}</span>
-                        <button
-                          type="button"
-                          disabled={deletingId === inst.id}
-                          onClick={() => handleDelete(inst.id)}
-                          className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setGameModal({ mode: "edit", game: inst })}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Settings className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === inst.id}
+                            onClick={() => handleDelete(inst.id)}
+                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))}
-
-                    {isAdding && (
-                      <div className="space-y-1.5 pt-1 border-t border-border">
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            placeholder="Game name"
-                            className="flex-1 h-8 text-sm"
-                            autoFocus
-                            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                          />
-                          <Button size="sm" onClick={handleCreate} disabled={saving || !newName.trim()} className="h-8 px-3 text-xs">
-                            {saving ? "…" : "Create"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => { setAddingType(null); setSaveError(null); }}
-                            className="h-8 px-2 text-xs"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                        {saveError && <p className="text-xs text-destructive">{saveError}</p>}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -615,6 +584,25 @@ function SettingsTab({
           })}
         </div>
       </div>
+
+      {gameModal && (
+        <Modal onClose={() => setGameModal(null)} size="md">
+          <GameSettingsModal
+            title={gameModal.mode === "create" ? `Add ${gameModal.gameType.name}` : `Edit ${gameModal.game.custom_name}`}
+            imageUrl={GAME_ART[gameModal.mode === "create" ? gameModal.gameType.id : gameModal.game.game_type_id]}
+            initialName={gameModal.mode === "create" ? gameModal.gameType.name : gameModal.game.custom_name}
+            onSave={async (name) => {
+              if (gameModal.mode === "create") {
+                await onCreate(gameModal.gameType.id, name);
+              } else {
+                await onUpdate(gameModal.game.id, name);
+              }
+              setGameModal(null);
+            }}
+            onClose={() => setGameModal(null)}
+          />
+        </Modal>
+      )}
 
       {/* Casino details section */}
       <div className="space-y-3">
