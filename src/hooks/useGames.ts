@@ -28,10 +28,21 @@ export function useGames() {
     return data as CasinoGame;
   }
 
+  async function updateGame(id: string, customName: string): Promise<CasinoGame> {
+    const { data, error } = await supabase
+      .from("casino_games")
+      .update({ custom_name: customName })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as CasinoGame;
+  }
+
   async function deleteGame(id: string): Promise<void> {
     const { error } = await supabase.from("casino_games").delete().eq("id", id);
     if (error) throw error;
   }
 
-  return { listGameTypes, listCasinoGames, createGame, deleteGame };
+  return { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame };
 }
