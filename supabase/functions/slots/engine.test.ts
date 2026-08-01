@@ -7,6 +7,9 @@ import {
   payoutFor,
   roundMoney,
   REEL_COUNT,
+  FULL_BOARD_SYMBOLS,
+  evaluateFullBoardWin,
+  payoutForFullBoard,
   type Reel,
   type SymbolId,
 } from "./engine";
@@ -36,8 +39,8 @@ describe("SYMBOLS", () => {
 
 describe("pickSymbol", () => {
   it("picks the first symbol whose cumulative weight exceeds r", () => {
-    // Cumulative bounds: dot [0, .35), square [.35, .60), diamond [.60, .80),
-    // star [.80, .92), seven [.92, 1).
+    // Cumulative bounds: dot [0, .35), square [.35, .6), diamond [.6, .8),
+    // star [.8, .92), seven [.92, 1).
     expect(pickSymbol(() => 0)).toBe("dot");
     expect(pickSymbol(() => 0.349999)).toBe("dot");
     expect(pickSymbol(() => 0.35)).toBe("square");
@@ -83,20 +86,33 @@ function reelsWithMid(mids: SymbolId[]): Reel[] {
 }
 
 describe("evaluateWin", () => {
-  it("returns null when the leading run is shorter than 3", () => {
-    expect(evaluateWin(reelsWithMid(["dot", "dot", "square", "dot", "dot"]))).toBeNull();
-    expect(evaluateWin(reelsWithMid(["dot", "square", "dot", "dot", "dot"]))).toBeNull();
+  it("returns null when no symbol reaches 3 matches", () => {
+    expect(evaluateWin(reelsWithMid(["dot", "dot", "square", "square", "diamond"]))).toBeNull();
+    expect(evaluateWin(reelsWithMid(["dot", "square", "dot", "diamond", "star"]))).toBeNull();
   });
 
-  it("only counts a run starting at reel 0 — a match starting later never pays", () => {
-    // reels 1-4 all match, but reel 0 breaks it — this must not count as a win.
-    expect(evaluateWin(reelsWithMid(["square", "dot", "dot", "dot", "dot"]))).toBeNull();
+  it("matches anywhere on the payline (scatter), not just a contiguous run from reel 0", () => {
+    // reel 0 breaks the run, but 4 of the other reels still match — must win.
+    expect(evaluateWin(reelsWithMid(["square", "dot", "dot", "dot", "dot"]))).toEqual({
+      symbol: "dot",
+      count: 4,
+      positions: [1, 2, 3, 4],
+    });
   });
 
-  it("detects a 3-in-a-row", () => {
+  it("detects a 3-of-a-kind spread across non-adjacent reels", () => {
+    expect(evaluateWin(reelsWithMid(["star", "dot", "star", "square", "star"]))).toEqual({
+      symbol: "star",
+      count: 3,
+      positions: [0, 2, 4],
+    });
+  });
+
+  it("detects a contiguous 3-in-a-row", () => {
     expect(evaluateWin(reelsWithMid(["star", "star", "star", "dot", "square"]))).toEqual({
       symbol: "star",
       count: 3,
+      positions: [0, 1, 2],
     });
   });
 
@@ -104,6 +120,7 @@ describe("evaluateWin", () => {
     expect(evaluateWin(reelsWithMid(["seven", "seven", "seven", "seven", "dot"]))).toEqual({
       symbol: "seven",
       count: 4,
+      positions: [0, 1, 2, 3],
     });
   });
 
@@ -111,6 +128,7 @@ describe("evaluateWin", () => {
     expect(evaluateWin(reelsWithMid(["diamond", "diamond", "diamond", "diamond", "diamond"]))).toEqual({
       symbol: "diamond",
       count: 5,
+      positions: [0, 1, 2, 3, 4],
     });
   });
 });
@@ -121,13 +139,13 @@ describe("payoutFor", () => {
   });
 
   it("multiplies bet by the symbol's pay table at the matched count", () => {
-    expect(payoutFor({ symbol: "dot", count: 3 }, 10)).toBe(70);
-    expect(payoutFor({ symbol: "seven", count: 5 }, 2)).toBe(440);
+    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 10)).toBe(10);
+    expect(payoutFor({ symbol: "seven", count: 5, positions: [0, 1, 2, 3, 4] }, 2)).toBe(480);
   });
 
   it("rounds to 4 decimal places", () => {
-    // 0.10005 * 7 = 0.70035 -> rounds to 0.7004
-    expect(payoutFor({ symbol: "dot", count: 3 }, 0.10005)).toBe(0.7004);
+    // 0.10005 * 1.5 = 0.150075 -> rounds to 0.1501 (square's 3-of-a-kind pays 1.5x)
+    expect(payoutFor({ symbol: "square", count: 3, positions: [0, 1, 2] }, 0.10005)).toBe(0.1501);
   });
 });
 
@@ -141,13 +159,19 @@ describe("roundMoney", () => {
 describe("RTP", () => {
   // Closed-form theoretical RTP, recomputed independently of engine.ts so a
   // change to SYMBOLS' weights/pay table can't silently drift the payout
-  // curve without this test catching it.
+  // curve without this test catching it. Wins are scatter-style (3+ of the
+  // same symbol anywhere among the 5 reels), so exactly-k probabilities use
+  // the binomial coefficient C(5,k), not a single left-aligned arrangement.
+  function choose5(k: number): number {
+    return [1, 5, 10, 10, 5, 1][k];
+  }
+
   function theoreticalRtp() {
     let rtp = 0;
     let hitFrequency = 0;
     for (const s of SYMBOLS) {
-      const p3 = s.weight ** 3 * (1 - s.weight);
-      const p4 = s.weight ** 4 * (1 - s.weight);
+      const p3 = choose5(3) * s.weight ** 3 * (1 - s.weight) ** 2;
+      const p4 = choose5(4) * s.weight ** 4 * (1 - s.weight);
       const p5 = s.weight ** 5;
       rtp += p3 * s.pay[3] + p4 * s.pay[4] + p5 * s.pay[5];
       hitFrequency += p3 + p4 + p5;
@@ -155,16 +179,187 @@ describe("RTP", () => {
     return { rtp, hitFrequency };
   }
 
-  it("pays back roughly 95-97% over the long run (a fair, sustainable house edge)", () => {
+  it("pays back roughly 97-99% over the long run (a ~1.8% house edge)", () => {
     const { rtp } = theoreticalRtp();
-    expect(rtp).toBeCloseTo(0.9581, 3);
-    expect(rtp).toBeGreaterThan(0.94);
-    expect(rtp).toBeLessThan(0.97);
+    expect(rtp).toBeGreaterThan(0.97);
+    expect(rtp).toBeLessThan(0.99);
   });
 
-  it("hit frequency is a plausible single-payline rate", () => {
+  it("hit frequency reflects that matches count anywhere on the payline, not just left-aligned", () => {
+    // Much higher than a contiguous-only rule (~11%) since scatter matches
+    // land in C(5,k) arrangements instead of just 1.
     const { hitFrequency } = theoreticalRtp();
-    expect(hitFrequency).toBeGreaterThan(0.05);
-    expect(hitFrequency).toBeLessThan(0.1);
+    expect(hitFrequency).toBeGreaterThan(0.35);
+    expect(hitFrequency).toBeLessThan(0.48);
+  });
+});
+
+describe("evaluateFullBoardWin", () => {
+  it("returns null when the max count across all 15 cells is below 7", () => {
+    const reels: Reel[] = [
+      { top: "dot", mid: "dot", bottom: "square" },
+      { top: "dot", mid: "dot", bottom: "square" },
+      { top: "dot", mid: "square", bottom: "diamond" },
+      { top: "diamond", mid: "star", bottom: "seven" },
+      { top: "star", mid: "seven", bottom: "square" },
+    ];
+    expect(evaluateFullBoardWin(reels)).toBeNull();
+  });
+
+  it("counts matches across all 3 rows, not just mid, at the 7-cell threshold", () => {
+    const reels: Reel[] = [
+      { top: "dot", mid: "dot", bottom: "square" },
+      { top: "dot", mid: "dot", bottom: "square" },
+      { top: "dot", mid: "dot", bottom: "diamond" },
+      { top: "dot", mid: "square", bottom: "diamond" },
+      { top: "star", mid: "seven", bottom: "square" },
+    ];
+    expect(evaluateFullBoardWin(reels)).toEqual({
+      symbol: "dot",
+      count: 7,
+      positions: [
+        { reel: 0, row: "top" },
+        { reel: 0, row: "mid" },
+        { reel: 1, row: "top" },
+        { reel: 1, row: "mid" },
+        { reel: 2, row: "top" },
+        { reel: 2, row: "mid" },
+        { reel: 3, row: "top" },
+      ],
+    });
+  });
+
+  it("reaches the 9-cell BIG WIN tier", () => {
+    const reels: Reel[] = [
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "dot", bottom: "diamond" },
+      { top: "dot", mid: "square", bottom: "diamond" },
+      { top: "star", mid: "seven", bottom: "square" },
+    ];
+    const win = evaluateFullBoardWin(reels);
+    expect(win?.symbol).toBe("dot");
+    expect(win?.count).toBe(9);
+  });
+
+  it("reaches the 11-cell MEGA WIN tier", () => {
+    const reels: Reel[] = [
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "dot", bottom: "diamond" },
+      { top: "star", mid: "seven", bottom: "square" },
+    ];
+    const win = evaluateFullBoardWin(reels);
+    expect(win?.symbol).toBe("dot");
+    expect(win?.count).toBe(11);
+  });
+
+  it("breaks a tie in favor of the rarer symbol", () => {
+    // dot and square both land exactly 7 times; square is rarer (later in
+    // SYMBOLS) and must win the payout.
+    const reels: Reel[] = [
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "dot", bottom: "dot" },
+      { top: "dot", mid: "square", bottom: "square" },
+      { top: "square", mid: "square", bottom: "square" },
+      { top: "square", mid: "square", bottom: "diamond" },
+    ];
+    const win = evaluateFullBoardWin(reels);
+    expect(win?.symbol).toBe("square");
+    expect(win?.count).toBe(7);
+  });
+});
+
+describe("payoutForFullBoard", () => {
+  it("returns 0 for no win", () => {
+    expect(payoutForFullBoard(null, 10)).toBe(0);
+  });
+
+  it("pays the tier-0 rate for 7-8 matches", () => {
+    expect(payoutForFullBoard({ symbol: "dot", count: 7, positions: [] }, 10)).toBe(14.6);
+    expect(payoutForFullBoard({ symbol: "dot", count: 8, positions: [] }, 10)).toBe(14.6);
+  });
+
+  it("pays the tier-1 rate for 9-10 matches", () => {
+    expect(payoutForFullBoard({ symbol: "square", count: 9, positions: [] }, 10)).toBe(102.3);
+    expect(payoutForFullBoard({ symbol: "square", count: 10, positions: [] }, 10)).toBe(102.3);
+  });
+
+  it("pays the tier-2 rate for 11+ matches", () => {
+    expect(payoutForFullBoard({ symbol: "seven", count: 11, positions: [] }, 2)).toBe(759.96);
+    expect(payoutForFullBoard({ symbol: "seven", count: 15, positions: [] }, 2)).toBe(759.96);
+  });
+});
+
+describe("full board RTP", () => {
+  // Exact multinomial enumeration over all compositions of 15 cells into
+  // the 5 symbols (C(19,4) = 3,876 of them), recomputed independently of
+  // evaluateFullBoardWin/payoutForFullBoard so a change to
+  // FULL_BOARD_SYMBOLS or the tie-break rule can't silently drift the
+  // payout curve without this test catching it. Same tie-break rule as
+  // evaluateFullBoardWin: highest count wins, ties go to the rarer symbol.
+  // See docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md.
+  function factorial(n: number): number {
+    let r = 1;
+    for (let i = 2; i <= n; i++) r *= i;
+    return r;
+  }
+
+  function tierIndex(count: number): 0 | 1 | 2 {
+    if (count >= 11) return 2;
+    if (count >= 9) return 1;
+    return 0;
+  }
+
+  function theoreticalFullBoardRtp() {
+    const n = 15;
+    let rtp = 0;
+    let hitFrequency = 0;
+
+    function enumerate(idx: number, remaining: number, counts: number[]) {
+      if (idx === SYMBOLS.length - 1) {
+        counts[idx] = remaining;
+        let coef = factorial(n);
+        let pw = 1;
+        for (let i = 0; i < SYMBOLS.length; i++) {
+          coef /= factorial(counts[i]);
+          pw *= SYMBOLS[i].weight ** counts[i];
+        }
+        const p = coef * pw;
+
+        let bestIdx = -1;
+        let bestCount = -1;
+        for (let i = 0; i < counts.length; i++) {
+          if (counts[i] >= bestCount) {
+            bestCount = counts[i];
+            bestIdx = i;
+          }
+        }
+        if (bestCount >= 7) {
+          rtp += p * FULL_BOARD_SYMBOLS[bestIdx].pay[tierIndex(bestCount)];
+          hitFrequency += p;
+        }
+        return;
+      }
+      for (let c = 0; c <= remaining; c++) {
+        counts[idx] = c;
+        enumerate(idx + 1, remaining - c, counts);
+      }
+    }
+    enumerate(0, n, new Array(SYMBOLS.length).fill(0));
+    return { rtp, hitFrequency };
+  }
+
+  it("pays back roughly 97-99%, matching single-row's house edge", () => {
+    const { rtp } = theoreticalFullBoardRtp();
+    expect(rtp).toBeGreaterThan(0.97);
+    expect(rtp).toBeLessThan(0.99);
+  });
+
+  it("hits noticeably less often than single-row, since it needs 7+ of 15 cells", () => {
+    const { hitFrequency } = theoreticalFullBoardRtp();
+    expect(hitFrequency).toBeGreaterThan(0.28);
+    expect(hitFrequency).toBeLessThan(0.36);
   });
 });
