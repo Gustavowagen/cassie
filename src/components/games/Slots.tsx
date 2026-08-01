@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
@@ -6,7 +6,10 @@ import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { formatChips } from "../../lib/utils";
 import { playWinChime } from "../../lib/sound";
 import { useSlots } from "../../hooks/useSlots";
-import type { SlotSymbolId, SlotReel, SlotWin } from "../../types";
+import type { SlotSymbolId, SlotReel, SlotWin, FullBoardSlotWin } from "../../types";
+
+type RewardMode = "single_row" | "full_board";
+type AnySlotWin = (SlotWin | FullBoardSlotWin) & { amount: number };
 
 // Mirrors supabase/functions/slots/engine.ts's SYMBOLS — kept as a local,
 // dependency-free copy (same pattern as Dice/Roulette) purely for rendering
@@ -19,13 +22,41 @@ interface ClientSymbol {
   pay: { 3: number; 4: number; 5: number };
 }
 const CLIENT_SYMBOLS: ClientSymbol[] = [
-  { id: "dot", cls: "sl-sym-dot", label: "", pay: { 3: 7, 4: 15, 5: 30 } },
-  { id: "square", cls: "sl-sym-square", label: "", pay: { 3: 11, 4: 22, 5: 44 } },
-  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: { 3: 15, 4: 30, 5: 66 } },
-  { id: "star", cls: "sl-sym-star", label: "", pay: { 3: 22, 4: 52, 5: 110 } },
-  { id: "seven", cls: "sl-sym-seven", label: "7", pay: { 3: 37, 4: 92, 5: 220 } },
+  { id: "dot", cls: "sl-sym-dot", label: "", pay: { 3: 1, 4: 3, 5: 33 } },
+  { id: "square", cls: "sl-sym-square", label: "", pay: { 3: 1.5, 4: 4.5, 5: 48 } },
+  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: { 3: 2, 4: 6.5, 5: 70 } },
+  { id: "star", cls: "sl-sym-star", label: "", pay: { 3: 2.5, 4: 11, 5: 115 } },
+  { id: "seven", cls: "sl-sym-seven", label: "7", pay: { 3: 4.5, 4: 19, 5: 240 } },
 ];
 const SYMBOL_BY_ID = Object.fromEntries(CLIENT_SYMBOLS.map((s) => [s.id, s])) as Record<SlotSymbolId, ClientSymbol>;
+
+// Mirrors supabase/functions/slots/engine.ts's FULL_BOARD_SYMBOLS — pay at
+// tier 0 (7-8 cells), tier 1 (9-10 cells), tier 2 (11-15 cells).
+interface ClientFullBoardSymbol {
+  id: SlotSymbolId;
+  cls: string;
+  label: string;
+  pay: [number, number, number];
+}
+const CLIENT_FULL_BOARD_SYMBOLS: ClientFullBoardSymbol[] = [
+  { id: "dot", cls: "sl-sym-dot", label: "", pay: [1.46, 7.31, 58.46] },
+  { id: "square", cls: "sl-sym-square", label: "", pay: [2.19, 10.23, 80.38] },
+  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: [2.92, 14.61, 116.92] },
+  { id: "star", cls: "sl-sym-star", label: "", pay: [4.38, 21.92, 189.99] },
+  { id: "seven", cls: "sl-sym-seven", label: "7", pay: [7.31, 36.54, 379.98] },
+];
+
+// Maps a win's raw count to the existing 3/4/5 CSS win-tier hooks
+// (sl-win-tier-3/4/5), so full-board reuses the same banner/shake styling
+// as single-row without any new CSS.
+function winTier(rewardMode: RewardMode, count: number): 3 | 4 | 5 {
+  if (rewardMode === "full_board") {
+    if (count >= 11) return 5;
+    if (count >= 9) return 4;
+    return 3;
+  }
+  return count >= 5 ? 5 : count === 4 ? 4 : 3;
+}
 
 function randomSymbolId(): SlotSymbolId {
   return CLIENT_SYMBOLS[Math.floor(Math.random() * CLIENT_SYMBOLS.length)].id;
@@ -55,14 +86,16 @@ function buildStrip(reel: SlotReel): SlotSymbolId[] {
 
 interface Props {
   casinoId: string;
+  gameId: string;
+  rewardMode: RewardMode;
   balance: number;
   minBet: number;
   maxBet: number;
   onExit: () => void;
 }
 
-export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExit }: Props) {
-  const { loading, error: spinError, spin: spinSlots } = useSlots(casinoId);
+export function Slots({ casinoId, gameId, rewardMode, balance: initialBalance, minBet, maxBet, onExit }: Props) {
+  const { loading, error: spinError, spin: spinSlots } = useSlots(casinoId, gameId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [betText, setBetText] = useState(String(minBet));
   const [formError, setFormError] = useState<string | null>(null);
@@ -71,7 +104,7 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
     Array.from({ length: 5 }, () => ({ top: randomSymbolId(), mid: randomSymbolId(), bottom: randomSymbolId() }))
   );
   const [strips, setStrips] = useState<SlotSymbolId[][]>([]);
-  const [win, setWin] = useState<(SlotWin & { amount: number }) | null>(null);
+  const [win, setWin] = useState<AnySlotWin | null>(null);
   const [winId, setWinId] = useState(0);
   const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -108,7 +141,7 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
         setLocalBalance(res.balance);
         if (res.win) {
           setWinId((id) => id + 1);
-          setWin({ ...res.win, amount: res.payout });
+          setWin({ ...res.win, amount: res.payout } as AnySlotWin);
           playWinChime();
         }
         setSpinning(false);
@@ -119,7 +152,15 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
     }
   }
 
-  const winMessage = win ? (win.count >= 5 ? "MEGA WIN" : win.count === 4 ? "BIG WIN" : "WIN") : "";
+  const tier = win ? winTier(rewardMode, win.count) : null;
+  const winMessage = tier === 5 ? "MEGA WIN" : tier === 4 ? "BIG WIN" : tier === 3 ? "WIN" : "";
+
+  // Full-board wins light up cells on any row; build a lookup once per win
+  // rather than re-scanning positions per cell.
+  const fullBoardLit = useMemo(() => {
+    if (!win || rewardMode !== "full_board") return null;
+    return new Set((win as FullBoardSlotWin).positions.map((p) => `${p.reel}:${p.row}`));
+  }, [win, rewardMode]);
 
   return (
     <div
@@ -188,17 +229,30 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
           {(formError || spinError) && <p className="text-xs text-destructive">{formError ?? spinError}</p>}
 
           <div className="mt-2 space-y-1.5">
-            <p className="text-xs text-muted-foreground">Paytable (3× · 4× · 5×)</p>
-            {CLIENT_SYMBOLS.map((s) => (
-              <div key={s.id} className="flex items-center gap-2 text-xs">
-                <span className="sl-sym-mini">
-                  <span className={`sl-sym ${s.cls}`}>{s.label}</span>
-                </span>
-                <span className="text-muted-foreground font-mono">
-                  {s.pay[3]}x · {s.pay[4]}x · {s.pay[5]}x
-                </span>
-              </div>
-            ))}
+            <p className="text-xs text-muted-foreground">
+              {rewardMode === "full_board" ? "Paytable (7-8 · 9-10 · 11+)" : "Paytable (3× · 4× · 5×)"}
+            </p>
+            {rewardMode === "full_board"
+              ? CLIENT_FULL_BOARD_SYMBOLS.map((s) => (
+                  <div key={s.id} className="flex items-center gap-2 text-xs">
+                    <span className="sl-sym-mini">
+                      <span className={`sl-sym ${s.cls}`}>{s.label}</span>
+                    </span>
+                    <span className="text-muted-foreground font-mono">
+                      {s.pay[0]}x · {s.pay[1]}x · {s.pay[2]}x
+                    </span>
+                  </div>
+                ))
+              : CLIENT_SYMBOLS.map((s) => (
+                  <div key={s.id} className="flex items-center gap-2 text-xs">
+                    <span className="sl-sym-mini">
+                      <span className={`sl-sym ${s.cls}`}>{s.label}</span>
+                    </span>
+                    <span className="text-muted-foreground font-mono">
+                      {s.pay[3]}x · {s.pay[4]}x · {s.pay[5]}x
+                    </span>
+                  </div>
+                ))}
           </div>
         </div>
 
@@ -208,7 +262,12 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
             <div className="sl-payline-arrow sl-right" />
             <div className="sl-reels">
               {reels.map((reel, i) => {
-                const isLit = Boolean(win && i < win.count);
+                const isLitTop = rewardMode === "full_board" && Boolean(fullBoardLit?.has(`${i}:top`));
+                const isLitMid =
+                  rewardMode === "full_board"
+                    ? Boolean(fullBoardLit?.has(`${i}:mid`))
+                    : Boolean(win && (win as SlotWin).positions.includes(i));
+                const isLitBottom = rewardMode === "full_board" && Boolean(fullBoardLit?.has(`${i}:bottom`));
                 const strip = strips[i];
                 return (
                   <div className="sl-reel" key={i}>
@@ -222,13 +281,13 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
                       </div>
                     ) : (
                       <div className="sl-reel-static">
-                        <div className="sl-cell">
+                        <div className={`sl-cell ${isLitTop ? "sl-lit" : ""}`}>
                           <span className={`sl-sym ${SYMBOL_BY_ID[reel.top].cls}`}>{SYMBOL_BY_ID[reel.top].label}</span>
                         </div>
-                        <div className={`sl-cell sl-mid ${isLit ? "sl-lit" : ""}`}>
+                        <div className={`sl-cell sl-mid ${isLitMid ? "sl-lit" : ""}`}>
                           <span className={`sl-sym ${SYMBOL_BY_ID[reel.mid].cls}`}>{SYMBOL_BY_ID[reel.mid].label}</span>
                         </div>
-                        <div className="sl-cell">
+                        <div className={`sl-cell ${isLitBottom ? "sl-lit" : ""}`}>
                           <span className={`sl-sym ${SYMBOL_BY_ID[reel.bottom].cls}`}>{SYMBOL_BY_ID[reel.bottom].label}</span>
                         </div>
                       </div>
@@ -239,7 +298,7 @@ export function Slots({ casinoId, balance: initialBalance, minBet, maxBet, onExi
             </div>
 
             {win && (
-              <div key={winId} className={`sl-win-tier-${win.count}`}>
+              <div key={winId} className={`sl-win-tier-${tier}`}>
                 <div className="sl-win-flash" />
                 <div className="sl-win-banner">
                   <div className="sl-win-label">{winMessage}</div>
@@ -279,7 +338,7 @@ function SlotsStyles() {
       .sl-reel-static, .sl-reel-strip { display: flex; flex-direction: column; }
       .sl-cell { width: var(--cell); height: var(--cell); display: flex; align-items: center; justify-content: center; flex: none; }
       .sl-cell.sl-mid { position: relative; }
-      .sl-cell.sl-mid.sl-lit { background: rgba(255, 224, 130, 0.14); box-shadow: inset 0 0 0 2px #ff5fd1; }
+      .sl-cell.sl-lit { background: rgba(255, 224, 130, 0.14); box-shadow: inset 0 0 0 2px #ff5fd1; }
 
       .sl-sym { width: 56%; height: 56%; display: flex; align-items: center; justify-content: center; position: relative; font-weight: 700; font-size: 24px; }
       .sl-sym-mini { display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; }
