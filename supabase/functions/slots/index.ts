@@ -1,5 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { spin, evaluateWin, payoutFor, roundMoney } from "./engine.ts";
+import {
+  spin,
+  evaluateWin,
+  evaluateFullBoardWin,
+  payoutFor,
+  payoutForFullBoard,
+  roundMoney,
+} from "./engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -25,9 +32,26 @@ const rng = () => {
   return buf[0] / 2 ** 32;
 };
 
-function describeSpin(win: ReturnType<typeof evaluateWin>): string {
+type RewardMode = "single_row" | "full_board";
+
+// Unknown/missing settings, or any value other than "full_board", default
+// to today's behavior — this is what keeps every pre-existing casino_games
+// row (settings = '{}') playing exactly as before.
+function resolveRewardMode(settings: unknown): RewardMode {
+  if (
+    settings &&
+    typeof settings === "object" &&
+    (settings as Record<string, unknown>).rewardMode === "full_board"
+  ) {
+    return "full_board";
+  }
+  return "single_row";
+}
+
+function describeSpin(rewardMode: RewardMode, win: { symbol: string; count: number } | null): string {
   if (!win) return "Slots: no win";
-  return `Slots: ${win.count}x ${win.symbol}`;
+  const label = rewardMode === "full_board" ? "full board" : "row";
+  return `Slots: ${win.count}x ${win.symbol} (${label})`;
 }
 
 Deno.serve(async (req) => {
@@ -44,31 +68,51 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Not authenticated" }, 401);
 
     const body = await req.json();
-    const { casino_id, bet } = body as { casino_id: string; bet: number };
+    const { casino_id, casino_game_id, bet } = body as {
+      casino_id: string;
+      casino_game_id: string;
+      bet: number;
+    };
 
     // Membership/balance and bet limits don't depend on each other — fetch both at once.
-    const [{ data: member }, { data: gt }] = await Promise.all([
+    const [{ data: member }, { data: cg }] = await Promise.all([
       userClient
         .from("casino_members")
         .select("balance")
         .eq("casino_id", casino_id)
         .eq("user_id", user.id)
         .single(),
-      admin.from("game_types").select("min_bet, max_bet").eq("id", "slots").single(),
+      admin
+        .from("casino_games")
+        .select("min_bet, max_bet, settings")
+        .eq("id", casino_game_id)
+        .eq("casino_id", casino_id)
+        .eq("game_type_id", "slots")
+        .single(),
     ]);
     if (!member) return json({ error: "You are not a member of this casino" }, 403);
+    if (!cg) return json({ error: "Game not found" }, 400);
     if (typeof bet !== "number" || !isFinite(bet) || bet <= 0) {
       return json({ error: "Invalid bet" }, 400);
     }
     const validBet = roundMoney(bet);
-    if (validBet < Number(gt!.min_bet) || validBet > Number(gt!.max_bet)) {
-      return json({ error: `Bet must be between ${gt!.min_bet} and ${gt!.max_bet}` }, 400);
+    if (validBet < Number(cg.min_bet) || validBet > Number(cg.max_bet)) {
+      return json({ error: `Bet must be between ${cg.min_bet} and ${cg.max_bet}` }, 400);
     }
     if (validBet > member.balance) return json({ error: "Insufficient balance" }, 400);
 
+    const rewardMode = resolveRewardMode(cg.settings);
     const reels = spin(rng);
-    const win = evaluateWin(reels);
-    const payout = payoutFor(win, validBet);
+
+    let win: ReturnType<typeof evaluateWin> | ReturnType<typeof evaluateFullBoardWin>;
+    let payout: number;
+    if (rewardMode === "full_board") {
+      win = evaluateFullBoardWin(reels);
+      payout = payoutForFullBoard(win, validBet);
+    } else {
+      win = evaluateWin(reels);
+      payout = payoutFor(win, validBet);
+    }
     const net = roundMoney(payout - validBet);
     const balance = roundMoney(member.balance + net);
 
@@ -84,11 +128,11 @@ Deno.serve(async (req) => {
         amount: net,
         balance_after: balance,
         game_type_id: "slots",
-        description: describeSpin(win),
+        description: describeSpin(rewardMode, win),
       }),
     ]);
 
-    return json({ reels, win, bet: validBet, payout, balance });
+    return json({ reels, win, rewardMode, bet: validBet, payout, balance });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
