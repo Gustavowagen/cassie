@@ -18,20 +18,41 @@ export function useGames() {
     return (data ?? []) as CasinoGame[];
   }
 
-  async function createGame(casinoId: string, gameTypeId: string, customName: string): Promise<CasinoGame> {
+  async function createGame(
+    casinoId: string,
+    gameTypeId: string,
+    customName: string,
+    minBet: number,
+    maxBet: number,
+    settings: Record<string, unknown> = {}
+  ): Promise<CasinoGame> {
     const { data, error } = await supabase
       .from("casino_games")
-      .insert({ casino_id: casinoId, game_type_id: gameTypeId, custom_name: customName, is_active: true })
+      .insert({
+        casino_id: casinoId,
+        game_type_id: gameTypeId,
+        custom_name: customName,
+        is_active: true,
+        min_bet: minBet,
+        max_bet: maxBet,
+        settings,
+      })
       .select()
       .single();
     if (error) throw error;
     return data as CasinoGame;
   }
 
-  async function updateGame(id: string, customName: string): Promise<CasinoGame> {
+  async function updateGame(
+    id: string,
+    customName: string,
+    minBet: number,
+    maxBet: number,
+    settings: Record<string, unknown> = {}
+  ): Promise<CasinoGame> {
     const { data, error } = await supabase
       .from("casino_games")
-      .update({ custom_name: customName })
+      .update({ custom_name: customName, min_bet: minBet, max_bet: maxBet, settings })
       .eq("id", id)
       .select()
       .single();
