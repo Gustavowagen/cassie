@@ -12,23 +12,29 @@ import { useBalance } from "../hooks/useBalance";
 import { useCasinoStore } from "../stores/casinoStore";
 import { useAuthStore } from "../stores/authStore";
 import { useGames } from "../hooks/useGames";
-import { formatChips, gradientFromColor } from "../lib/utils";
-import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino } from "../types";
+import { formatChips, gradientFromColor, avatarGradient, initialsOf } from "../lib/utils";
+import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino, SlotsInstanceSettings } from "../types";
 import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
 import { Dice } from "../components/games/Dice";
 import { Mines } from "../components/games/Mines";
 import { Slots } from "../components/games/Slots";
+import { Plinko } from "../components/games/Plinko";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
 import { GameSettingsModal } from "../components/GameSettingsModal";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 import { GAME_ART } from "../lib/gameArt";
 
+// Frosted-glass surface + glow, matching the homepage's glassmorphic redesign.
+const GLASS = "bg-white/5 backdrop-blur-xl border border-white/10";
+const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
+const CTA_GRADIENT = "bg-gradient-to-r from-primary to-indigo-400 hover:opacity-90";
+
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
-const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots"]);
-const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines"];
+const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko"]);
+const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines", "plinko"];
 
 type OwnerTab = "games" | "members" | "stats" | "trades" | "settings";
 
@@ -47,7 +53,7 @@ function roleBadgeClass(role: "creator" | "admin" | "member"): string {
 export function CasinoDashboard() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { getCasinoBySlug, joinCasino, getCasinoMembers, giveChips, removeChips, setMemberRole, getMemberProfitLoss } = useCasino();
+  const { getCasinoBySlug, joinCasino, getCasinoMembers, giveChips, removeChips, setMemberRole, transferOwnership, getMemberProfitLoss } = useCasino();
   const { currentCasino, membership, setCasino } = useCasinoStore();
   const { user } = useAuthStore();
   useBalance(currentCasino?.id);
@@ -89,6 +95,15 @@ export function CasinoDashboard() {
       .then(setMembers)
       .finally(() => setMembersLoading(false));
   }, [isOwner, isAdmin, currentCasino?.id, activeTab, membership?.id]);
+
+  async function handlePlayGame(instance: CasinoGame) {
+    if (!currentCasino) return;
+    // Refetch so a player always sees the admin's latest bet limits when
+    // starting a new session, rather than whatever was loaded on page load.
+    const fresh = await listCasinoGames(currentCasino.id);
+    setCasinoGames(fresh);
+    setActiveGame(fresh.find((g) => g.id === instance.id) ?? instance);
+  }
 
   async function handleJoin() {
     if (!currentCasino) return;
@@ -142,6 +157,14 @@ export function CasinoDashboard() {
     });
   }
 
+  async function handleTransferOwnership(userId: string) {
+    if (!currentCasino) return;
+    await transferOwnership(currentCasino.id, userId);
+    setCasino({ ...currentCasino, owner_id: userId });
+    setSelectedMember(null);
+    getCasinoMembers(currentCasino.id).then(setMembers);
+  }
+
   if (!currentCasino)
     return (
       <div className="text-center py-16 text-muted-foreground">
@@ -152,8 +175,6 @@ export function CasinoDashboard() {
   const { theme, name, description, join_code, member_count } = currentCasino;
   const hasLogo = Boolean(theme.logoUrl);
   const isMember = Boolean(membership);
-
-  const gameTypeMap = Object.fromEntries(gameTypes.map((g) => [g.id, g]));
 
   return (
     <div className="space-y-6">
@@ -270,7 +291,7 @@ export function CasinoDashboard() {
           {activeTab === "games" && (
             <GameOverview
               casinoGames={casinoGames}
-              onPlay={(instance) => setActiveGame(instance)}
+              onPlay={handlePlayGame}
               canAdmin={canManageMembers}
             />
           )}
@@ -292,12 +313,12 @@ export function CasinoDashboard() {
               casino={currentCasino}
               casinoGames={casinoGames}
               managedGameTypes={gameTypes.filter((g) => MANAGED_GAME_IDS.includes(g.id))}
-              onCreate={async (typeId, customName) => {
-                const newGame = await createGame(currentCasino.id, typeId, customName);
+              onCreate={async (typeId, customName, minBet, maxBet, settings) => {
+                const newGame = await createGame(currentCasino.id, typeId, customName, minBet, maxBet, settings);
                 setCasinoGames((prev) => [...prev, newGame]);
               }}
-              onUpdate={async (id, customName) => {
-                const updated = await updateGame(id, customName);
+              onUpdate={async (id, customName, minBet, maxBet, settings) => {
+                const updated = await updateGame(id, customName, minBet, maxBet, settings);
                 setCasinoGames((prev) => prev.map((g) => (g.id === id ? updated : g)));
               }}
               onDelete={async (id) => {
@@ -314,7 +335,7 @@ export function CasinoDashboard() {
         <>
           <GameOverview
             casinoGames={casinoGames}
-            onPlay={(instance) => setActiveGame(instance)}
+            onPlay={handlePlayGame}
             canAdmin={false}
           />
           <div className="rounded-xl border border-border overflow-hidden">
@@ -340,49 +361,69 @@ export function CasinoDashboard() {
 
       {/* Game modal */}
       {activeGame && currentCasino && (
-        <Modal onClose={() => setActiveGame(null)} size="xl">
+        <Modal onClose={() => setActiveGame(null)} size="xl" dismissible={false} backdropToggle>
           {activeGame.game_type_id === "blackjack" && (
             <Blackjack
               casinoId={currentCasino.id}
+              gameId={activeGame.id}
               balance={membership?.balance ?? 0}
-              minBet={gameTypeMap["blackjack"]?.min_bet ?? 1}
-              maxBet={gameTypeMap["blackjack"]?.max_bet ?? 100000}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
               onExit={() => setActiveGame(null)}
             />
           )}
           {activeGame.game_type_id === "roulette" && (
             <Roulette
               casinoId={currentCasino.id}
+              gameId={activeGame.id}
               balance={membership?.balance ?? 0}
-              minBet={gameTypeMap["roulette"]?.min_bet ?? 100}
-              maxBet={gameTypeMap["roulette"]?.max_bet ?? 100000}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
               onExit={() => setActiveGame(null)}
             />
           )}
           {activeGame.game_type_id === "dice" && (
             <Dice
               casinoId={currentCasino.id}
+              gameId={activeGame.id}
               balance={membership?.balance ?? 0}
-              minBet={gameTypeMap["dice"]?.min_bet ?? 100}
-              maxBet={gameTypeMap["dice"]?.max_bet ?? 50000}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
               onExit={() => setActiveGame(null)}
             />
           )}
           {activeGame.game_type_id === "mines" && (
             <Mines
               casinoId={currentCasino.id}
+              gameId={activeGame.id}
               balance={membership?.balance ?? 0}
-              minBet={gameTypeMap["mines"]?.min_bet ?? 100}
-              maxBet={gameTypeMap["mines"]?.max_bet ?? 50000}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
               onExit={() => setActiveGame(null)}
             />
           )}
           {activeGame.game_type_id === "slots" && (
             <Slots
               casinoId={currentCasino.id}
+              gameId={activeGame.id}
+              rewardMode={
+                (activeGame.settings as SlotsInstanceSettings)?.rewardMode === "full_board"
+                  ? "full_board"
+                  : "single_row"
+              }
               balance={membership?.balance ?? 0}
-              minBet={gameTypeMap["slots"]?.min_bet ?? 100}
-              maxBet={gameTypeMap["slots"]?.max_bet ?? 50000}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
+              onExit={() => setActiveGame(null)}
+            />
+          )}
+          {activeGame.game_type_id === "plinko" && (
+            <Plinko
+              casinoId={currentCasino.id}
+              gameId={activeGame.id}
+              balance={membership?.balance ?? 0}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
               onExit={() => setActiveGame(null)}
             />
           )}
@@ -401,6 +442,7 @@ export function CasinoDashboard() {
             onGiveChips={handleGiveChips}
             onRemoveChips={handleRemoveChips}
             onRoleChange={handleRoleChange}
+            onTransferOwnership={handleTransferOwnership}
             getMemberProfitLoss={getMemberProfitLoss}
           />
         </Modal>
@@ -464,8 +506,20 @@ function SettingsTab({
   casino: Casino;
   casinoGames: CasinoGame[];
   managedGameTypes: GameType[];
-  onCreate: (typeId: string, customName: string) => Promise<void>;
-  onUpdate: (id: string, customName: string) => Promise<void>;
+  onCreate: (
+    typeId: string,
+    customName: string,
+    minBet: number,
+    maxBet: number,
+    settings: Record<string, unknown>
+  ) => Promise<void>;
+  onUpdate: (
+    id: string,
+    customName: string,
+    minBet: number,
+    maxBet: number,
+    settings: Record<string, unknown>
+  ) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
   const [gameModal, setGameModal] = useState<GameModalState>(null);
@@ -590,12 +644,16 @@ function SettingsTab({
           <GameSettingsModal
             title={gameModal.mode === "create" ? `Add ${gameModal.gameType.name}` : `Edit ${gameModal.game.custom_name}`}
             imageUrl={GAME_ART[gameModal.mode === "create" ? gameModal.gameType.id : gameModal.game.game_type_id]}
+            gameTypeId={gameModal.mode === "create" ? gameModal.gameType.id : gameModal.game.game_type_id}
             initialName={gameModal.mode === "create" ? gameModal.gameType.name : gameModal.game.custom_name}
-            onSave={async (name) => {
+            initialMinBet={gameModal.mode === "create" ? gameModal.gameType.min_bet : gameModal.game.min_bet}
+            initialMaxBet={gameModal.mode === "create" ? gameModal.gameType.max_bet : gameModal.game.max_bet}
+            initialSettings={gameModal.mode === "create" ? {} : gameModal.game.settings}
+            onSave={async (name, minBet, maxBet, settings) => {
               if (gameModal.mode === "create") {
-                await onCreate(gameModal.gameType.id, name);
+                await onCreate(gameModal.gameType.id, name, minBet, maxBet, settings);
               } else {
-                await onUpdate(gameModal.game.id, name);
+                await onUpdate(gameModal.game.id, name, minBet, maxBet, settings);
               }
               setGameModal(null);
             }}
@@ -645,7 +703,7 @@ function SettingsTab({
 }
 
 type TimeseriesRow = { bucket: string; daily_amount: number };
-type DateMode = "all" | "custom";
+type DateMode = "1d" | "7d" | "30d" | "custom";
 
 function ProfitLossChart({ data }: { data: TimeseriesRow[] }) {
   if (!data.length) {
@@ -752,7 +810,7 @@ function ProfitLossChart({ data }: { data: TimeseriesRow[] }) {
 }
 
 function StatsTab({ casinoId }: { casinoId: string }) {
-  const [dateMode, setDateMode] = useState<DateMode>("all");
+  const [dateMode, setDateMode] = useState<DateMode>("30d");
   const [fromDate, setFromDate] = useState(daysAgoStr(30));
   const [toDate, setToDate] = useState(todayStr());
   const [playerPl, setPlayerPl] = useState<number | null>(null);
@@ -764,6 +822,12 @@ function StatsTab({ casinoId }: { casinoId: string }) {
     if (dateMode === "custom") {
       params.p_from = new Date(fromDate).toISOString();
       params.p_to = new Date(toDate + "T23:59:59").toISOString();
+    } else if (dateMode === "1d") {
+      params.p_from = new Date(Date.now() - 1 * 86_400_000).toISOString();
+    } else if (dateMode === "7d") {
+      params.p_from = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    } else if (dateMode === "30d") {
+      params.p_from = new Date(Date.now() - 30 * 86_400_000).toISOString();
     }
 
     setLoading(true);
@@ -778,27 +842,28 @@ function StatsTab({ casinoId }: { casinoId: string }) {
 
   const casinoProfit = playerPl !== null ? -playerPl : null;
 
+  const dateModeOptions: { mode: DateMode; label: string }[] = [
+    { mode: "1d", label: "1 Day" },
+    { mode: "7d", label: "1 Week" },
+    { mode: "30d", label: "1 Month" },
+    { mode: "custom", label: "Custom" },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setDateMode("all")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            dateMode === "all" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          All time
-        </button>
-        <button
-          type="button"
-          onClick={() => setDateMode("custom")}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-            dateMode === "custom" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          Custom
-        </button>
+      <div className="flex flex-wrap gap-2">
+        {dateModeOptions.map(({ mode, label }) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setDateMode(mode)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              dateMode === mode ? "bg-primary text-primary-foreground" : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {dateMode === "custom" && (
@@ -808,6 +873,8 @@ function StatsTab({ casinoId }: { casinoId: string }) {
           onFromChange={setFromDate}
           onToChange={setToDate}
           maxTo={todayStr()}
+          minFrom={daysAgoStr(30)}
+          maxRangeDays={30}
         />
       )}
 
@@ -851,44 +918,60 @@ function MembersTab({
     return <p className="text-muted-foreground text-sm">No members yet.</p>;
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/40">
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground">Player</th>
-            <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Role</th>
-            <th className="text-right px-4 py-3 font-medium text-muted-foreground">Balance</th>
-            <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Joined</th>
-            <th className="px-4 py-3 w-8" />
-          </tr>
-        </thead>
-        <tbody>
-          {members.map((m) => {
-            const role = displayRole(m, casinoOwnerId);
-            return (
-              <tr
-                key={m.id}
-                onClick={() => onSelectMember(m)}
-                className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors cursor-pointer"
-              >
-                <td className="px-4 py-3 font-medium">{m.profile?.username ?? "Unknown"}</td>
-                <td className="px-4 py-3 hidden sm:table-cell">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${roleBadgeClass(role)}`}>
-                    {role}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right font-mono">{formatChips(m.balance)}</td>
-                <td className="px-4 py-3 text-right text-muted-foreground hidden sm:table-cell">
-                  {new Date(m.joined_at).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3 text-right text-muted-foreground">
-                  <ChevronRight className="h-4 w-4 ml-auto" />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        {members.length} player{members.length === 1 ? "" : "s"} in this casino
+      </p>
+      <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} overflow-hidden`}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr>
+              <th className="text-left px-5 py-3.5 font-semibold text-[0.72rem] uppercase tracking-wide text-muted-foreground border-b border-white/10">Player</th>
+              <th className="text-left px-5 py-3.5 font-semibold text-[0.72rem] uppercase tracking-wide text-muted-foreground border-b border-white/10 hidden sm:table-cell">Role</th>
+              <th className="text-right px-5 py-3.5 font-semibold text-[0.72rem] uppercase tracking-wide text-muted-foreground border-b border-white/10">Balance</th>
+              <th className="text-right px-5 py-3.5 font-semibold text-[0.72rem] uppercase tracking-wide text-muted-foreground border-b border-white/10 hidden sm:table-cell">Joined</th>
+              <th className="w-8 border-b border-white/10" />
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m) => {
+              const role = displayRole(m, casinoOwnerId);
+              const username = m.profile?.username ?? "Unknown";
+              return (
+                <tr
+                  key={m.id}
+                  onClick={() => onSelectMember(m)}
+                  className="border-b border-white/[0.06] last:border-0 hover:bg-white/[0.045] transition-colors cursor-pointer"
+                >
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]"
+                        style={{ background: avatarGradient(username) }}
+                      >
+                        {initialsOf(username)}
+                      </div>
+                      <span className="font-semibold">{username}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 hidden sm:table-cell">
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${roleBadgeClass(role)}`}>
+                      {role}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right font-mono tabular-nums">{formatChips(m.balance)}</td>
+                  <td className="px-5 py-3 text-right text-muted-foreground hidden sm:table-cell">
+                    {new Date(m.joined_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-5 py-3 pr-5 text-right text-muted-foreground">
+                    <ChevronRight className="h-4 w-4 ml-auto" />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -913,6 +996,7 @@ function MemberPopup({
   onGiveChips,
   onRemoveChips,
   onRoleChange,
+  onTransferOwnership,
   getMemberProfitLoss,
 }: {
   member: CasinoMemberWithProfile;
@@ -923,6 +1007,7 @@ function MemberPopup({
   onGiveChips: (userId: string, amount: number) => Promise<void>;
   onRemoveChips: (userId: string, amount: number) => Promise<void>;
   onRoleChange: (userId: string, newRole: "member" | "admin") => Promise<void>;
+  onTransferOwnership: (userId: string) => Promise<void>;
   getMemberProfitLoss: (casinoId: string, userId: string, from?: Date, to?: Date) => Promise<number>;
 }) {
   const [profitLoss, setProfitLoss] = useState<number | null>(null);
@@ -938,6 +1023,9 @@ function MemberPopup({
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [changingRole, setChangingRole] = useState(false);
   const [roleError, setRoleError] = useState<string | null>(null);
+  const [confirmingTransfer, setConfirmingTransfer] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
 
   const role = displayRole(member, casinoOwnerId);
   const isCreatorMember = member.user_id === casinoOwnerId;
@@ -1004,6 +1092,19 @@ function MemberPopup({
     }
   }
 
+  async function handleConfirmTransfer() {
+    setTransferring(true);
+    setTransferError(null);
+    try {
+      await onTransferOwnership(member.user_id);
+      setConfirmingTransfer(false);
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : "Failed to transfer ownership");
+    } finally {
+      setTransferring(false);
+    }
+  }
+
   const profitPositive = profitLoss !== null && profitLoss >= 0;
   const profitDisplay = statsLoading
     ? "..."
@@ -1018,18 +1119,24 @@ function MemberPopup({
     { id: "custom", label: "Custom" },
   ];
 
+  const username = member.profile?.username ?? "Unknown";
+
   return (
-    <div className="bg-card rounded-2xl overflow-hidden">
-      <div className="flex items-start justify-between p-5 border-b border-border">
+    <>
+    <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} overflow-hidden`}>
+      <div className="flex items-start justify-between p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg select-none">
-            {(member.profile?.username ?? "?")[0].toUpperCase()}
+          <div
+            className="h-11 w-11 rounded-full flex items-center justify-center text-white font-bold text-base select-none shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]"
+            style={{ background: avatarGradient(username) }}
+          >
+            {initialsOf(username)}
           </div>
           <div>
             <p className="font-semibold text-base leading-tight">
-              {member.profile?.username ?? "Unknown"}
+              {username}
             </p>
-            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold mt-0.5 ${roleBadgeClass(role)}`}>
+            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold mt-0.5 capitalize ${roleBadgeClass(role)}`}>
               {role}
             </span>
           </div>
@@ -1045,11 +1152,11 @@ function MemberPopup({
 
       <div className="p-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg bg-muted/40 px-3 py-2.5">
+          <div className="rounded-xl bg-white/5 px-3 py-2.5">
             <p className="text-xs text-muted-foreground mb-0.5">Joined</p>
             <p className="text-sm font-medium">{new Date(member.joined_at).toLocaleDateString()}</p>
           </div>
-          <div className="rounded-lg bg-muted/40 px-3 py-2.5">
+          <div className="rounded-xl bg-white/5 px-3 py-2.5">
             <p className="text-xs text-muted-foreground mb-0.5">Last played</p>
             <p className="text-sm font-medium">
               {member.last_played_at
@@ -1059,12 +1166,12 @@ function MemberPopup({
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2.5">
+        <div className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2.5">
           <p className="text-xs text-muted-foreground">Current balance</p>
           <p className="text-sm font-medium font-mono">{formatChips(member.balance)} chips</p>
         </div>
 
-        <div className="rounded-lg border border-border px-3 py-3 space-y-2.5">
+        <div className="rounded-xl border border-white/10 px-3 py-3 space-y-2.5">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-xs text-muted-foreground font-medium">Profit / Loss</p>
             <div className="flex gap-1">
@@ -1076,7 +1183,7 @@ function MemberPopup({
                   className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
                     period === id
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "bg-white/[0.06] text-muted-foreground hover:bg-white/10 hover:text-foreground"
                   }`}
                 >
                   {label}
@@ -1122,13 +1229,20 @@ function MemberPopup({
                     member.role === r
                       ? r === "admin"
                         ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 cursor-default"
-                        : "bg-muted text-foreground cursor-default"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                        : "bg-white/10 text-foreground cursor-default"
+                      : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground disabled:opacity-50"
                   }`}
                 >
                   {r}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setConfirmingTransfer(true)}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+              >
+                Make owner
+              </button>
             </div>
             {roleError && <p className="text-xs text-destructive mt-1">{roleError}</p>}
           </div>
@@ -1144,9 +1258,9 @@ function MemberPopup({
               value={chipAmount}
               onChange={(e) => setChipAmount(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleGive()}
-              className="w-32 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-32 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <Button size="sm" onClick={handleGive} disabled={giving || removing}>
+            <Button size="sm" onClick={handleGive} disabled={giving || removing} className={CTA_GRADIENT}>
               {giving ? "Sending…" : "Give"}
             </Button>
             <Button
@@ -1164,5 +1278,34 @@ function MemberPopup({
         </div>
       </div>
     </div>
+
+    {confirmingTransfer && (
+      <Modal onClose={() => (transferring ? undefined : setConfirmingTransfer(false))} size="md">
+        <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} p-5 space-y-4`}>
+          <div>
+            <p className="font-semibold text-base">Transfer ownership?</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {username} will become the new owner of this casino.
+              You will remain an admin instead.
+            </p>
+          </div>
+          {transferError && <p className="text-xs text-destructive">{transferError}</p>}
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmingTransfer(false)}
+              disabled={transferring}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleConfirmTransfer} disabled={transferring}>
+              {transferring ? "Transferring…" : "Yes, transfer ownership"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
