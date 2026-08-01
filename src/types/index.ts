@@ -65,6 +65,14 @@ export interface CasinoGame {
   game_type_id: string;
   custom_name: string;
   is_active: boolean;
+  min_bet: number;
+  max_bet: number;
+  settings: Record<string, unknown>;
+}
+
+// Shape of CasinoGame.settings for a slots instance.
+export interface SlotsInstanceSettings {
+  rewardMode?: "single_row" | "full_board";
 }
 
 // Mirror of the edge function's sanitized output (engine.ts BlackjackState).
@@ -130,14 +138,40 @@ export interface SlotReel {
 export interface SlotWin {
   symbol: SlotSymbolId;
   count: 3 | 4 | 5;
+  // Reel indices (0-based) holding the winning symbol — not necessarily
+  // contiguous or left-aligned, since matches are scatter-style.
+  positions: number[];
+}
+
+// Full-board mode win: count spans all 3 rows (7-15), so positions need a
+// row alongside the reel index — kept as a separate type from SlotWin
+// rather than unifying, so single-row's shape stays untouched.
+export interface FullBoardSlotWin {
+  symbol: SlotSymbolId;
+  count: number;
+  positions: { reel: number; row: "top" | "mid" | "bottom" }[];
 }
 
 // Mirror of the edge function's response (supabase/functions/slots/engine.ts).
 export interface SlotsResult {
   reels: SlotReel[];
-  win: SlotWin | null;
+  win: SlotWin | FullBoardSlotWin | null;
+  rewardMode: "single_row" | "full_board";
   bet: number;
   payout: number;
+  balance: number;
+}
+
+export type PlinkoRisk = "low" | "medium" | "high";
+
+export interface PlinkoResult {
+  /** One left (0) / right (1) deflection per row — replayed as the drop animation. */
+  path: (0 | 1)[];
+  bucket: number;
+  risk: PlinkoRisk;
+  multiplier: number;
+  payout: number;
+  won: boolean;
   balance: number;
 }
 
