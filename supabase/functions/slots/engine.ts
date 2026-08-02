@@ -108,27 +108,49 @@ export function payoutFor(win: Win | null, bet: number): number {
 // (pigeonhole: 15 cells / 5 symbols = 3 average), so reusing the
 // single-row threshold of 3 would mean winning every spin. Exact
 // multinomial enumeration (all 3,876 compositions of 15 into 5 parts,
-// weighted by SYMBOLS' weights above) over "highest count wins, ties
-// broken toward the rarer symbol" gives:
+// weighted by SYMBOLS' weights above) over "every symbol at the max count
+// wins" gives:
 //
 //   P(max count >= 7)  = 31.97%  <- win threshold
 //   P(max count >= 9)  =  4.72%  <- BIG WIN tier
 //   P(max count >= 11) =  0.30%  <- MEGA WIN tier
 //
+// Two symbols can tie for the max count (e.g. 7 dots + 7 squares + 1
+// other) — 15 cells / 7-cell threshold allows at most a 2-way tie, never 3
+// (3 * 7 = 21 > 15). When that happens both symbols pay in full rather
+// than picking a "winner" (see evaluateFullBoardWin/payoutForFullBoard).
+// Ties only land in the 7-8 tier (two symbols both at 9+ would need 18+
+// cells) and are rare — 0.10% of all spins, 0.32% of winning spins — so
+// they nudge RTP up slightly rather than requiring a full re-solve.
+//
 // The pay table below was solved (same weighted-sum-times-pay approach
-// as SYMBOLS' RTP above, using those exact tier probabilities) to bring
-// total RTP to ~0.9817 (house edge ~1.83%), matching single-row's ~0.9820
-// (~1.80%). Full derivation:
+// as SYMBOLS' RTP above, using those exact tier probabilities, under the
+// single-winner rule) to bring total RTP to ~0.9822 (house edge ~1.78%),
+// matching single-row's ~0.9820 (~1.80%). Tier multipliers are deliberately
+// flatter than a naive scale-up (tier0:tier1:tier2 ≈ 1:3:10.5 per symbol,
+// vs. a much steeper spread) so the common small win (7-8 cells) pays more
+// and the rare max win (11-15 cells) pays less — the same total RTP spread
+// more evenly across outcomes. Paying both symbols on a tie lifts actual
+// RTP to ~0.9843 (house edge ~1.57%) — within the same 97-99% band, so the
+// table wasn't rescaled for it. Full derivation:
 // docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md
 export interface FullBoardPosition {
   reel: number;
   row: "top" | "mid" | "bottom";
 }
 
-export interface FullBoardWin {
+export interface FullBoardTieWin {
   symbol: SymbolId;
-  count: number; // 7..15
   positions: FullBoardPosition[];
+}
+
+// `wins` holds every symbol that reached the max count — normally length 1,
+// occasionally 2 when two symbols tie (see evaluateFullBoardWin). All of
+// them share `count`/tier, since a tie is only possible between symbols at
+// the exact same count.
+export interface FullBoardWin {
+  count: number; // 7..15
+  wins: FullBoardTieWin[];
 }
 
 interface FullBoardSymbolDef {
@@ -140,11 +162,11 @@ interface FullBoardSymbolDef {
 export const FULL_BOARD_MIN_COUNT = 7;
 
 export const FULL_BOARD_SYMBOLS: FullBoardSymbolDef[] = [
-  { id: "dot", pay: [1.46, 7.31, 58.46] },
-  { id: "square", pay: [2.19, 10.23, 80.38] },
-  { id: "diamond", pay: [2.92, 14.61, 116.92] },
-  { id: "star", pay: [4.38, 21.92, 189.99] },
-  { id: "seven", pay: [7.31, 36.54, 379.98] },
+  { id: "dot", pay: [2, 6, 21] },
+  { id: "square", pay: [3, 9, 32] },
+  { id: "diamond", pay: [4, 12, 42] },
+  { id: "star", pay: [6, 18, 63] },
+  { id: "seven", pay: [10, 30, 105] },
 ];
 
 function fullBoardTierIndex(count: number): 0 | 1 | 2 {
@@ -153,10 +175,11 @@ function fullBoardTierIndex(count: number): 0 | 1 | 2 {
   return 0;
 }
 
-// Counts every cell (not just mid) per symbol, then picks the highest
-// count. SYMBOLS is ordered low -> high tier (rarer last); scanning in
-// that order and overwriting on `>=` lets a later (rarer) symbol win
-// ties, matching the tie-break rule baked into the pay table's derivation.
+// Counts every cell (not just mid) per symbol, then finds the highest
+// count. Every symbol that reaches that count wins — with 15 cells, two
+// symbols tying for the max is possible (e.g. 7 dots + 7 squares + 1
+// other), but three-way ties aren't (3 * 7 = 21 > 15), so `wins` is never
+// longer than 2.
 export function evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null {
   const cellsBySymbol = new Map<SymbolId, FullBoardPosition[]>();
   reels.forEach((reel, i) => {
@@ -168,20 +191,28 @@ export function evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null {
     });
   });
 
-  let best: { symbol: SymbolId; positions: FullBoardPosition[] } | null = null;
+  let maxCount = 0;
+  for (const positions of cellsBySymbol.values()) {
+    if (positions.length > maxCount) maxCount = positions.length;
+  }
+  if (maxCount < FULL_BOARD_MIN_COUNT) return null;
+
+  const wins: FullBoardTieWin[] = [];
   for (const s of SYMBOLS) {
     const positions = cellsBySymbol.get(s.id) ?? [];
-    if (positions.length > 0 && (!best || positions.length >= best.positions.length)) {
-      best = { symbol: s.id, positions };
-    }
+    if (positions.length === maxCount) wins.push({ symbol: s.id, positions });
   }
-
-  if (!best || best.positions.length < FULL_BOARD_MIN_COUNT) return null;
-  return { symbol: best.symbol, count: best.positions.length, positions: best.positions };
+  return { count: maxCount, wins };
 }
 
+// Every tied symbol pays out — a 7-dot/7-square tie pays dot's tier-0 rate
+// plus square's, not just the rarer one.
 export function payoutForFullBoard(win: FullBoardWin | null, bet: number): number {
   if (!win) return 0;
-  const symbol = FULL_BOARD_SYMBOLS.find((s) => s.id === win.symbol)!;
-  return roundMoney(bet * symbol.pay[fullBoardTierIndex(win.count)]);
+  const tier = fullBoardTierIndex(win.count);
+  const total = win.wins.reduce((sum, w) => {
+    const symbol = FULL_BOARD_SYMBOLS.find((s) => s.id === w.symbol)!;
+    return sum + symbol.pay[tier];
+  }, 0);
+  return roundMoney(bet * total);
 }

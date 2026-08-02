@@ -215,16 +215,20 @@ describe("evaluateFullBoardWin", () => {
       { top: "star", mid: "seven", bottom: "square" },
     ];
     expect(evaluateFullBoardWin(reels)).toEqual({
-      symbol: "dot",
       count: 7,
-      positions: [
-        { reel: 0, row: "top" },
-        { reel: 0, row: "mid" },
-        { reel: 1, row: "top" },
-        { reel: 1, row: "mid" },
-        { reel: 2, row: "top" },
-        { reel: 2, row: "mid" },
-        { reel: 3, row: "top" },
+      wins: [
+        {
+          symbol: "dot",
+          positions: [
+            { reel: 0, row: "top" },
+            { reel: 0, row: "mid" },
+            { reel: 1, row: "top" },
+            { reel: 1, row: "mid" },
+            { reel: 2, row: "top" },
+            { reel: 2, row: "mid" },
+            { reel: 3, row: "top" },
+          ],
+        },
       ],
     });
   });
@@ -238,7 +242,7 @@ describe("evaluateFullBoardWin", () => {
       { top: "star", mid: "seven", bottom: "square" },
     ];
     const win = evaluateFullBoardWin(reels);
-    expect(win?.symbol).toBe("dot");
+    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot" })]);
     expect(win?.count).toBe(9);
   });
 
@@ -251,13 +255,13 @@ describe("evaluateFullBoardWin", () => {
       { top: "star", mid: "seven", bottom: "square" },
     ];
     const win = evaluateFullBoardWin(reels);
-    expect(win?.symbol).toBe("dot");
+    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot" })]);
     expect(win?.count).toBe(11);
   });
 
-  it("breaks a tie in favor of the rarer symbol", () => {
-    // dot and square both land exactly 7 times; square is rarer (later in
-    // SYMBOLS) and must win the payout.
+  it("both symbols win when they tie for the max count", () => {
+    // dot and square both land exactly 7 times — both must appear in `wins`,
+    // not just the rarer one.
     const reels: Reel[] = [
       { top: "dot", mid: "dot", bottom: "dot" },
       { top: "dot", mid: "dot", bottom: "dot" },
@@ -266,8 +270,14 @@ describe("evaluateFullBoardWin", () => {
       { top: "square", mid: "square", bottom: "diamond" },
     ];
     const win = evaluateFullBoardWin(reels);
-    expect(win?.symbol).toBe("square");
     expect(win?.count).toBe(7);
+    expect(win?.wins.map((w) => w.symbol).sort()).toEqual(["dot", "square"]);
+    expect(win?.wins.every((w) => w.positions.length === 7)).toBe(true);
+  });
+
+  it("never ties three ways (15 cells can't fit three symbols at 7+)", () => {
+    // Sanity check on the data itself, not a specific spin: 3 * FULL_BOARD_MIN_COUNT > 15.
+    expect(3 * 7).toBeGreaterThan(15);
   });
 });
 
@@ -277,28 +287,40 @@ describe("payoutForFullBoard", () => {
   });
 
   it("pays the tier-0 rate for 7-8 matches", () => {
-    expect(payoutForFullBoard({ symbol: "dot", count: 7, positions: [] }, 10)).toBe(14.6);
-    expect(payoutForFullBoard({ symbol: "dot", count: 8, positions: [] }, 10)).toBe(14.6);
+    expect(payoutForFullBoard({ count: 7, wins: [{ symbol: "dot", positions: [] }] }, 10)).toBe(20);
+    expect(payoutForFullBoard({ count: 8, wins: [{ symbol: "dot", positions: [] }] }, 10)).toBe(20);
   });
 
   it("pays the tier-1 rate for 9-10 matches", () => {
-    expect(payoutForFullBoard({ symbol: "square", count: 9, positions: [] }, 10)).toBe(102.3);
-    expect(payoutForFullBoard({ symbol: "square", count: 10, positions: [] }, 10)).toBe(102.3);
+    expect(payoutForFullBoard({ count: 9, wins: [{ symbol: "square", positions: [] }] }, 10)).toBe(90);
+    expect(payoutForFullBoard({ count: 10, wins: [{ symbol: "square", positions: [] }] }, 10)).toBe(90);
   });
 
   it("pays the tier-2 rate for 11+ matches", () => {
-    expect(payoutForFullBoard({ symbol: "seven", count: 11, positions: [] }, 2)).toBe(759.96);
-    expect(payoutForFullBoard({ symbol: "seven", count: 15, positions: [] }, 2)).toBe(759.96);
+    expect(payoutForFullBoard({ count: 11, wins: [{ symbol: "seven", positions: [] }] }, 2)).toBe(210);
+    expect(payoutForFullBoard({ count: 15, wins: [{ symbol: "seven", positions: [] }] }, 2)).toBe(210);
+  });
+
+  it("pays every tied symbol's rate when two symbols share the max count", () => {
+    // dot (2x) + square (3x) tier-0 = 5x total, not just one or the other.
+    const win = {
+      count: 7,
+      wins: [
+        { symbol: "dot" as const, positions: [] },
+        { symbol: "square" as const, positions: [] },
+      ],
+    };
+    expect(payoutForFullBoard(win, 10)).toBe(50);
   });
 });
 
 describe("full board RTP", () => {
   // Exact multinomial enumeration over all compositions of 15 cells into
   // the 5 symbols (C(19,4) = 3,876 of them), recomputed independently of
-  // evaluateFullBoardWin/payoutForFullBoard so a change to
-  // FULL_BOARD_SYMBOLS or the tie-break rule can't silently drift the
-  // payout curve without this test catching it. Same tie-break rule as
-  // evaluateFullBoardWin: highest count wins, ties go to the rarer symbol.
+  // evaluateFullBoardWin/payoutForFullBoard so a change to FULL_BOARD_SYMBOLS
+  // or the pay-all-ties rule can't silently drift the payout curve without
+  // this test catching it. Same rule as evaluateFullBoardWin: every symbol
+  // at the max count pays (not just one "winner").
   // See docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md.
   function factorial(n: number): number {
     let r = 1;
@@ -328,16 +350,14 @@ describe("full board RTP", () => {
         }
         const p = coef * pw;
 
-        let bestIdx = -1;
-        let bestCount = -1;
-        for (let i = 0; i < counts.length; i++) {
-          if (counts[i] >= bestCount) {
-            bestCount = counts[i];
-            bestIdx = i;
+        const maxCount = Math.max(...counts);
+        if (maxCount >= 7) {
+          const tier = tierIndex(maxCount);
+          let tiedPay = 0;
+          for (let i = 0; i < counts.length; i++) {
+            if (counts[i] === maxCount) tiedPay += FULL_BOARD_SYMBOLS[i].pay[tier];
           }
-        }
-        if (bestCount >= 7) {
-          rtp += p * FULL_BOARD_SYMBOLS[bestIdx].pay[tierIndex(bestCount)];
+          rtp += p * tiedPay;
           hitFrequency += p;
         }
         return;

@@ -1,0 +1,80 @@
+- generic [ref=f1e3]:
+  - navigation [ref=f1e4]:
+    - link "OnlineCassie" [ref=f1e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f1e6]:
+      - generic [ref=f1e7]: C
+      - button "Sign out" [ref=f1e9] [cursor=pointer]
+  - main [ref=f1e10]:
+    - generic [ref=f1e75]:
+      - button "Back to Casinos" [ref=f1e76] [cursor=pointer]
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]:
+          - heading "Dice Test Casino" [level=1] [ref=f1e82]
+          - generic [ref=f1e83]:
+            - generic [ref=f1e84]: 1 member
+            - 'button "Code: 2324F5" [ref=f1e85] [cursor=pointer]'
+        - generic [ref=f1e90]: 10,021.8720 chips
+      - generic [ref=f1e91]:
+        - generic [ref=f1e92]:
+          - button "Games" [ref=f1e93] [cursor=pointer]
+          - button "Members" [ref=f1e96] [cursor=pointer]
+          - button "Statistics" [ref=f1e102] [cursor=pointer]
+          - button "Trades" [ref=f1e104] [cursor=pointer]
+          - button "Settings" [ref=f1e108] [cursor=pointer]
+        - generic [ref=f1e119]:
+          - generic [ref=f1e120]:
+            - generic [ref=f1e121]:
+              - heading "Available Games" [level=3] [ref=f1e122]
+              - paragraph [ref=f1e123]: Up to 5 instances per game type.
+            - generic [ref=f1e124]:
+              - generic [ref=f1e125]:
+                - generic [ref=f1e126]:
+                  - generic [ref=f1e128]:
+                    - paragraph [ref=f1e130]: Blackjack
+                    - paragraph [ref=f1e131]: 1/5 active
+                  - button "+ Add" [ref=f1e132] [cursor=pointer]
+                - generic [ref=f1e197]:
+                  - generic [ref=f1e198]: Blackjack
+                  - button [ref=f1e199] [cursor=pointer]
+              - generic [ref=f1e133]:
+                - generic [ref=f1e134]:
+                  - generic [ref=f1e136]:
+                    - paragraph [ref=f1e138]: Dice Roll
+                    - paragraph [ref=f1e139]: 1/5 active
+                  - button "+ Add" [ref=f1e140] [cursor=pointer]
+                - generic [ref=f1e142]:
+                  - generic [ref=f1e143]: Dice Roll
+                  - button [ref=f1e144] [cursor=pointer]
+              - generic [ref=f1e149]:
+                - generic [ref=f1e151]:
+                  - paragraph [ref=f1e153]: Mines
+                  - paragraph [ref=f1e154]: 0/5 active
+                - button "+ Add" [ref=f1e155] [cursor=pointer]
+              - generic [ref=f1e157]:
+                - generic [ref=f1e159]:
+                  - paragraph [ref=f1e161]: Plinko
+                  - paragraph [ref=f1e162]: 0/5 active
+                - button "+ Add" [ref=f1e163] [cursor=pointer]
+              - generic [ref=f1e165]:
+                - generic [ref=f1e167]:
+                  - paragraph [ref=f1e169]: Roulette
+                  - paragraph [ref=f1e170]: 0/5 active
+                - button "+ Add" [ref=f1e171] [cursor=pointer]
+              - generic [ref=f1e173]:
+                - generic [ref=f1e175]:
+                  - paragraph [ref=f1e177]: Slot Machine
+                  - paragraph [ref=f1e178]: 0/5 active
+                - button "+ Add" [ref=f1e179] [cursor=pointer]
+          - generic [ref=f1e180]:
+            - heading "Casino Details" [level=3] [ref=f1e181]
+            - generic [ref=f1e182]:
+              - generic [ref=f1e183]:
+                - text: Description
+                - textbox "Describe your casino..." [ref=f1e184]
+              - generic [ref=f1e185]:
+                - text: Primary Color
+                - generic [ref=f1e186]:
+                  - textbox [ref=f1e187] [cursor=pointer]: "#7c3aed"
+                  - generic [ref=f1e188]: "#7c3aed"
+              - button "Save Details" [ref=f1e190] [cursor=pointer]

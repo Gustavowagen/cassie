@@ -1,0 +1,119 @@
+- generic [ref=f6e1]:
+  - generic [ref=f6e3]:
+    - navigation [ref=f6e4]:
+      - link "OnlineCassie" [ref=f6e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f6e6]:
+        - generic [ref=f6e7]:
+          - generic [ref=f6e8]: C
+          - generic [ref=f6e9]: ClaudeTest
+        - button "Sign out" [ref=f6e10] [cursor=pointer]
+    - main [ref=f6e11]:
+      - generic [ref=f6e12]:
+        - button "Back to Casinos" [ref=f6e13] [cursor=pointer]
+        - generic [ref=f6e17]:
+          - img "Bjørnar Berge" [ref=f6e18]
+          - generic [ref=f6e19]:
+            - heading "Bjørnar Berge" [level=1] [ref=f6e20]
+            - paragraph [ref=f6e21]: ccczcsz
+            - generic [ref=f6e22]:
+              - generic [ref=f6e23]: 13 members
+              - 'button "Code: 69A1E0" [ref=f6e24] [cursor=pointer]'
+          - generic [ref=f6e29]: 985,570.4036 chips
+        - generic [ref=f6e30]:
+          - generic [ref=f6e31]:
+            - button "Games" [ref=f6e32] [cursor=pointer]
+            - button "Members" [ref=f6e35] [cursor=pointer]
+            - button "Statistics" [ref=f6e41] [cursor=pointer]
+            - button "Trades" [ref=f6e43] [cursor=pointer]
+            - button "Settings" [ref=f6e47] [cursor=pointer]
+          - generic [ref=f6e51]:
+            - heading "Games" [level=2] [ref=f6e52]
+            - generic [ref=f6e53]:
+              - button [ref=f6e54] [cursor=pointer]:
+                - generic [ref=f6e56]:
+                  - heading "blackjack" [level=3] [ref=f6e57]
+                  - text: Play now →
+              - button [ref=f6e58] [cursor=pointer]:
+                - generic [ref=f6e60]:
+                  - heading "Mines" [level=3] [ref=f6e61]
+                  - text: Play now →
+              - button [ref=f6e62] [cursor=pointer]:
+                - generic [ref=f6e64]:
+                  - heading "Plinko" [level=3] [ref=f6e65]
+                  - text: Play now →
+              - button [ref=f6e66] [cursor=pointer]:
+                - generic [ref=f6e68]:
+                  - heading "Roulette" [level=3] [ref=f6e69]
+                  - text: Play now →
+  - generic [ref=f6e70]:
+    - button "Use blurred backdrop" [active] [pressed] [ref=f6e124] [cursor=pointer]
+    - generic [ref=f6e76]:
+      - generic [ref=f6e77]:
+        - generic [ref=f6e78]:
+          - paragraph [ref=f6e79]: Mines
+          - paragraph [ref=f6e80]: "Balance: 985,570.4036 chips"
+        - button "Exit" [ref=f6e82] [cursor=pointer]
+      - generic [ref=f6e86]:
+        - generic [ref=f6e87]:
+          - generic [ref=f6e88]:
+            - text: Bet Amount
+            - spinbutton [ref=f6e89]: "100"
+            - generic [ref=f6e90]:
+              - button "½" [ref=f6e91] [cursor=pointer]
+              - button "2×" [ref=f6e92] [cursor=pointer]
+            - paragraph [ref=f6e93]: Min 100.0000 · Max 50,000.0000
+          - generic [ref=f6e94]:
+            - text: Mines
+            - combobox [ref=f6e95]:
+              - option "1"
+              - option "2"
+              - option "3" [selected]
+              - option "4"
+              - option "5"
+              - option "6"
+              - option "7"
+              - option "8"
+              - option "9"
+              - option "10"
+              - option "11"
+              - option "12"
+              - option "13"
+              - option "14"
+              - option "15"
+              - option "16"
+              - option "17"
+              - option "18"
+              - option "19"
+              - option "20"
+              - option "21"
+              - option "22"
+              - option "23"
+              - option "24"
+          - button "Bet" [ref=f6e96] [cursor=pointer]
+        - generic [ref=f6e98]:
+          - button [disabled] [ref=f6e99]
+          - button [disabled] [ref=f6e100]
+          - button [disabled] [ref=f6e101]
+          - button [disabled] [ref=f6e102]
+          - button [disabled] [ref=f6e103]
+          - button [disabled] [ref=f6e104]
+          - button [disabled] [ref=f6e105]
+          - button [disabled] [ref=f6e106]
+          - button [disabled] [ref=f6e107]
+          - button [disabled] [ref=f6e108]
+          - button [disabled] [ref=f6e109]
+          - button [disabled] [ref=f6e110]
+          - button [disabled] [ref=f6e111]
+          - button [disabled] [ref=f6e112]
+          - button [disabled] [ref=f6e113]
+          - button [disabled] [ref=f6e114]
+          - button [disabled] [ref=f6e115]
+          - button [disabled] [ref=f6e116]
+          - button [disabled] [ref=f6e117]
+          - button [disabled] [ref=f6e118]
+          - button [disabled] [ref=f6e119]
+          - button [disabled] [ref=f6e120]
+          - button [disabled] [ref=f6e121]
+          - button [disabled] [ref=f6e122]
+          - button [disabled] [ref=f6e123]

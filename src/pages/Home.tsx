@@ -83,6 +83,12 @@ export function Home() {
       </div>
 
       <div className="space-y-10">
+        {/* LOGO — the persistent top nav is gone, so Home carries the wordmark */}
+        <div className="flex items-center gap-2">
+          <div className="h-[22px] w-[22px] rounded-[7px] bg-gradient-to-br from-primary to-indigo-400" />
+          <span className="font-extrabold tracking-tight">OnlineCassie</span>
+        </div>
+
         {/* HERO BAND */}
         <section
           className={`rounded-2xl ${GLASS} shadow-[0_8px_32px_rgba(124,58,237,0.15)] p-8 md:p-10 flex flex-col md:flex-row gap-8 items-center`}
@@ -161,8 +167,8 @@ export function Home() {
 
         {/* STATS STRIP — omitted entirely if the stats fetch fails */}
         {(loading || stats) && (
-          <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className={`rounded-xl ${GLASS} p-4 text-center`}>
+          <section className="grid grid-cols-3 gap-3 sm:gap-4">
+            <div className={`rounded-xl ${GLASS} p-3 sm:p-4 text-center`}>
               {loading || !stats ? (
                 <div className="h-7 mx-auto w-12 rounded bg-white/10 animate-pulse" />
               ) : (
@@ -170,7 +176,7 @@ export function Home() {
               )}
               <div className="text-xs text-muted-foreground mt-1">Casinos</div>
             </div>
-            <div className={`rounded-xl ${GLASS} p-4 text-center`}>
+            <div className={`rounded-xl ${GLASS} p-3 sm:p-4 text-center`}>
               {loading || !stats ? (
                 <div className="h-7 mx-auto w-12 rounded bg-white/10 animate-pulse" />
               ) : (
@@ -179,11 +185,11 @@ export function Home() {
               <div className="text-xs text-muted-foreground mt-1">Players</div>
             </div>
             <div
-              className={`rounded-xl ${GLASS} p-4 text-center flex flex-col items-center justify-center`}
+              className={`rounded-xl ${GLASS} p-3 sm:p-4 text-center flex flex-col items-center justify-center`}
             >
               <div className="text-2xl font-bold">100%</div>
               <div className="text-xs text-muted-foreground mt-1">
-                Free · no real money
+                Free
               </div>
             </div>
           </section>

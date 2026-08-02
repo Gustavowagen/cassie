@@ -1,0 +1,78 @@
+- generic [ref=f6e3]:
+  - navigation [ref=f6e4]:
+    - link "OnlineCassie" [ref=f6e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f6e6]:
+      - generic [ref=f6e7]: C
+      - button "Sign out" [ref=f6e9] [cursor=pointer]
+  - main [ref=f6e10]:
+    - generic [ref=f6e90]:
+      - generic [ref=f6e92]:
+        - img "Bjørnar Berge" [ref=f6e93]
+        - generic [ref=f6e94]:
+          - heading "Bjørnar Berge" [level=1] [ref=f6e95]
+          - paragraph [ref=f6e96]: ccczcsz
+          - generic [ref=f6e97]:
+            - generic [ref=f6e98]: 13 members
+            - 'button "Code: 69A1E0" [ref=f6e99] [cursor=pointer]'
+        - generic [ref=f6e104]: 991,012.51 chips
+      - generic [ref=f6e105]:
+        - generic [ref=f6e106]:
+          - button "Games" [ref=f6e107] [cursor=pointer]
+          - button "Members" [ref=f6e110] [cursor=pointer]
+          - button "Statistics" [ref=f6e116] [cursor=pointer]
+          - button "Trades" [ref=f6e118] [cursor=pointer]
+          - button "Settings" [active] [ref=f6e122] [cursor=pointer]
+        - generic [ref=f6e137]:
+          - generic [ref=f6e138]:
+            - generic [ref=f6e139]:
+              - heading "Available Games" [level=3] [ref=f6e140]
+              - paragraph [ref=f6e141]: Up to 5 instances per game type.
+            - generic [ref=f6e142]:
+              - generic [ref=f6e143]:
+                - generic [ref=f6e144]:
+                  - generic [ref=f6e146]:
+                    - paragraph [ref=f6e148]: Blackjack
+                    - paragraph [ref=f6e149]: 1/5 active
+                  - button "+ Add" [ref=f6e150] [cursor=pointer]
+                - generic [ref=f6e152]:
+                  - generic [ref=f6e153]: blackjack
+                  - button [ref=f6e154] [cursor=pointer]
+              - generic [ref=f6e159]:
+                - generic [ref=f6e161]:
+                  - paragraph [ref=f6e163]: Dice Roll
+                  - paragraph [ref=f6e164]: 0/5 active
+                - button "+ Add" [ref=f6e165] [cursor=pointer]
+              - generic [ref=f6e167]:
+                - generic [ref=f6e169]:
+                  - paragraph [ref=f6e171]: Mines
+                  - paragraph [ref=f6e172]: 0/5 active
+                - button "+ Add" [ref=f6e173] [cursor=pointer]
+              - generic [ref=f6e174]:
+                - generic [ref=f6e175]:
+                  - generic [ref=f6e177]:
+                    - paragraph [ref=f6e179]: Roulette
+                    - paragraph [ref=f6e180]: 1/5 active
+                  - button "+ Add" [ref=f6e181] [cursor=pointer]
+                - generic [ref=f6e183]:
+                  - generic [ref=f6e184]: Roulette
+                  - button [ref=f6e185] [cursor=pointer]
+              - generic [ref=f6e190]:
+                - generic [ref=f6e192]:
+                  - generic [ref=f6e193]:
+                    - paragraph [ref=f6e194]: Slot Machine
+                    - generic [ref=f6e195]: soon
+                  - paragraph [ref=f6e196]: 0/5 active
+                - button "+ Add" [ref=f6e197] [cursor=pointer]
+          - generic [ref=f6e198]:
+            - heading "Casino Details" [level=3] [ref=f6e199]
+            - generic [ref=f6e200]:
+              - generic [ref=f6e201]:
+                - text: Description
+                - textbox "Describe your casino..." [ref=f6e202]: ccczcsz
+              - generic [ref=f6e203]:
+                - text: Primary Color
+                - generic [ref=f6e204]:
+                  - textbox [ref=f6e205] [cursor=pointer]: "#54476b"
+                  - generic [ref=f6e206]: "#54476b"
+              - button "Save Details" [ref=f6e208] [cursor=pointer]

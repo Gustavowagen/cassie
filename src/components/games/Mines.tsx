@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
+import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { formatChips } from "../../lib/utils";
 import { useMines } from "../../hooks/useMines";
 import { playTone, playWinChime, playLoseThud } from "../../lib/sound";
@@ -16,6 +17,7 @@ function roundMoney(n: number): number {
 
 interface Props {
   casinoId: string;
+  gameId: string;
   balance: number;
   minBet: number;
   maxBet: number;
@@ -35,8 +37,8 @@ const GEM_PARTICLES = Array.from({ length: 10 }, (_, i) => {
   };
 });
 
-export function Mines({ casinoId, balance: initialBalance, minBet, maxBet, onExit }: Props) {
-  const { state, loading, error: reqError, start, reveal, cashOut } = useMines(casinoId);
+export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBet, onExit }: Props) {
+  const { state, loading, error: reqError, start, reveal, cashOut } = useMines(casinoId, gameId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [betText, setBetText] = useState(String(minBet));
   const [minesCount, setMinesCount] = useState(3);
@@ -114,30 +116,29 @@ export function Mines({ casinoId, balance: initialBalance, minBet, maxBet, onExi
       : null;
 
   return (
-    <div
-      className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
-      style={{ width: "min(98vw, 900px)", height: "min(90vh, 640px)" }}
-    >
+    <div className="relative bg-card overflow-hidden flex flex-col w-full h-screen h-[100dvh] rounded-2xl sm:w-[min(98vw,900px)] sm:h-[min(90vh,640px)]">
       <MinesStyles />
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+      <div className="flex items-center justify-between px-4 py-2 sm:px-5 sm:py-3 border-b border-border shrink-0">
         <div>
           <p className="font-bold text-base">Mines</p>
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
-        <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <BackdropToggleButton />
+          <button
+            type="button"
+            onClick={onExit}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3.5 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+          >
+            <X className="h-4 w-4" />
+            Exit
+          </button>
+        </div>
       </div>
 
-      {isComplete && (
-        <div
-          className={`px-5 py-2 text-center font-bold text-white text-sm shrink-0 ${
-            state!.outcome === "hit_mine" ? "bg-red-700" : "bg-emerald-700"
-          }`}
-        >
-          {state!.outcome === "hit_mine"
-            ? `Hit a mine — lost ${formatChips(state!.bet)} chips`
-            : `Cashed out ${formatChips(state!.payout ?? 0)} chips`}
+      {isComplete && state!.outcome !== "hit_mine" && (
+        <div className="px-5 py-2 text-center font-bold text-white text-sm shrink-0 bg-emerald-700">
+          {`Cashed out ${formatChips(state!.payout ?? 0)} chips`}
         </div>
       )}
 
@@ -167,7 +168,7 @@ export function Mines({ casinoId, balance: initialBalance, minBet, maxBet, onExi
       )}
 
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
-        <div className="flex flex-col gap-3 p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
+        <div className="flex flex-col gap-1 p-2 sm:gap-3 sm:p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
             <label className="text-xs text-muted-foreground">Bet Amount</label>
             <input
@@ -218,17 +219,16 @@ export function Mines({ casinoId, balance: initialBalance, minBet, maxBet, onExi
           </div>
 
           {hasActiveRound && (
-            <div className="rounded-lg border border-border px-3 py-2.5 space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Multiplier</span>
-                <span className="font-mono">{state!.multiplier.toFixed(4)}x</span>
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Next tile</span>
-                <span className="font-mono">
+            <div className="rounded-lg border border-border px-3 py-1 flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                Multiplier <span className="font-mono text-foreground">{state!.multiplier.toFixed(4)}x</span>
+              </span>
+              <span>
+                Next{" "}
+                <span className="font-mono text-foreground">
                   {state!.nextMultiplier ? `${state!.nextMultiplier.toFixed(4)}x` : "—"}
                 </span>
-              </div>
+              </span>
             </div>
           )}
 
@@ -251,8 +251,8 @@ export function Mines({ casinoId, balance: initialBalance, minBet, maxBet, onExi
           )}
         </div>
 
-        <div className="flex flex-1 items-center justify-center p-5 min-w-0">
-          <div key={state?.roundId ?? "idle"} className="grid grid-cols-5 gap-2 w-full max-w-[420px]">
+        <div className="flex flex-1 items-center justify-center px-11 py-1 sm:p-5 min-w-0">
+          <div key={state?.roundId ?? "idle"} className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full max-w-[420px]">
             {Array.from({ length: GRID_SIZE }, (_, i) => {
               const content = tileContent(i);
               const wasClicked = state?.revealed.includes(i) ?? false;

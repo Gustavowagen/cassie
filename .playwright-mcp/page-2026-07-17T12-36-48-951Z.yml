@@ -1,0 +1,51 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e116]:
+        - generic [ref=e117]: C
+        - generic [ref=e118]: ClaudeTest
+      - button "Sign out" [ref=e119] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e121]:
+      - generic [ref=e123]:
+        - heading "Welcome back, ClaudeTest" [level=1] [ref=e124]
+        - paragraph [ref=e125]: The tables are hot and the chips are stacked — jump back into your casinos, or go find your next big win.
+        - generic [ref=e126]:
+          - button "Create casino" [ref=e127] [cursor=pointer]
+          - button "Browse" [ref=e129] [cursor=pointer]
+      - generic [ref=e140]:
+        - generic [ref=e141]:
+          - generic [ref=e142]: "3"
+          - generic [ref=e143]: Casinos
+        - generic [ref=e144]:
+          - generic [ref=e145]: "13"
+          - generic [ref=e146]: Players
+        - generic [ref=e147]:
+          - generic [ref=e148]: 100%
+          - generic [ref=e149]: Free · no real money
+      - generic [ref=e150]:
+        - heading "My Casinos" [level=2] [ref=e152]
+        - generic [ref=e153]:
+          - button "Joined Dice Test Casino 1 member" [ref=e155] [cursor=pointer]:
+            - generic [ref=e156]:
+              - generic [ref=e158]: Joined
+              - heading "Dice Test Casino" [level=3] [ref=e160]
+            - generic [ref=e161]: 1 member
+          - button "Joined Test webhook 13 members" [ref=e165] [cursor=pointer]:
+            - generic [ref=e166]:
+              - generic [ref=e168]: Joined
+              - heading "Test webhook" [level=3] [ref=e170]
+            - generic [ref=e171]: 13 members
+          - button "Joined Bjørnar Berge 13 members" [ref=e175] [cursor=pointer]:
+            - generic [ref=e176]:
+              - generic [ref=e178]: Joined
+              - heading "Bjørnar Berge" [level=3] [ref=e180]
+            - generic [ref=e181]: 13 members
+      - generic [ref=e184]:
+        - generic [ref=e185]:
+          - heading "Discover" [level=2] [ref=e186]
+          - link "Browse all casinos →" [ref=e187] [cursor=pointer]:
+            - /url: /browse
+        - paragraph [ref=e188]: You've joined every casino there is — nice work.

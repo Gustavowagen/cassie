@@ -31,7 +31,7 @@ export interface RoundState {
 export type Rng = () => number;
 
 export function roundMoney(n: number): number {
-  return Math.round(n * 100) / 100;
+  return Math.round(n * 10000) / 10000;
 }
 
 export const RANKS: Rank[] = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
@@ -108,7 +108,10 @@ export function settle(state: RoundState): RoundState {
   const dealerBust = dealerVal > 21;
 
   for (const hand of state.hands) {
-    const playerBJ = isBlackjack(hand.cards) && !hand.isSplitAces && state.hands.length === 1;
+    // A two-card 21 pays the blackjack bonus even on a hand created by a
+    // split, as long as it wasn't a split of aces (those are capped at one
+    // extra card and only ever count as a plain 21, per applySplitOrInsurance).
+    const playerBJ = isBlackjack(hand.cards) && !hand.isSplitAces;
     const playerVal = handValue(hand.cards).value;
     if (playerVal > 21) {
       hand.outcome = "lose";
@@ -140,8 +143,9 @@ export function settle(state: RoundState): RoundState {
 }
 
 function sameRankValue(a: Card, b: Card): boolean {
-  // 10/J/Q/K are all ten-value and count as a pair.
-  return cardValue(a) === cardValue(b);
+  // Splitting requires an exact rank match — a King and a Queen are both
+  // worth 10 but are not a pair.
+  return a.rank === b.rank;
 }
 
 export function legalActions(state: RoundState): Move[] {
@@ -150,12 +154,16 @@ export function legalActions(state: RoundState): Move[] {
   if (!hand || hand.done) return [];
 
   const actions: Move[] = ["stand"];
-  if (handValue(hand.cards).value < 21) {
+  const { value, soft } = handValue(hand.cards);
+  // A soft 21 can't bust on the next card (the ace absorbs it), so unlike a
+  // hard 21 it stays hittable/doubleable.
+  const canHitOrDouble = value < 21 || (value === 21 && soft);
+  if (canHitOrDouble) {
     actions.push("hit");
   }
   const fresh = hand.cards.length === 2;
 
-  if (fresh && !hand.isSplitAces) {
+  if (fresh && !hand.isSplitAces && canHitOrDouble) {
     actions.push("double");
   }
   if (

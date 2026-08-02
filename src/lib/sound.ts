@@ -56,6 +56,13 @@ export function playWinChime(): void {
   });
 }
 
+// Single bell-like "ding" — a fundamental plus a quiet octave-up overtone
+// for shimmer, both with a fast attack and long decay.
+export function playDing(): void {
+  playTone({ freq: 1568, duration: 0.5, volume: 0.14, type: "sine", attack: 0.004 });
+  playTone({ freq: 3136, duration: 0.3, volume: 0.05, type: "sine", attack: 0.004 });
+}
+
 // Low descending thud for a loss (e.g. hitting a mine).
 export function playLoseThud(): void {
   playTone({ freq: 180, duration: 0.35, volume: 0.12, type: "sawtooth" });

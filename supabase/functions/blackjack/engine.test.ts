@@ -137,8 +137,14 @@ describe("legalActions", () => {
     expect(legalActions(s)).toContain("split");
   });
 
-  it("treats all ten-value cards as a splittable pair", () => {
+  it("does not offer split on mismatched ten-value cards (K + 10 is not a pair)", () => {
     const shoe = stacked([c("K"), c("7","H"), c("10","D"), c("6","H")]);
+    const s = startRound({ shoe, bet: 1000 });
+    expect(legalActions(s)).not.toContain("split");
+  });
+
+  it("offers split on matching ten-value cards (K + K)", () => {
+    const shoe = stacked([c("K"), c("7","H"), c("K","D"), c("6","H")]);
     const s = startRound({ shoe, bet: 1000 });
     expect(legalActions(s)).toContain("split");
   });
@@ -153,6 +159,21 @@ describe("legalActions", () => {
     const shoe = stacked([c("A"), c("5","H"), c("K"), c("6","H")]);
     const s = startRound({ shoe, bet: 1000 });
     expect(legalActions(s)).toEqual([]);
+  });
+
+  it("keeps hit and double on a soft 21 (split hand draws to ace-ten)", () => {
+    const shoe = stacked([c("K"), c("7","H"), c("K","D"), c("6","H"), c("A","C"), c("2","D")]);
+    const s = applyMove(startRound({ shoe, bet: 1000 }), "split");
+    expect(s.hands[0].cards).toEqual([c("K"), c("A","C")]);
+    expect(legalActions(s).sort()).toEqual(["double","hit","stand"]);
+  });
+
+  it("drops hit, double and split on a hard 21", () => {
+    const shoe = stacked([c("7"), c("2","H"), c("7","D"), c("6","H"), c("7","C")]);
+    let s = startRound({ shoe, bet: 1000 });
+    s = applyMove(s, "hit"); // 7 + 7 + 7 = hard 21
+    expect(handValue(s.hands[0].cards)).toEqual({ value: 21, soft: false });
+    expect(legalActions(s)).toEqual(["stand"]);
   });
 });
 
@@ -218,6 +239,24 @@ describe("split", () => {
     expect(s.hands[1].cards.length).toBe(2);
     expect(s.status).toBe("complete");
     expect(s.hands[0].outcome).not.toBe("blackjack");
+  });
+
+  it("pays the blackjack bonus for a two-card 21 on a split (non-ace) hand", () => {
+    const shoe = stacked([
+      c("10"), c("2","H"), c("10","D"), c("6","H"),
+      c("A","C"), c("9","D"),
+    ]);
+    let s = applyMove(startRound({ shoe, bet: 1000 }), "split");
+    expect(s.hands[0].cards).toEqual([c("10"), c("A","C")]);
+    expect(s.hands[1].cards).toEqual([c("10","D"), c("9","D")]);
+
+    s = applyMove(s, "stand"); // stand on hand 0's soft 21
+    expect(s.activeHand).toBe(1);
+    s = applyMove(s, "stand"); // stand on hand 1
+
+    expect(s.status).toBe("complete");
+    expect(s.hands[0].outcome).toBe("blackjack");
+    expect(s.hands[0].payout).toBe(2500);
   });
 });
 

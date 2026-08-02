@@ -1,0 +1,97 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - navigation [ref=f1e4]:
+      - link "OnlineCassie" [ref=f1e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f1e6]:
+        - generic [ref=f1e7]: C
+        - button "Sign out" [ref=f1e9] [cursor=pointer]
+    - main [ref=f1e10]:
+      - generic [ref=f1e11]:
+        - button "Back to Casinos" [ref=f1e12] [cursor=pointer]
+        - generic [ref=f1e16]:
+          - img "Bjørnar Berge" [ref=f1e17]
+          - generic [ref=f1e18]:
+            - heading "Bjørnar Berge" [level=1] [ref=f1e19]
+            - paragraph [ref=f1e20]: ccczcsz
+            - generic [ref=f1e21]:
+              - generic [ref=f1e22]: 13 members
+              - 'button "Code: 69A1E0" [ref=f1e23] [cursor=pointer]'
+          - generic [ref=f1e28]: 989,607.9736 chips
+        - generic [ref=f1e29]:
+          - generic [ref=f1e30]:
+            - button "Games" [ref=f1e31] [cursor=pointer]
+            - button "Members" [ref=f1e34] [cursor=pointer]
+            - button "Statistics" [ref=f1e40] [cursor=pointer]
+            - button "Trades" [ref=f1e42] [cursor=pointer]
+            - button "Settings" [ref=f1e46] [cursor=pointer]
+          - generic [ref=f1e50]:
+            - heading "Games" [level=2] [ref=f1e51]
+            - generic [ref=f1e52]:
+              - button [ref=f1e53] [cursor=pointer]:
+                - generic [ref=f1e55]:
+                  - heading "blackjack" [level=3] [ref=f1e56]
+                  - text: Play now →
+              - button [ref=f1e57] [cursor=pointer]:
+                - generic [ref=f1e59]:
+                  - heading "Mines" [level=3] [ref=f1e60]
+                  - text: Play now →
+              - button [active] [ref=f1e61] [cursor=pointer]:
+                - generic [ref=f1e63]:
+                  - heading "Plinko" [level=3] [ref=f1e64]
+                  - text: Play now →
+              - button [ref=f1e65] [cursor=pointer]:
+                - generic [ref=f1e67]:
+                  - heading "Roulette" [level=3] [ref=f1e68]
+                  - text: Play now →
+  - generic [ref=f1e204]:
+    - generic [ref=f1e205]:
+      - generic [ref=f1e206]:
+        - paragraph [ref=f1e207]: Plinko
+        - paragraph [ref=f1e208]: "Balance: 989,607.9736 chips"
+      - generic [ref=f1e209]:
+        - button "Enter fullscreen" [ref=f1e210] [cursor=pointer]
+        - button "Mute sound" [ref=f1e216] [cursor=pointer]
+        - button "Exit" [ref=f1e221] [cursor=pointer]
+    - generic [ref=f1e225]:
+      - generic [ref=f1e226]:
+        - generic [ref=f1e227]:
+          - text: Bet Amount
+          - spinbutton [ref=f1e228]: "0.1"
+          - generic [ref=f1e229]:
+            - button "½" [ref=f1e230] [cursor=pointer]
+            - button "2×" [ref=f1e231] [cursor=pointer]
+          - paragraph [ref=f1e232]: Min 0.1000 · Max 50,000.0000
+        - generic [ref=f1e233]:
+          - generic [ref=f1e234]:
+            - text: Risk
+            - combobox [ref=f1e235]:
+              - option "Low"
+              - option "Medium" [selected]
+              - option "High"
+          - generic [ref=f1e236]:
+            - text: Balls
+            - spinbutton [ref=f1e237]: "1"
+        - generic [ref=f1e238]:
+          - generic [ref=f1e239]:
+            - button "1" [ref=f1e240] [cursor=pointer]
+            - button "10" [ref=f1e241] [cursor=pointer]
+            - button "25" [ref=f1e242] [cursor=pointer]
+            - button "50" [ref=f1e243] [cursor=pointer]
+          - paragraph [ref=f1e244]: "Total stake: 0.1000 chips"
+        - button "Play" [ref=f1e245] [cursor=pointer]
+        - paragraph [ref=f1e246]: Press Space to drop
+      - generic [ref=f1e249]:
+        - generic [ref=f1e352]: 33×
+        - generic [ref=f1e353]: 11×
+        - generic [ref=f1e354]: 4×
+        - generic [ref=f1e355]: 2×
+        - generic [ref=f1e356]: 1.1×
+        - generic [ref=f1e357]: 0.6×
+        - generic [ref=f1e358]: 0.3×
+        - generic [ref=f1e359]: 0.6×
+        - generic [ref=f1e360]: 1.1×
+        - generic [ref=f1e361]: 2×
+        - generic [ref=f1e362]: 4×
+        - generic [ref=f1e363]: 11×
+        - generic [ref=f1e364]: 33×

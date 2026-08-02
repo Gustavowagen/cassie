@@ -1,0 +1,43 @@
+- generic [ref=f1e3]:
+  - navigation [ref=f1e4]:
+    - link "OnlineCassie" [ref=f1e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f1e6]:
+      - generic [ref=f1e8]: C
+      - button "Sign out" [ref=f1e9] [cursor=pointer]
+  - main [ref=f1e10]:
+    - generic [ref=f1e28]:
+      - generic [ref=f1e30]:
+        - heading "Welcome back, ClaudeTest" [level=1] [ref=f1e31]
+        - paragraph [ref=f1e32]: The tables are hot and the chips are stacked — jump back into your casinos, or go find your next big win.
+        - generic [ref=f1e33]:
+          - button "Create casino" [ref=f1e34] [cursor=pointer]:
+            - img [ref=f1e35]
+            - text: Create casino
+          - button "Browse" [ref=f1e36] [cursor=pointer]:
+            - img [ref=f1e37]
+            - text: Browse
+      - generic [ref=f1e40]:
+        - heading "My Casinos" [level=2] [ref=f1e42]
+        - generic [ref=f1e43]:
+          - button "Joined Dice Test Casino 1 member" [ref=f1e45] [cursor=pointer]:
+            - generic [ref=f1e46]:
+              - generic [ref=f1e48]: Joined
+              - heading "Dice Test Casino" [level=3] [ref=f1e50]
+            - generic [ref=f1e53]: 1 member
+          - button "Joined Test webhook 13 members" [ref=f1e55] [cursor=pointer]:
+            - generic [ref=f1e56]:
+              - generic [ref=f1e58]: Joined
+              - heading "Test webhook" [level=3] [ref=f1e60]
+            - generic [ref=f1e63]: 13 members
+          - button "Joined Bjørnar Berge 13 members" [ref=f1e65] [cursor=pointer]:
+            - generic [ref=f1e66]:
+              - generic [ref=f1e68]: Joined
+              - heading "Bjørnar Berge" [level=3] [ref=f1e70]
+            - generic [ref=f1e73]: 13 members
+      - generic [ref=f1e74]:
+        - generic [ref=f1e75]:
+          - heading "Discover" [level=2] [ref=f1e76]
+          - link "Browse all casinos →" [ref=f1e77] [cursor=pointer]:
+            - /url: /browse
+        - paragraph [ref=f1e78]: You've joined every casino there is — nice work.

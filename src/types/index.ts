@@ -145,11 +145,13 @@ export interface SlotWin {
 
 // Full-board mode win: count spans all 3 rows (7-15), so positions need a
 // row alongside the reel index — kept as a separate type from SlotWin
-// rather than unifying, so single-row's shape stays untouched.
+// rather than unifying, so single-row's shape stays untouched. `wins` holds
+// every symbol that reached the max count — normally length 1, occasionally
+// 2 when two symbols tie (e.g. 7 dots + 7 squares); both pay and both light
+// up when that happens.
 export interface FullBoardSlotWin {
-  symbol: SlotSymbolId;
   count: number;
-  positions: { reel: number; row: "top" | "mid" | "bottom" }[];
+  wins: { symbol: SlotSymbolId; positions: { reel: number; row: "top" | "mid" | "bottom" }[] }[];
 }
 
 // Mirror of the edge function's response (supabase/functions/slots/engine.ts).

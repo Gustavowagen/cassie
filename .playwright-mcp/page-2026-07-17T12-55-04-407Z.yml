@@ -1,0 +1,112 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: C
+          - generic [ref=e9]: ClaudeTest
+        - button "Sign out" [ref=e10] [cursor=pointer]
+    - main [ref=e11]:
+      - generic [ref=e12]:
+        - button "Back to Casinos" [ref=e13] [cursor=pointer]
+        - generic [ref=e17]:
+          - img "Bjørnar Berge" [ref=e18]
+          - generic [ref=e19]:
+            - heading "Bjørnar Berge" [level=1] [ref=e20]
+            - paragraph [ref=e21]: ccczcsz
+            - generic [ref=e22]:
+              - generic [ref=e23]: 13 members
+              - 'button "Code: 69A1E0" [ref=e24] [cursor=pointer]'
+          - generic [ref=e29]: 990,284.1100 chips
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - button "Games" [ref=e32] [cursor=pointer]
+            - button "Members" [ref=e35] [cursor=pointer]
+            - button "Statistics" [ref=e41] [cursor=pointer]
+            - button "Trades" [ref=e43] [cursor=pointer]
+            - button "Settings" [ref=e47] [cursor=pointer]
+          - generic [ref=e51]:
+            - heading "Games" [level=2] [ref=e52]
+            - generic [ref=e53]:
+              - button [ref=e54] [cursor=pointer]:
+                - generic [ref=e56]:
+                  - heading "blackjack" [level=3] [ref=e57]
+                  - text: Play now →
+              - button [ref=e58] [cursor=pointer]:
+                - generic [ref=e60]:
+                  - heading "Mines" [level=3] [ref=e61]
+                  - text: Play now →
+              - button [ref=e62] [cursor=pointer]:
+                - generic [ref=e64]:
+                  - heading "Plinko" [level=3] [ref=e65]
+                  - text: Play now →
+              - button [ref=e66] [cursor=pointer]:
+                - generic [ref=e68]:
+                  - heading "Roulette" [level=3] [ref=e69]
+                  - text: Play now →
+  - generic [ref=e74]:
+    - banner [ref=e75]:
+      - button "Leave" [ref=e76] [cursor=pointer]
+      - generic [ref=e79]:
+        - button "Mute sound" [ref=e80] [cursor=pointer]
+        - generic [ref=e85]: 990,284.1100
+    - generic [ref=e92]:
+      - heading "Blackjack" [level=1] [ref=e93]
+      - paragraph [ref=e94]: Dealer stands on 17 · Pays 3:2
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - generic [ref=e97]: Dealer
+        - generic [ref=e353]:
+          - generic [ref=e355]:
+            - generic [ref=e356]:
+              - generic [ref=e357]: "9"
+              - generic [ref=e358]: ♠
+            - generic [ref=e359]: ♠
+          - generic [ref=e365]:
+            - generic [ref=e388]:
+              - generic [ref=e389]: A
+              - generic [ref=e390]: ♥
+            - generic [ref=e391]: ♥
+        - generic [ref=e366]: 10/20
+      - generic [ref=e101]: Insurance pays 2 to 1
+      - generic [ref=e367]:
+        - generic [ref=e368]:
+          - generic [ref=e370]:
+            - generic [ref=e371]:
+              - generic [ref=e372]: "2"
+              - generic [ref=e373]: ♦
+            - generic [ref=e374]: ♦
+          - generic [ref=e376]:
+            - generic [ref=e377]:
+              - generic [ref=e378]: "4"
+              - generic [ref=e379]: ♣
+            - generic [ref=e380]: ♣
+          - generic [ref=e393]:
+            - generic [ref=e394]:
+              - generic [ref=e395]: J
+              - generic [ref=e396]: ♦
+            - generic [ref=e397]: ♦
+        - generic [ref=e381]:
+          - generic [ref=e382]: "16"
+          - generic [ref=e398]: Doubled
+        - generic [ref=e383]: Bet 200.0000
+    - generic [ref=e399]:
+      - generic [ref=e400]:
+        - button "Low" [ref=e401] [cursor=pointer]
+        - button "Mid" [ref=e402] [cursor=pointer]
+        - button "High" [ref=e403] [cursor=pointer]
+      - generic [ref=e404]:
+        - button "Add 25 chips" [ref=e405] [cursor=pointer]: "25"
+        - button "Add 100 chips" [ref=e407] [cursor=pointer]: "100"
+        - button "Add 500 chips" [ref=e409] [cursor=pointer]: "500"
+        - button "Add 1000 chips" [ref=e411] [cursor=pointer]: 1K
+      - generic [ref=e413]:
+        - generic [ref=e414]:
+          - generic [ref=e415]: Current bet
+          - generic [ref=e416]: "100.0000"
+          - generic [ref=e417]: Min 0.1000 · Max 1,000,000.0000
+        - generic [ref=e418]:
+          - button "Clear" [ref=e419] [cursor=pointer]
+          - button "New hand" [ref=e423] [cursor=pointer]

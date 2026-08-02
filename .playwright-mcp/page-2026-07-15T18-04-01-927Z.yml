@@ -1,0 +1,92 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e109]: C
+      - button "Sign out" [ref=e111] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e174]:
+      - button "Back to Casinos" [ref=e175] [cursor=pointer]
+      - generic [ref=e179]:
+        - img "Bjørnar Berge" [ref=e180]
+        - generic [ref=e181]:
+          - heading "Bjørnar Berge" [level=1] [ref=e182]
+          - paragraph [ref=e183]: ccczcsz
+          - generic [ref=e184]:
+            - generic [ref=e185]: 13 members
+            - 'button "Code: 69A1E0" [ref=e186] [cursor=pointer]'
+        - generic [ref=e191]: 990,923.87 chips
+      - generic [ref=e192]:
+        - generic [ref=e193]:
+          - button "Games" [ref=e194] [cursor=pointer]
+          - button "Members" [ref=e197] [cursor=pointer]
+          - button "Statistics" [ref=e203] [cursor=pointer]
+          - button "Trades" [ref=e205] [cursor=pointer]
+          - button "Settings" [ref=e209] [cursor=pointer]
+        - generic [ref=e336]:
+          - generic [ref=e337]:
+            - generic [ref=e338]:
+              - heading "Available Games" [level=3] [ref=e339]
+              - paragraph [ref=e340]: Up to 5 instances per game type.
+            - generic [ref=e341]:
+              - generic [ref=e342]:
+                - generic [ref=e343]:
+                  - generic [ref=e345]:
+                    - paragraph [ref=e347]: Blackjack
+                    - paragraph [ref=e348]: 1/5 active
+                  - button "+ Add" [ref=e349] [cursor=pointer]
+                - generic [ref=e351]:
+                  - generic [ref=e352]: blackjack
+                  - button [ref=e353] [cursor=pointer]
+              - generic [ref=e358]:
+                - generic [ref=e360]:
+                  - paragraph [ref=e362]: Dice Roll
+                  - paragraph [ref=e363]: 0/5 active
+                - button "+ Add" [ref=e364] [cursor=pointer]
+              - generic [ref=e365]:
+                - generic [ref=e366]:
+                  - generic [ref=e368]:
+                    - paragraph [ref=e370]: Mines
+                    - paragraph [ref=e371]: 1/5 active
+                  - button "+ Add" [ref=e372] [cursor=pointer]
+                - generic [ref=e374]:
+                  - generic [ref=e375]: Mines
+                  - button [ref=e376] [cursor=pointer]
+              - generic [ref=e380]:
+                - generic [ref=e381]:
+                  - generic [ref=e383]:
+                    - paragraph [ref=e385]: Plinko
+                    - paragraph [ref=e386]: 1/5 active
+                  - button "+ Add" [ref=e387] [cursor=pointer]
+                - generic [ref=e429]:
+                  - generic [ref=e430]: Plinko
+                  - button [ref=e431] [cursor=pointer]
+              - generic [ref=e388]:
+                - generic [ref=e389]:
+                  - generic [ref=e391]:
+                    - paragraph [ref=e393]: Roulette
+                    - paragraph [ref=e394]: 1/5 active
+                  - button "+ Add" [ref=e395] [cursor=pointer]
+                - generic [ref=e397]:
+                  - generic [ref=e398]: Roulette
+                  - button [ref=e399] [cursor=pointer]
+              - generic [ref=e404]:
+                - generic [ref=e406]:
+                  - generic [ref=e407]:
+                    - paragraph [ref=e408]: Slot Machine
+                    - generic [ref=e409]: soon
+                  - paragraph [ref=e410]: 0/5 active
+                - button "+ Add" [ref=e411] [cursor=pointer]
+          - generic [ref=e412]:
+            - heading "Casino Details" [level=3] [ref=e413]
+            - generic [ref=e414]:
+              - generic [ref=e415]:
+                - text: Description
+                - textbox "Describe your casino..." [ref=e416]: ccczcsz
+              - generic [ref=e417]:
+                - text: Primary Color
+                - generic [ref=e418]:
+                  - textbox [ref=e419] [cursor=pointer]: "#54476b"
+                  - generic [ref=e420]: "#54476b"
+              - button "Save Details" [ref=e422] [cursor=pointer]

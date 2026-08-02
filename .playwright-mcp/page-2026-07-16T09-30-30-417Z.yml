@@ -1,0 +1,30 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - button "Sign in" [ref=e390] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e467]:
+      - button "Back to Casinos" [ref=e468] [cursor=pointer]
+      - generic [ref=e472]:
+        - img "Bjørnar Berge" [ref=e473]
+        - generic [ref=e474]:
+          - heading "Bjørnar Berge" [level=1] [ref=e475]
+          - paragraph [ref=e476]: ccczcsz
+          - generic [ref=e477]:
+            - generic [ref=e478]: 13 members
+            - 'button "Code: 69A1E0" [ref=e479] [cursor=pointer]'
+        - generic [ref=e484]: 991,134.1 chips
+      - generic [ref=e485]:
+        - paragraph [ref=e486]: Sign in to join and play.
+        - button "Sign In" [ref=e487] [cursor=pointer]
+      - generic [ref=e488]:
+        - generic [ref=e489]:
+          - button "Games" [ref=e490] [cursor=pointer]
+          - button "Members" [ref=e493] [cursor=pointer]
+          - button "Statistics" [ref=e499] [cursor=pointer]
+          - button "Trades" [ref=e501] [cursor=pointer]
+          - button "Settings" [ref=e505] [cursor=pointer]
+        - generic [ref=e509]:
+          - paragraph [ref=e510]: No games available yet.
+          - paragraph [ref=e511] [cursor=pointer]: Add games from the Settings tab →

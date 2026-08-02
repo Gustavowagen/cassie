@@ -1,0 +1,20 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e79]: C
+      - button "Sign out" [ref=e80] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e132]:
+      - button "Back home" [ref=e133] [cursor=pointer]:
+        - img [ref=e134]
+        - text: Back home
+      - generic [ref=e136]:
+        - generic [ref=e137]:
+          - heading "Browse Casinos" [level=1] [ref=e138]
+          - paragraph [ref=e139]: Find a casino to join by name or code.
+        - generic [ref=e140]:
+          - img
+          - textbox "Search by name or casino code" [ref=e141]
+      - paragraph [ref=e142]: Loading casinos...

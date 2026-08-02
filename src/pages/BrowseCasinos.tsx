@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { CasinoTile } from "../components/CasinoTile";
 import { useCasino } from "../hooks/useCasino";
 import { useAuthStore } from "../stores/authStore";
@@ -70,30 +69,21 @@ export function BrowseCasinos() {
 
   return (
     <div className="space-y-6">
-      <button
-        type="button"
-        onClick={() => navigate("/")}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" /> Back home
-      </button>
+      <div>
+        <h1 className="text-2xl font-bold">Browse Casinos</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Find a casino to join by name or code.
+        </p>
+      </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Browse Casinos</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Find a casino to join by name or code.
-          </p>
-        </div>
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or casino code"
-            className="pl-9"
-          />
-        </div>
+      <div className="flex items-center gap-2 rounded-xl bg-white/5 backdrop-blur-xl border border-white/10 px-3.5 py-2.5">
+        <Search className="h-[15px] w-[15px] text-white/45 flex-none" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or casino code"
+          className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-white/40"
+        />
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

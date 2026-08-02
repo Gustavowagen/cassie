@@ -1,0 +1,25 @@
+- generic [ref=f1e3]:
+  - navigation [ref=f1e4]:
+    - link "OnlineCassie" [ref=f1e5] [cursor=pointer]:
+      - /url: /
+    - button "Sign in" [ref=f1e7] [cursor=pointer]
+  - main [ref=f1e8]:
+    - generic [ref=f1e25]:
+      - generic [ref=f1e26]: Sign In
+      - generic [ref=f1e28]:
+        - generic [ref=f1e29]:
+          - generic [ref=f1e30]:
+            - text: Email
+            - textbox "Email" [ref=f1e31]
+          - generic [ref=f1e32]:
+            - text: Password
+            - textbox "Password" [ref=f1e33]
+          - button "Sign In" [ref=f1e34] [cursor=pointer]
+        - generic [ref=f1e35]:
+          - separator [ref=f1e36]
+          - generic [ref=f1e37]: or
+          - separator [ref=f1e38]
+        - button "Continue with Google" [ref=f1e39] [cursor=pointer]
+        - paragraph [ref=f1e45]:
+          - text: No account?
+          - button "Sign Up" [ref=f1e46] [cursor=pointer]

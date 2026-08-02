@@ -1,0 +1,85 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e3]:
+    - navigation [ref=f5e4]:
+      - link "OnlineCassie" [ref=f5e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f5e6]:
+        - generic [ref=f5e7]:
+          - generic [ref=f5e8]: C
+          - generic [ref=f5e9]: ClaudeTest
+        - button "Sign out" [ref=f5e10] [cursor=pointer]
+    - main [ref=f5e11]:
+      - generic [ref=f5e12]:
+        - button "Back to Casinos" [ref=f5e13] [cursor=pointer]
+        - generic [ref=f5e17]:
+          - img "Bjørnar Berge" [ref=f5e18]
+          - generic [ref=f5e19]:
+            - heading "Bjørnar Berge" [level=1] [ref=f5e20]
+            - paragraph [ref=f5e21]: ccczcsz
+            - generic [ref=f5e22]:
+              - generic [ref=f5e23]: 13 members
+              - 'button "Code: 69A1E0" [ref=f5e24] [cursor=pointer]'
+          - generic [ref=f5e29]: 991,184.1100 chips
+        - generic [ref=f5e30]:
+          - generic [ref=f5e31]:
+            - button "Games" [ref=f5e32] [cursor=pointer]
+            - button "Members" [ref=f5e35] [cursor=pointer]
+            - button "Statistics" [ref=f5e41] [cursor=pointer]
+            - button "Trades" [ref=f5e43] [cursor=pointer]
+            - button "Settings" [ref=f5e47] [cursor=pointer]
+          - generic [ref=f5e51]:
+            - heading "Games" [level=2] [ref=f5e52]
+            - generic [ref=f5e53]:
+              - button [ref=f5e54] [cursor=pointer]:
+                - generic [ref=f5e56]:
+                  - heading "blackjack" [level=3] [ref=f5e57]
+                  - text: Play now →
+              - button [ref=f5e58] [cursor=pointer]:
+                - generic [ref=f5e60]:
+                  - heading "Mines" [level=3] [ref=f5e61]
+                  - text: Play now →
+              - button [ref=f5e62] [cursor=pointer]:
+                - generic [ref=f5e64]:
+                  - heading "Plinko" [level=3] [ref=f5e65]
+                  - text: Play now →
+              - button [ref=f5e66] [cursor=pointer]:
+                - generic [ref=f5e68]:
+                  - heading "Roulette" [level=3] [ref=f5e69]
+                  - text: Play now →
+  - generic [ref=f5e74]:
+    - banner [ref=f5e75]:
+      - button "Leave" [ref=f5e76] [cursor=pointer]
+      - generic [ref=f5e79]:
+        - button "Mute sound" [ref=f5e80] [cursor=pointer]
+        - generic [ref=f5e85]: 991,184.1100
+    - generic [ref=f5e92]:
+      - heading "Blackjack" [level=1] [ref=f5e93]
+      - paragraph [ref=f5e94]: Dealer stands on 17 · Pays 3:2
+    - generic [ref=f5e95]:
+      - generic [ref=f5e96]:
+        - generic [ref=f5e97]: Dealer
+        - generic [ref=f5e261]:
+          - generic [ref=f5e262]:
+            - generic [ref=f5e263]: J
+            - generic [ref=f5e264]: ♥
+          - generic [ref=f5e265]: ♥
+        - generic [ref=f5e272]: "?"
+      - generic [ref=f5e101]: Insurance pays 2 to 1
+      - generic [ref=f5e273]:
+        - generic [ref=f5e274]:
+          - generic [ref=f5e276]:
+            - generic [ref=f5e277]:
+              - generic [ref=f5e278]: Q
+              - generic [ref=f5e279]: ♦
+            - generic [ref=f5e280]: ♦
+          - generic [ref=f5e282]:
+            - generic [ref=f5e283]:
+              - generic [ref=f5e284]: "9"
+              - generic [ref=f5e285]: ♦
+            - generic [ref=f5e286]: ♦
+        - generic [ref=f5e287]: "19"
+        - generic [ref=f5e289]: Bet 100.0000
+    - generic [ref=f5e290]:
+      - button "Hit" [ref=f5e291] [cursor=pointer]
+      - button "Stand" [ref=f5e292] [cursor=pointer]
+      - button "Double" [ref=f5e293] [cursor=pointer]

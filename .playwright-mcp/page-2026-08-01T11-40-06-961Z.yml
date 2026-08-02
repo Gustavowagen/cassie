@@ -1,0 +1,49 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e61]: C
+      - button "Sign out" [ref=e63] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e103]:
+      - button "Back to Casinos" [ref=e104] [cursor=pointer]
+      - generic [ref=e108]:
+        - img "Bjørnar Berge" [ref=e109]
+        - generic [ref=e110]:
+          - heading "Bjørnar Berge" [level=1] [ref=e111]
+          - paragraph [ref=e112]: ccczcsz
+          - generic [ref=e113]:
+            - generic [ref=e114]: 13 members
+            - 'button "Code: 69A1E0" [ref=e115] [cursor=pointer]'
+        - generic [ref=e120]: 986,820.4036 chips
+      - generic [ref=e121]:
+        - generic [ref=e122]:
+          - button "Games" [ref=e123] [cursor=pointer]
+          - button "Members" [ref=e126] [cursor=pointer]
+          - button "Statistics" [ref=e132] [cursor=pointer]
+          - button "Trades" [ref=e134] [cursor=pointer]
+          - button "Settings" [ref=e138] [cursor=pointer]
+        - generic [ref=e142]:
+          - heading "Games" [level=2] [ref=e143]
+          - generic [ref=e144]:
+            - button [ref=e145] [cursor=pointer]:
+              - generic [ref=e147]:
+                - heading "blackjack" [level=3] [ref=e148]
+                - text: Play now →
+            - button [ref=e149] [cursor=pointer]:
+              - generic [ref=e151]:
+                - heading "hNeon Rush slots" [level=3] [ref=e152]
+                - text: Play now →
+            - button [ref=e153] [cursor=pointer]:
+              - generic [ref=e155]:
+                - heading "Mines" [level=3] [ref=e156]
+                - text: Play now →
+            - button [ref=e157] [cursor=pointer]:
+              - generic [ref=e159]:
+                - heading "Plinko" [level=3] [ref=e160]
+                - text: Play now →
+            - button [ref=e161] [cursor=pointer]:
+              - generic [ref=e163]:
+                - heading "Roulette" [level=3] [ref=e164]
+                - text: Play now →

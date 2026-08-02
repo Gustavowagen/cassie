@@ -1,0 +1,200 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - paragraph [ref=e5]: HOME — MOBILE (390 × 844)
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: OnlineCassie
+        - generic [ref=e13]:
+          - heading "Welcome back, ClaudeTest" [level=1] [ref=e14]
+          - paragraph [ref=e15]: The tables are hot and the chips are stacked — jump back into your casinos, or go find your next big win.
+          - generic [ref=e16]:
+            - generic [ref=e17] [cursor=pointer]: Create casino
+            - generic [ref=e20] [cursor=pointer]: Browse
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: "18"
+            - generic [ref=e27]: Casinos
+          - generic [ref=e28]:
+            - generic [ref=e29]: "142"
+            - generic [ref=e30]: Players
+          - generic [ref=e31]:
+            - generic [ref=e32]: 100%
+            - generic [ref=e33]: Free
+        - heading "My Casinos" [level=2] [ref=e35]
+        - generic [ref=e36]:
+          - generic [ref=e37]:
+            - generic [ref=e38]: M
+            - generic [ref=e40]: Midnight Aces
+            - generic [ref=e41]: 12 players
+          - generic [ref=e42]:
+            - generic [ref=e43]: V
+            - generic [ref=e45]: Velvet Room
+            - generic [ref=e46]: 5 players
+          - generic [ref=e47]:
+            - generic [ref=e48]: C
+            - generic [ref=e50]: Chip Stack
+            - generic [ref=e51]: 20 players
+        - generic [ref=e52]:
+          - heading "Discover" [level=2] [ref=e53]
+          - link "Browse all casinos →" [ref=e54] [cursor=pointer]:
+            - /url: "#"
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: "N"
+            - generic [ref=e59]: Neon Table
+            - generic [ref=e60]: 8 players
+          - generic [ref=e61]:
+            - generic [ref=e62]: R
+            - generic [ref=e64]: Royal Flush
+            - generic [ref=e65]: 31 players
+          - generic [ref=e66]:
+            - generic [ref=e67]: H
+            - generic [ref=e69]: High Roller
+            - generic [ref=e70]: 4 players
+          - generic [ref=e71]:
+            - generic [ref=e72]: L
+            - generic [ref=e74]: Lucky 7
+            - generic [ref=e75]: 17 players
+          - generic [ref=e76]:
+            - generic [ref=e77]: T
+            - generic [ref=e79]: The Vault
+            - generic [ref=e80]: 2 players
+          - generic [ref=e81]:
+            - generic [ref=e82]: S
+            - generic [ref=e84]: Silver Dice
+            - generic [ref=e85]: 9 players
+      - generic [ref=e86]:
+        - generic [ref=e87]: Home
+        - generic [ref=e91]: Browse
+        - generic [ref=e95]: Profile
+  - generic [ref=e99]:
+    - paragraph [ref=e100]: BROWSE — MOBILE (390 × 844)
+    - generic [ref=e102]:
+      - generic [ref=e103]:
+        - generic [ref=e104]: Browse Casinos
+        - paragraph [ref=e105]: Find a casino to join by name or code.
+        - textbox "Search by name or casino code" [ref=e110]
+        - generic [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e113]: "N"
+            - generic [ref=e115]: Neon Table
+            - generic [ref=e116]: 8 players
+          - generic [ref=e117]:
+            - generic [ref=e118]: R
+            - generic [ref=e120]: Royal Flush
+            - generic [ref=e121]: 31 players
+          - generic [ref=e122]:
+            - generic [ref=e123]: H
+            - generic [ref=e125]: High Roller
+            - generic [ref=e126]: 4 players
+          - generic [ref=e127]:
+            - generic [ref=e128]: L
+            - generic [ref=e130]: Lucky 7
+            - generic [ref=e131]: 17 players
+          - generic [ref=e132]:
+            - generic [ref=e133]: T
+            - generic [ref=e135]: The Vault
+            - generic [ref=e136]: 2 players
+          - generic [ref=e137]:
+            - generic [ref=e138]: S
+            - generic [ref=e140]: Silver Dice
+            - generic [ref=e141]: 9 players
+          - generic [ref=e142]:
+            - generic [ref=e143]: A
+            - generic [ref=e145]: Aces High
+            - generic [ref=e146]: 14 players
+          - generic [ref=e147]:
+            - generic [ref=e148]: B
+            - generic [ref=e150]: Blue Chip
+            - generic [ref=e151]: 6 players
+      - generic [ref=e152]:
+        - generic [ref=e153]: Home
+        - generic [ref=e157]: Browse
+        - generic [ref=e161]: Profile
+  - generic [ref=e165]:
+    - paragraph [ref=e166]: PROFILE — MOBILE (390 × 844)
+    - generic [ref=e168]:
+      - generic [ref=e169]:
+        - generic [ref=e170]: Profile
+        - generic [ref=e171]:
+          - generic [ref=e172]: ♦
+          - generic [ref=e173]:
+            - generic [ref=e174]: ClaudeTest
+            - generic [ref=e175]: claudetest.cassie@gmail.com
+        - heading "Username" [level=2] [ref=e177]
+        - generic [ref=e178]:
+          - generic [ref=e179]: DISPLAY NAME
+          - textbox [ref=e181]: ClaudeTest
+        - heading "Choose an avatar" [level=2] [ref=e186]
+        - generic [ref=e187]:
+          - generic [ref=e188] [cursor=pointer]: ♠
+          - generic [ref=e190] [cursor=pointer]: ♥
+          - generic [ref=e192] [cursor=pointer]: ♦
+          - generic [ref=e197] [cursor=pointer]: ♣
+          - generic [ref=e199] [cursor=pointer]: ●
+          - generic [ref=e201] [cursor=pointer]: ▲
+          - generic [ref=e203] [cursor=pointer]: ■
+          - generic [ref=e205] [cursor=pointer]: ★
+        - generic [ref=e207]: Sign out
+      - generic [ref=e208]:
+        - generic [ref=e209]: Home
+        - generic [ref=e213]: Browse
+        - generic [ref=e217]: Profile
+  - generic [ref=e221]:
+    - paragraph [ref=e222]: HOME — DESKTOP (1440 × 900)
+    - generic [ref=e224]:
+      - generic [ref=e225]:
+        - generic [ref=e226]: OnlineCassie
+        - generic [ref=e229]:
+          - heading "Welcome back, ClaudeTest" [level=1] [ref=e230]
+          - paragraph [ref=e231]: The tables are hot and the chips are stacked — jump back into your casinos, or go find your next big win.
+          - generic [ref=e232]:
+            - generic [ref=e233] [cursor=pointer]: Create casino
+            - generic [ref=e236] [cursor=pointer]: Browse
+        - heading "My Casinos" [level=2] [ref=e241]
+        - generic [ref=e242]:
+          - generic [ref=e243]:
+            - generic [ref=e244]: M
+            - generic [ref=e246]: Midnight Aces
+            - generic [ref=e247]: 12 players
+          - generic [ref=e248]:
+            - generic [ref=e249]: V
+            - generic [ref=e251]: Velvet Room
+            - generic [ref=e252]: 5 players
+          - generic [ref=e253]:
+            - generic [ref=e254]: C
+            - generic [ref=e256]: Chip Stack
+            - generic [ref=e257]: 20 players
+        - generic [ref=e258]:
+          - heading "Discover" [level=2] [ref=e259]
+          - link "Browse all casinos →" [ref=e260] [cursor=pointer]:
+            - /url: "#"
+        - generic [ref=e261]:
+          - generic [ref=e262]:
+            - generic [ref=e263]: "N"
+            - generic [ref=e265]: Neon Table
+            - generic [ref=e266]: 8 players
+          - generic [ref=e267]:
+            - generic [ref=e268]: R
+            - generic [ref=e270]: Royal Flush
+            - generic [ref=e271]: 31 players
+          - generic [ref=e272]:
+            - generic [ref=e273]: H
+            - generic [ref=e275]: High Roller
+            - generic [ref=e276]: 4 players
+          - generic [ref=e277]:
+            - generic [ref=e278]: L
+            - generic [ref=e280]: Lucky 7
+            - generic [ref=e281]: 17 players
+          - generic [ref=e282]:
+            - generic [ref=e283]: T
+            - generic [ref=e285]: The Vault
+            - generic [ref=e286]: 2 players
+          - generic [ref=e287]:
+            - generic [ref=e288]: S
+            - generic [ref=e290]: Silver Dice
+            - generic [ref=e291]: 9 players
+      - generic [ref=e292]:
+        - generic [ref=e293]: Home
+        - generic [ref=e297]: Browse
+        - generic [ref=e301]: Profile

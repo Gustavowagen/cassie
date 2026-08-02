@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import type { SlotsResult } from "../types";
 
-export function useSlots(casinoId: string | undefined) {
+export function useSlots(casinoId: string | undefined, gameId: string | undefined) {
   const [result, setResult] = useState<SlotsResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export function useSlots(casinoId: string | undefined) {
       setLoading(true);
       setError(null);
       const { data, error } = await supabase.functions.invoke("slots", {
-        body: { casino_id: casinoId, bet },
+        body: { casino_id: casinoId, casino_game_id: gameId, bet },
       });
       setLoading(false);
       if (error) {
@@ -34,7 +34,7 @@ export function useSlots(casinoId: string | undefined) {
       setResult(data as SlotsResult);
       return data as SlotsResult;
     },
-    [casinoId]
+    [casinoId, gameId]
   );
 
   return { result, loading, error, spin };

@@ -1,0 +1,32 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - generic [ref=e8]: C
+        - generic [ref=e9]: claudetest.cassie@gmail.com
+      - button "Sign out" [ref=e10] [cursor=pointer]
+  - main [ref=e11]:
+    - generic [ref=e13]:
+      - generic [ref=e15]:
+        - heading "Welcome back, claudetest.cassie" [level=1] [ref=e16]
+        - paragraph [ref=e17]: The tables are hot and the chips are stacked — jump back into your casinos, or go find your next big win.
+        - generic [ref=e18]:
+          - button "Create casino" [ref=e19] [cursor=pointer]
+          - button "Browse" [ref=e21] [cursor=pointer]
+      - generic [ref=e32]:
+        - generic [ref=e33]: Casinos
+        - generic [ref=e36]: Players
+        - generic [ref=e39]:
+          - generic [ref=e40]: 100%
+          - generic [ref=e41]: Free · no real money
+      - generic [ref=e42]:
+        - heading "My Casinos" [level=2] [ref=e44]
+        - paragraph [ref=e45]: Loading...
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - heading "Discover" [level=2] [ref=e48]
+          - link "Browse all casinos →" [ref=e49] [cursor=pointer]:
+            - /url: /browse
+        - paragraph [ref=e50]: Loading casinos...

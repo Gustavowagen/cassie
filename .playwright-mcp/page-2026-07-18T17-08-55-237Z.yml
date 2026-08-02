@@ -1,0 +1,45 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e109]: C
+      - button "Sign out" [ref=e111] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e174]:
+      - button "Back to Casinos" [ref=e175] [cursor=pointer]
+      - generic [ref=e179]:
+        - img "Bjørnar Berge" [ref=e180]
+        - generic [ref=e181]:
+          - heading "Bjørnar Berge" [level=1] [ref=e182]
+          - paragraph [ref=e183]: ccczcsz
+          - generic [ref=e184]:
+            - generic [ref=e185]: 13 members
+            - 'button "Code: 69A1E0" [ref=e186] [cursor=pointer]'
+        - generic [ref=e191]: 990,271.6100 chips
+      - generic [ref=e192]:
+        - generic [ref=e193]:
+          - button "Games" [ref=e194] [cursor=pointer]
+          - button "Members" [ref=e197] [cursor=pointer]
+          - button "Statistics" [ref=e203] [cursor=pointer]
+          - button "Trades" [ref=e205] [cursor=pointer]
+          - button "Settings" [ref=e209] [cursor=pointer]
+        - generic [ref=e213]:
+          - heading "Games" [level=2] [ref=e214]
+          - generic [ref=e215]:
+            - button [ref=e216] [cursor=pointer]:
+              - generic [ref=e218]:
+                - heading "blackjack" [level=3] [ref=e219]
+                - text: Play now →
+            - button [ref=e220] [cursor=pointer]:
+              - generic [ref=e222]:
+                - heading "Mines" [level=3] [ref=e223]
+                - text: Play now →
+            - button [ref=e224] [cursor=pointer]:
+              - generic [ref=e226]:
+                - heading "Plinko" [level=3] [ref=e227]
+                - text: Play now →
+            - button [ref=e228] [cursor=pointer]:
+              - generic [ref=e230]:
+                - heading "Roulette" [level=3] [ref=e231]
+                - text: Play now →

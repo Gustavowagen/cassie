@@ -65,7 +65,7 @@ export function numLabel(n: number): string {
 }
 
 export function roundMoney(n: number): number {
-  return Math.round(n * 100) / 100;
+  return Math.round(n * 10000) / 10000;
 }
 
 // Throws on any unknown key or non-positive amount — bets come straight from

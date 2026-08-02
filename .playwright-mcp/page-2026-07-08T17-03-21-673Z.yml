@@ -1,0 +1,24 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - button "Sign in" [ref=e7] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e11]:
+        - heading "Run your own play-money casino" [level=1] [ref=e12]
+        - paragraph [ref=e13]: Free, social, no real money — your friends, your rules.
+        - generic [ref=e14]:
+          - button "Create account" [ref=e15] [cursor=pointer]
+          - button "Sign in" [ref=e16] [cursor=pointer]
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - img [ref=e20]
+          - paragraph [ref=e23]: Sign in to track casinos you join.
+        - button "Sign in" [ref=e24] [cursor=pointer]
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - heading "Discover" [level=2] [ref=e27]
+          - link "Browse all casinos →" [ref=e28] [cursor=pointer]:
+            - /url: /browse
+        - paragraph [ref=e29]: Loading casinos...

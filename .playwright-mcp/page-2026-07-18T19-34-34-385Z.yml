@@ -1,0 +1,245 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e3]:
+    - navigation [ref=f7e4]:
+      - link "OnlineCassie" [ref=f7e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=f7e6]:
+        - generic [ref=f7e7]: C
+        - button "Sign out" [ref=f7e9] [cursor=pointer]
+    - main [ref=f7e10]:
+      - generic [ref=f7e11]:
+        - button "Back to Casinos" [ref=f7e12] [cursor=pointer]
+        - generic [ref=f7e16]:
+          - img "Bjørnar Berge" [ref=f7e17]
+          - generic [ref=f7e18]:
+            - heading "Bjørnar Berge" [level=1] [ref=f7e19]
+            - paragraph [ref=f7e20]: ccczcsz
+            - generic [ref=f7e21]:
+              - generic [ref=f7e22]: 13 members
+              - 'button "Code: 69A1E0" [ref=f7e23] [cursor=pointer]'
+          - generic [ref=f7e28]: 985,570.4036 chips
+        - generic [ref=f7e29]:
+          - generic [ref=f7e30]:
+            - button "Games" [ref=f7e31] [cursor=pointer]
+            - button "Members" [ref=f7e34] [cursor=pointer]
+            - button "Statistics" [ref=f7e40] [cursor=pointer]
+            - button "Trades" [ref=f7e42] [cursor=pointer]
+            - button "Settings" [ref=f7e46] [cursor=pointer]
+          - generic [ref=f7e50]:
+            - heading "Games" [level=2] [ref=f7e51]
+            - generic [ref=f7e52]:
+              - button [ref=f7e53] [cursor=pointer]:
+                - generic [ref=f7e55]:
+                  - heading "blackjack" [level=3] [ref=f7e56]
+                  - text: Play now →
+              - button [ref=f7e57] [cursor=pointer]:
+                - generic [ref=f7e59]:
+                  - heading "Mines" [level=3] [ref=f7e60]
+                  - text: Play now →
+              - button [ref=f7e61] [cursor=pointer]:
+                - generic [ref=f7e63]:
+                  - heading "Plinko" [level=3] [ref=f7e64]
+                  - text: Play now →
+              - button [ref=f7e65] [cursor=pointer]:
+                - generic [ref=f7e67]:
+                  - heading "Roulette" [level=3] [ref=f7e68]
+                  - text: Play now →
+  - generic [ref=f7e72]:
+    - generic [ref=f7e73]:
+      - generic [ref=f7e74]:
+        - paragraph [ref=f7e75]: Roulette
+        - paragraph [ref=f7e76]: "Balance: 985,570.4036 chips"
+      - generic [ref=f7e77]:
+        - button "Mute sound" [ref=f7e78] [cursor=pointer]
+        - button "Exit" [ref=f7e83] [cursor=pointer]
+    - generic [ref=f7e87]:
+      - img [ref=f7e89]:
+        - generic [ref=f7e94]:
+          - generic [ref=f7e95]: "0"
+          - generic [ref=f7e98]: "28"
+          - generic [ref=f7e101]: "9"
+          - generic [ref=f7e104]: "26"
+          - generic [ref=f7e107]: "30"
+          - generic [ref=f7e110]: "11"
+          - generic [ref=f7e113]: "7"
+          - generic [ref=f7e116]: "20"
+          - generic [ref=f7e119]: "32"
+          - generic [ref=f7e122]: "17"
+          - generic [ref=f7e125]: "5"
+          - generic [ref=f7e128]: "22"
+          - generic [ref=f7e131]: "34"
+          - generic [ref=f7e134]: "15"
+          - generic [ref=f7e137]: "3"
+          - generic [ref=f7e140]: "24"
+          - generic [ref=f7e143]: "36"
+          - generic [ref=f7e146]: "13"
+          - generic [ref=f7e149]: "1"
+          - generic [ref=f7e152]: "00"
+          - generic [ref=f7e155]: "27"
+          - generic [ref=f7e158]: "10"
+          - generic [ref=f7e161]: "25"
+          - generic [ref=f7e164]: "29"
+          - generic [ref=f7e167]: "12"
+          - generic [ref=f7e170]: "8"
+          - generic [ref=f7e173]: "19"
+          - generic [ref=f7e176]: "31"
+          - generic [ref=f7e179]: "18"
+          - generic [ref=f7e182]: "6"
+          - generic [ref=f7e185]: "21"
+          - generic [ref=f7e188]: "33"
+          - generic [ref=f7e191]: "16"
+          - generic [ref=f7e194]: "4"
+          - generic [ref=f7e197]: "23"
+          - generic [ref=f7e200]: "35"
+          - generic [ref=f7e203]: "14"
+          - generic [ref=f7e206]: "2"
+      - generic [ref=f7e222]:
+        - generic [ref=f7e223]:
+          - button "Low" [ref=f7e224] [cursor=pointer]
+          - button "Mid" [ref=f7e225] [cursor=pointer]
+          - button "High" [ref=f7e226] [cursor=pointer]
+        - generic [ref=f7e227]:
+          - generic [ref=f7e228]: "Chip:"
+          - button "25" [ref=f7e229] [cursor=pointer]
+          - button "100" [ref=f7e230] [cursor=pointer]
+          - button "500" [ref=f7e231] [cursor=pointer]
+          - button "1K" [ref=f7e232] [cursor=pointer]
+        - generic [ref=f7e235]:
+          - generic [ref=f7e437] [cursor=pointer]: "00"
+          - generic [ref=f7e438] [cursor=pointer]: "0"
+          - generic [ref=f7e439] [cursor=pointer]: "3"
+          - generic [ref=f7e440] [cursor=pointer]: "6"
+          - generic [ref=f7e441] [cursor=pointer]: "9"
+          - generic [ref=f7e442] [cursor=pointer]: "12"
+          - generic [ref=f7e443] [cursor=pointer]: "15"
+          - generic [ref=f7e444] [cursor=pointer]: "18"
+          - generic [ref=f7e445] [cursor=pointer]: "21"
+          - generic [ref=f7e446] [cursor=pointer]: "24"
+          - generic [ref=f7e447] [cursor=pointer]: "27"
+          - generic [ref=f7e448] [cursor=pointer]: "30"
+          - generic [ref=f7e449] [cursor=pointer]: "33"
+          - generic [ref=f7e450] [cursor=pointer]: "36"
+          - generic [ref=f7e451] [cursor=pointer]: "2"
+          - generic [ref=f7e452] [cursor=pointer]: "5"
+          - generic [ref=f7e453] [cursor=pointer]: "8"
+          - generic [ref=f7e454] [cursor=pointer]: "11"
+          - generic [ref=f7e455] [cursor=pointer]: "14"
+          - generic [ref=f7e456] [cursor=pointer]: "17"
+          - generic [ref=f7e457] [cursor=pointer]: "20"
+          - generic [ref=f7e458] [cursor=pointer]: "23"
+          - generic [ref=f7e459] [cursor=pointer]: "26"
+          - generic [ref=f7e460] [cursor=pointer]: "29"
+          - generic [ref=f7e461] [cursor=pointer]: "32"
+          - generic [ref=f7e462] [cursor=pointer]: "35"
+          - generic [ref=f7e463] [cursor=pointer]: "1"
+          - generic [ref=f7e464] [cursor=pointer]: "4"
+          - generic [ref=f7e465] [cursor=pointer]: "7"
+          - generic [ref=f7e466] [cursor=pointer]: "10"
+          - generic [ref=f7e467] [cursor=pointer]: "13"
+          - generic [ref=f7e468] [cursor=pointer]: "16"
+          - generic [ref=f7e469] [cursor=pointer]: "19"
+          - generic [ref=f7e470] [cursor=pointer]: "22"
+          - generic [ref=f7e471] [cursor=pointer]: "25"
+          - generic [ref=f7e472] [cursor=pointer]: "28"
+          - generic [ref=f7e473] [cursor=pointer]: "31"
+          - generic [ref=f7e474] [cursor=pointer]: "34"
+          - generic [ref=f7e475] [cursor=pointer]: 1 TO 18
+          - generic [ref=f7e477] [cursor=pointer]: 19 TO 36
+          - generic [ref=f7e479] [cursor=pointer]: 1 TO 12
+          - generic [ref=f7e481] [cursor=pointer]: 13 TO 24
+          - generic [ref=f7e483] [cursor=pointer]: 25 TO 36
+          - generic:
+            - button "Split bet on 3, 6" [ref=f7e286] [cursor=pointer]
+            - button "Split bet on 6, 9" [ref=f7e287] [cursor=pointer]
+            - button "Split bet on 9, 12" [ref=f7e288] [cursor=pointer]
+            - button "Split bet on 12, 15" [ref=f7e289] [cursor=pointer]
+            - button "Split bet on 15, 18" [ref=f7e290] [cursor=pointer]
+            - button "Split bet on 18, 21" [ref=f7e291] [cursor=pointer]
+            - button "Split bet on 21, 24" [ref=f7e292] [cursor=pointer]
+            - button "Split bet on 24, 27" [ref=f7e293] [cursor=pointer]
+            - button "Split bet on 27, 30" [ref=f7e294] [cursor=pointer]
+            - button "Split bet on 30, 33" [ref=f7e295] [cursor=pointer]
+            - button "Split bet on 33, 36" [ref=f7e296] [cursor=pointer]
+            - button "Split bet on 2, 5" [ref=f7e297] [cursor=pointer]
+            - button "Split bet on 5, 8" [ref=f7e298] [cursor=pointer]
+            - button "Split bet on 8, 11" [ref=f7e299] [cursor=pointer]
+            - button "Split bet on 11, 14" [ref=f7e300] [cursor=pointer]
+            - button "Split bet on 14, 17" [ref=f7e301] [cursor=pointer]
+            - button "Split bet on 17, 20" [ref=f7e302] [cursor=pointer]
+            - button "Split bet on 20, 23" [ref=f7e303] [cursor=pointer]
+            - button "Split bet on 23, 26" [ref=f7e304] [cursor=pointer]
+            - button "Split bet on 26, 29" [ref=f7e305] [cursor=pointer]
+            - button "Split bet on 29, 32" [ref=f7e306] [cursor=pointer]
+            - button "Split bet on 32, 35" [ref=f7e307] [cursor=pointer]
+            - button "Split bet on 1, 4" [ref=f7e308] [cursor=pointer]
+            - button "Split bet on 4, 7" [ref=f7e309] [cursor=pointer]
+            - button "Split bet on 7, 10" [ref=f7e310] [cursor=pointer]
+            - button "Split bet on 10, 13" [ref=f7e311] [cursor=pointer]
+            - button "Split bet on 13, 16" [ref=f7e312] [cursor=pointer]
+            - button "Split bet on 16, 19" [ref=f7e313] [cursor=pointer]
+            - button "Split bet on 19, 22" [ref=f7e314] [cursor=pointer]
+            - button "Split bet on 22, 25" [ref=f7e315] [cursor=pointer]
+            - button "Split bet on 25, 28" [ref=f7e316] [cursor=pointer]
+            - button "Split bet on 28, 31" [ref=f7e317] [cursor=pointer]
+            - button "Split bet on 31, 34" [ref=f7e318] [cursor=pointer]
+            - button "Split bet on 2, 3" [ref=f7e319] [cursor=pointer]
+            - button "Split bet on 5, 6" [active] [ref=f7e320] [cursor=pointer]
+            - button "Split bet on 8, 9" [ref=f7e321] [cursor=pointer]
+            - button "Split bet on 11, 12" [ref=f7e322] [cursor=pointer]
+            - button "Split bet on 14, 15" [ref=f7e323] [cursor=pointer]
+            - button "Split bet on 17, 18" [ref=f7e324] [cursor=pointer]
+            - button "Split bet on 20, 21" [ref=f7e325] [cursor=pointer]
+            - button "Split bet on 23, 24" [ref=f7e326] [cursor=pointer]
+            - button "Split bet on 26, 27" [ref=f7e327] [cursor=pointer]
+            - button "Split bet on 29, 30" [ref=f7e328] [cursor=pointer]
+            - button "Split bet on 32, 33" [ref=f7e329] [cursor=pointer]
+            - button "Split bet on 35, 36" [ref=f7e330] [cursor=pointer]
+            - button "Split bet on 1, 2" [ref=f7e331] [cursor=pointer]
+            - button "Split bet on 4, 5" [ref=f7e332] [cursor=pointer]
+            - button "Split bet on 7, 8" [ref=f7e333] [cursor=pointer]
+            - button "Split bet on 10, 11" [ref=f7e334] [cursor=pointer]
+            - button "Split bet on 13, 14" [ref=f7e335] [cursor=pointer]
+            - button "Split bet on 16, 17" [ref=f7e336] [cursor=pointer]
+            - button "Split bet on 19, 20" [ref=f7e337] [cursor=pointer]
+            - button "Split bet on 22, 23" [ref=f7e338] [cursor=pointer]
+            - button "Split bet on 25, 26" [ref=f7e339] [cursor=pointer]
+            - button "Split bet on 28, 29" [ref=f7e340] [cursor=pointer]
+            - button "Split bet on 31, 32" [ref=f7e341] [cursor=pointer]
+            - button "Split bet on 34, 35" [ref=f7e342] [cursor=pointer]
+            - button "Corner bet on 2, 3, 5, 6" [ref=f7e343] [cursor=pointer]
+            - button "Corner bet on 5, 6, 8, 9" [ref=f7e344] [cursor=pointer]
+            - button "Corner bet on 8, 9, 11, 12" [ref=f7e345] [cursor=pointer]
+            - button "Corner bet on 11, 12, 14, 15" [ref=f7e346] [cursor=pointer]
+            - button "Corner bet on 14, 15, 17, 18" [ref=f7e347] [cursor=pointer]
+            - button "Corner bet on 17, 18, 20, 21" [ref=f7e348] [cursor=pointer]
+            - button "Corner bet on 20, 21, 23, 24" [ref=f7e349] [cursor=pointer]
+            - button "Corner bet on 23, 24, 26, 27" [ref=f7e350] [cursor=pointer]
+            - button "Corner bet on 26, 27, 29, 30" [ref=f7e351] [cursor=pointer]
+            - button "Corner bet on 29, 30, 32, 33" [ref=f7e352] [cursor=pointer]
+            - button "Corner bet on 32, 33, 35, 36" [ref=f7e353] [cursor=pointer]
+            - button "Corner bet on 1, 2, 4, 5" [ref=f7e354] [cursor=pointer]
+            - button "Corner bet on 4, 5, 7, 8" [ref=f7e355] [cursor=pointer]
+            - button "Corner bet on 7, 8, 10, 11" [ref=f7e356] [cursor=pointer]
+            - button "Corner bet on 10, 11, 13, 14" [ref=f7e357] [cursor=pointer]
+            - button "Corner bet on 13, 14, 16, 17" [ref=f7e358] [cursor=pointer]
+            - button "Corner bet on 16, 17, 19, 20" [ref=f7e359] [cursor=pointer]
+            - button "Corner bet on 19, 20, 22, 23" [ref=f7e360] [cursor=pointer]
+            - button "Corner bet on 22, 23, 25, 26" [ref=f7e361] [cursor=pointer]
+            - button "Corner bet on 25, 26, 28, 29" [ref=f7e362] [cursor=pointer]
+            - button "Corner bet on 28, 29, 31, 32" [ref=f7e363] [cursor=pointer]
+            - button "Corner bet on 31, 32, 34, 35" [ref=f7e364] [cursor=pointer]
+            - generic: "25.0000"
+            - generic: "25.0000"
+          - generic [ref=f7e485] [cursor=pointer]: 2 TO 1
+          - generic [ref=f7e486] [cursor=pointer]: 2 TO 1
+          - generic [ref=f7e487] [cursor=pointer]: 2 TO 1
+          - generic [ref=f7e370]:
+            - generic [ref=f7e488] [cursor=pointer]: EVEN
+            - generic [ref=f7e489] [cursor=pointer]: RED
+            - generic [ref=f7e490] [cursor=pointer]: BLACK
+            - generic [ref=f7e491] [cursor=pointer]: ODD
+        - generic [ref=f7e375]:
+          - paragraph [ref=f7e376]: "Bet: 50.0000 chips"
+          - generic [ref=f7e377]:
+            - button "Clear" [ref=f7e433] [cursor=pointer]
+            - button "SPIN" [ref=f7e434] [cursor=pointer]

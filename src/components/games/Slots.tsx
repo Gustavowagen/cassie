@@ -39,11 +39,11 @@ interface ClientFullBoardSymbol {
   pay: [number, number, number];
 }
 const CLIENT_FULL_BOARD_SYMBOLS: ClientFullBoardSymbol[] = [
-  { id: "dot", cls: "sl-sym-dot", label: "", pay: [1.46, 7.31, 58.46] },
-  { id: "square", cls: "sl-sym-square", label: "", pay: [2.19, 10.23, 80.38] },
-  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: [2.92, 14.61, 116.92] },
-  { id: "star", cls: "sl-sym-star", label: "", pay: [4.38, 21.92, 189.99] },
-  { id: "seven", cls: "sl-sym-seven", label: "7", pay: [7.31, 36.54, 379.98] },
+  { id: "dot", cls: "sl-sym-dot", label: "", pay: [2, 6, 21] },
+  { id: "square", cls: "sl-sym-square", label: "", pay: [3, 9, 32] },
+  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: [4, 12, 42] },
+  { id: "star", cls: "sl-sym-star", label: "", pay: [6, 18, 63] },
+  { id: "seven", cls: "sl-sym-seven", label: "7", pay: [10, 30, 105] },
 ];
 
 // Maps a win's raw count to the existing 3/4/5 CSS win-tier hooks
@@ -159,7 +159,8 @@ export function Slots({ casinoId, gameId, rewardMode, balance: initialBalance, m
   // rather than re-scanning positions per cell.
   const fullBoardLit = useMemo(() => {
     if (!win || rewardMode !== "full_board") return null;
-    return new Set((win as FullBoardSlotWin).positions.map((p) => `${p.reel}:${p.row}`));
+    const { wins } = win as FullBoardSlotWin;
+    return new Set(wins.flatMap((w) => w.positions.map((p) => `${p.reel}:${p.row}`)));
   }, [win, rewardMode]);
 
   return (

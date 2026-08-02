@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     if (body.action !== "spin") return json({ error: "Unknown action" }, 400);
 
-    const { casino_id } = body as { casino_id: string };
+    const { casino_id, casino_game_id } = body as { casino_id: string; casino_game_id: string };
     if (typeof casino_id !== "string" || !casino_id) {
       return json({ error: "Invalid casino_id" }, 400);
     }
@@ -57,18 +57,25 @@ Deno.serve(async (req) => {
     if (total <= 0) return json({ error: "No bets placed" }, 400);
 
     // Membership/balance and bet limits don't depend on each other — fetch both at once.
-    const [{ data: member }, { data: gt }] = await Promise.all([
+    const [{ data: member }, { data: cg }] = await Promise.all([
       userClient
         .from("casino_members")
         .select("balance")
         .eq("casino_id", casino_id)
         .eq("user_id", user.id)
         .single(),
-      admin.from("game_types").select("min_bet, max_bet").eq("id", "roulette").single(),
+      admin
+        .from("casino_games")
+        .select("min_bet, max_bet")
+        .eq("id", casino_game_id)
+        .eq("casino_id", casino_id)
+        .eq("game_type_id", "roulette")
+        .single(),
     ]);
     if (!member) return json({ error: "You are not a member of this casino" }, 403);
-    if (total < Number(gt!.min_bet) || total > Number(gt!.max_bet)) {
-      return json({ error: `Total bet must be between ${gt!.min_bet} and ${gt!.max_bet}` }, 400);
+    if (!cg) return json({ error: "Game not found" }, 400);
+    if (total < Number(cg.min_bet) || total > Number(cg.max_bet)) {
+      return json({ error: `Total bet must be between ${cg.min_bet} and ${cg.max_bet}` }, 400);
     }
     if (total > member.balance) return json({ error: "Insufficient balance" }, 400);
 

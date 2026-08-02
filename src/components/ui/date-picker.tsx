@@ -179,12 +179,16 @@ export function DateRangePicker({
   onFromChange,
   onToChange,
   maxTo,
+  minFrom,
+  maxRangeDays,
 }: {
   from: string;
   to: string;
   onFromChange: (val: string) => void;
   onToChange: (val: string) => void;
   maxTo?: string;
+  minFrom?: string;
+  maxRangeDays?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<RangeStep>("from");
@@ -197,6 +201,7 @@ export function DateRangePicker({
   const fromDate = parseLocal(from);
   const toDate = parseLocal(to);
   const maxDate = parseLocal(maxTo ?? "");
+  const minDate = parseLocal(minFrom ?? "");
 
   const [viewYear, setViewYear] = useState(() => fromDate?.getFullYear() ?? today.getFullYear());
   const [viewMonth, setViewMonth] = useState(() => fromDate?.getMonth() ?? today.getMonth());
@@ -234,9 +239,16 @@ export function DateRangePicker({
     const hasRange = !!(fromDate && highlightEnd && fromDate < highlightEnd);
     const inBand = hasRange ? date > fromDate! && date < highlightEnd! : false;
 
+    const rangeMaxDate =
+      step === "to" && maxRangeDays != null && fromDate
+        ? new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + (maxRangeDays - 1))
+        : null;
+
     const disabled =
       (!!maxDate && date > maxDate) ||
-      (step === "to" && !!from && str < from);
+      (!!minDate && date < minDate) ||
+      (step === "to" && !!from && str < from) ||
+      (!!rangeMaxDate && date > rangeMaxDate);
 
     const isToday = str === toLocalIso(today);
     const isRowStart = dow === 0;
@@ -263,13 +275,18 @@ export function DateRangePicker({
   function handleTodayClick() {
     const iso = toLocalIso(today);
     if (maxDate && today > maxDate) return;
+    if (minDate && today < minDate) return;
     if (step === "from") {
       onFromChange(iso);
       if (to && iso > to) onToChange("");
       setStep("to");
       setHovered(null);
     } else {
-      if (!from || iso >= from) {
+      const rangeMaxDate =
+        maxRangeDays != null && fromDate
+          ? new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + (maxRangeDays - 1))
+          : null;
+      if ((!from || iso >= from) && (!rangeMaxDate || today <= rangeMaxDate)) {
         onToChange(iso);
         setOpen(false);
         setHovered(null);

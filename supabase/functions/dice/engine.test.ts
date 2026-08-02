@@ -56,8 +56,8 @@ describe("rollValue", () => {
 });
 
 describe("roundMoney", () => {
-  it("rounds to 2 decimal places", () => {
-    expect(roundMoney(1.005)).toBe(1.01);
-    expect(roundMoney(1.004)).toBe(1);
+  it("rounds to 4 decimal places", () => {
+    expect(roundMoney(1.00005)).toBe(1.0001);
+    expect(roundMoney(1.00004)).toBe(1);
   });
 });

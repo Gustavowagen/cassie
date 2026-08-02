@@ -1,0 +1,34 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - button "Sign in" [ref=e134] [cursor=pointer]
+  - main [ref=e10]:
+    - generic [ref=e135]:
+      - generic [ref=e137]:
+        - heading "Run your own play-money casino" [level=1] [ref=e138]
+        - paragraph [ref=e139]: Free, social, no real money — your friends, your rules.
+        - generic [ref=e140]:
+          - button "Create account" [ref=e141] [cursor=pointer]
+          - button "Sign in" [ref=e142] [cursor=pointer]
+      - generic [ref=e144]:
+        - generic [ref=e145]:
+          - img [ref=e146]
+          - paragraph [ref=e149]: Sign in to track casinos you join.
+        - button "Sign in" [ref=e150] [cursor=pointer]
+      - generic [ref=e151]:
+        - generic [ref=e152]:
+          - heading "Discover" [level=2] [ref=e153]
+          - generic [ref=e154]:
+            - img
+            - textbox "Search casinos" [ref=e155]
+        - generic [ref=e156]:
+          - button "Dice Test Casino 1 member" [ref=e157] [cursor=pointer]:
+            - heading "Dice Test Casino" [level=3] [ref=e161]
+            - generic [ref=e164]: 1 member
+          - button "Bjørnar Berge 13 members" [ref=e165] [cursor=pointer]:
+            - heading "Bjørnar Berge" [level=3] [ref=e169]
+            - generic [ref=e172]: 13 members
+          - button "Test webhook 13 members" [ref=e173] [cursor=pointer]:
+            - heading "Test webhook" [level=3] [ref=e177]
+            - generic [ref=e180]: 13 members

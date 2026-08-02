@@ -48,10 +48,17 @@ function resolveRewardMode(settings: unknown): RewardMode {
   return "single_row";
 }
 
-function describeSpin(rewardMode: RewardMode, win: { symbol: string; count: number } | null): string {
+type DescribableWin = { symbol: string; count: number } | { count: number; wins: { symbol: string }[] };
+
+function describeSpin(rewardMode: RewardMode, win: DescribableWin | null): string {
   if (!win) return "Slots: no win";
-  const label = rewardMode === "full_board" ? "full board" : "row";
-  return `Slots: ${win.count}x ${win.symbol} (${label})`;
+  if (rewardMode === "full_board") {
+    const { count, wins } = win as { count: number; wins: { symbol: string }[] };
+    const symbols = wins.map((w) => w.symbol).join("+");
+    return `Slots: ${count}x ${symbols} (full board)`;
+  }
+  const { symbol, count } = win as { symbol: string; count: number };
+  return `Slots: ${count}x ${symbol} (row)`;
 }
 
 Deno.serve(async (req) => {

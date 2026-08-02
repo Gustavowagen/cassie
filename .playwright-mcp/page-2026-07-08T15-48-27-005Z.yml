@@ -1,0 +1,41 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e6]:
+      - generic [ref=e32]: C
+      - button "Sign out" [ref=e33] [cursor=pointer]
+  - main [ref=e8]:
+    - generic [ref=e98]:
+      - generic [ref=e100]:
+        - generic [ref=e101]:
+          - heading "Dice Test Casino" [level=1] [ref=e102]
+          - generic [ref=e103]:
+            - generic [ref=e104]: 1 member
+            - 'button "Code: 2324F5" [ref=e105] [cursor=pointer]':
+              - generic [ref=e106]: "Code: 2324F5"
+              - img [ref=e107]
+        - generic [ref=e110]: 10,091.9 chips
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - button "Games" [ref=e113] [cursor=pointer]:
+            - img [ref=e114]
+            - text: Games
+          - button "Members" [ref=e116] [cursor=pointer]:
+            - img [ref=e117]
+            - text: Members
+          - button "Statistics" [ref=e122] [cursor=pointer]:
+            - img [ref=e123]
+            - text: Statistics
+          - button "Trades" [ref=e124] [cursor=pointer]:
+            - img [ref=e125]
+            - text: Trades
+          - button "Settings" [ref=e128] [cursor=pointer]:
+            - img [ref=e129]
+            - text: Settings
+        - generic [ref=e132]:
+          - heading "Games" [level=2] [ref=e133]
+          - button "Dice Roll Play now →" [ref=e135] [cursor=pointer]:
+            - generic [ref=e137]:
+              - heading "Dice Roll" [level=3] [ref=e138]
+              - text: Play now →

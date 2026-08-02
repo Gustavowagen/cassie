@@ -4,13 +4,12 @@ import { ChipLedgerTable } from "./ChipLedgerTable";
 import { useCasino } from "../hooks/useCasino";
 import type { ChipTransaction } from "../types";
 
-type LedgerPeriod = "today" | "7d" | "30d" | "all" | "custom";
+type LedgerPeriod = "today" | "7d" | "30d" | "custom";
 
 const PERIODS: { id: LedgerPeriod; label: string }[] = [
   { id: "today", label: "Today" },
   { id: "7d", label: "7d" },
   { id: "30d", label: "30d" },
-  { id: "all", label: "All time" },
   { id: "custom", label: "Custom" },
 ];
 
@@ -39,14 +38,15 @@ export function ChipLedgerPanel({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const earliestAllowed = new Date(Date.now() - 30 * 86_400_000);
     let from: Date;
     let to = new Date();
     if (period === "today") from = new Date(Date.now() - 24 * 60 * 60 * 1000);
     else if (period === "7d") from = new Date(Date.now() - 7 * 86_400_000);
-    else if (period === "30d") from = new Date(Date.now() - 30 * 86_400_000);
-    else if (period === "all") from = new Date(0);
+    else if (period === "30d") from = earliestAllowed;
     else {
-      from = customFrom ? new Date(customFrom) : new Date(0);
+      from = customFrom ? new Date(customFrom) : earliestAllowed;
+      if (from < earliestAllowed) from = earliestAllowed;
       to = customTo ? new Date(customTo + "T23:59:59") : new Date();
     }
 
@@ -84,6 +84,8 @@ export function ChipLedgerPanel({
           onFromChange={setCustomFrom}
           onToChange={setCustomTo}
           maxTo={todayStr()}
+          minFrom={daysAgoStr(30)}
+          maxRangeDays={30}
         />
       )}
 

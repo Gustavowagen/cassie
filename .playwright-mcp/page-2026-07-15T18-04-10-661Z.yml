@@ -1,0 +1,89 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - link "OnlineCassie" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e6]:
+        - generic [ref=e109]: C
+        - button "Sign out" [ref=e111] [cursor=pointer]
+    - main [ref=e8]:
+      - generic [ref=e174]:
+        - button "Back to Casinos" [ref=e175] [cursor=pointer]
+        - generic [ref=e179]:
+          - img "Bjørnar Berge" [ref=e180]
+          - generic [ref=e181]:
+            - heading "Bjørnar Berge" [level=1] [ref=e182]
+            - paragraph [ref=e183]: ccczcsz
+            - generic [ref=e184]:
+              - generic [ref=e185]: 13 members
+              - 'button "Code: 69A1E0" [ref=e186] [cursor=pointer]'
+          - generic [ref=e191]: 990,923.87 chips
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - button "Games" [ref=e194] [cursor=pointer]
+            - button "Members" [ref=e197] [cursor=pointer]
+            - button "Statistics" [ref=e203] [cursor=pointer]
+            - button "Trades" [ref=e205] [cursor=pointer]
+            - button "Settings" [ref=e209] [cursor=pointer]
+          - generic [ref=e435]:
+            - heading "Games" [level=2] [ref=e436]
+            - generic [ref=e437]:
+              - button [ref=e438] [cursor=pointer]:
+                - generic [ref=e440]:
+                  - heading "blackjack" [level=3] [ref=e441]
+                  - text: Play now →
+              - button [ref=e442] [cursor=pointer]:
+                - generic [ref=e444]:
+                  - heading "Mines" [level=3] [ref=e445]
+                  - text: Play now →
+              - button [ref=e446] [cursor=pointer]:
+                - generic [ref=e448]:
+                  - heading "Roulette" [level=3] [ref=e449]
+                  - text: Play now →
+              - button [active] [ref=e450] [cursor=pointer]:
+                - generic [ref=e452]:
+                  - heading "Plinko" [level=3] [ref=e453]
+                  - text: Play now →
+  - generic [ref=e457]:
+    - generic [ref=e458]:
+      - generic [ref=e459]:
+        - paragraph [ref=e460]: Plinko
+        - paragraph [ref=e461]: "Balance: 990,923.87 chips"
+      - generic [ref=e462]:
+        - button "Mute sound" [ref=e463] [cursor=pointer]
+        - button [ref=e468] [cursor=pointer]
+    - generic [ref=e472]:
+      - generic [ref=e473]:
+        - generic [ref=e474]: Manual
+        - generic [ref=e476]:
+          - text: Bet Amount
+          - spinbutton [ref=e477]: "100"
+          - generic [ref=e478]:
+            - button "½" [ref=e479] [cursor=pointer]
+            - button "2×" [ref=e480] [cursor=pointer]
+          - paragraph [ref=e481]: Min 100 · Max 50,000
+        - generic [ref=e482]:
+          - text: Risk
+          - combobox [ref=e483]:
+            - option "Low"
+            - option "Medium" [selected]
+            - option "High"
+        - generic [ref=e484]:
+          - text: Rows
+          - combobox [disabled] [ref=e485]:
+            - option "12" [selected]
+        - button "Play" [ref=e486] [cursor=pointer]
+      - generic [ref=e489]:
+        - generic [ref=e592]: 33×
+        - generic [ref=e593]: 11×
+        - generic [ref=e594]: 4×
+        - generic [ref=e595]: 2×
+        - generic [ref=e596]: 1.1×
+        - generic [ref=e597]: 0.6×
+        - generic [ref=e598]: 0.3×
+        - generic [ref=e599]: 0.6×
+        - generic [ref=e600]: 1.1×
+        - generic [ref=e601]: 2×
+        - generic [ref=e602]: 4×
+        - generic [ref=e603]: 11×
+        - generic [ref=e604]: 33×

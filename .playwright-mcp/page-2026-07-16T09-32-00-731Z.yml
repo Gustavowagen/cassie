@@ -1,0 +1,17 @@
+- generic [ref=f1e3]:
+  - navigation [ref=f1e4]:
+    - link "OnlineCassie" [ref=f1e5] [cursor=pointer]:
+      - /url: /
+    - button "Sign in" [ref=f1e7] [cursor=pointer]
+  - main [ref=f1e8]:
+    - generic [ref=f1e9]:
+      - button "Back to Casinos" [ref=f1e10] [cursor=pointer]
+      - generic [ref=f1e14]:
+        - img "Bjørnar Berge" [ref=f1e15]
+        - generic [ref=f1e16]:
+          - heading "Bjørnar Berge" [level=1] [ref=f1e17]
+          - paragraph [ref=f1e18]: ccczcsz
+          - generic [ref=f1e19]: 13 members
+      - generic [ref=f1e21]:
+        - paragraph [ref=f1e22]: Sign in to join and play.
+        - button "Sign In" [ref=f1e23] [cursor=pointer]

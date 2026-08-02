@@ -1,0 +1,35 @@
+- generic [ref=e6]:
+  - generic [ref=e7]:
+    - generic [ref=e8] [cursor=pointer]: Leave
+    - generic [ref=e11]: 12,980
+  - generic [ref=e22]:
+    - generic [ref=e23]: Blackjack
+    - generic [ref=e24]: Dealer stands on 17 · Blackjack pays 3:2
+  - generic [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e27]: Dealer
+      - generic [ref=e171]:
+        - generic [ref=e172]:
+          - generic [ref=e173]: "10"
+          - generic [ref=e174]: ♣
+        - generic [ref=e175]: ♣
+      - generic [ref=e178]: "?"
+    - generic [ref=e31]:
+      - generic [ref=e180]:
+        - generic [ref=e182]:
+          - generic [ref=e183]:
+            - generic [ref=e184]: "9"
+            - generic [ref=e185]: ♥
+          - generic [ref=e186]: ♥
+        - generic [ref=e188]:
+          - generic [ref=e189]:
+            - generic [ref=e190]: "7"
+            - generic [ref=e191]: ♦
+          - generic [ref=e192]: ♦
+      - generic [ref=e193]: "16"
+      - generic [ref=e195]: Bet 500
+  - generic [ref=e196]:
+    - button "Hit" [ref=e197] [cursor=pointer]
+    - button "Stand" [ref=e198] [cursor=pointer]
+    - button "Double" [ref=e199] [cursor=pointer]
+    - button "Split" [disabled] [ref=e200]

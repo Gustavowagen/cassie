@@ -401,13 +401,14 @@ function useNarrowBoard(breakpointPx: number): boolean {
 // ── Main component ─────────────────────────────────────────────────────────
 interface Props {
   casinoId: string;
+  gameId: string;
   balance: number;
   minBet: number;
   maxBet: number;
   onExit: () => void;
 }
 
-export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: Props) {
+export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, onExit }: Props) {
   const [bets, setBets] = useState<BetMap>({});
   const [tier, setTier] = useState<Tier>("medium");
   const chipValues = CHIPS_BY_TIER[tier];
@@ -477,7 +478,7 @@ export function Roulette({ casinoId, balance: initialBalance, minBet, onExit }: 
 
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("roulette", {
-        body: { action: "spin", casino_id: casinoId, bets },
+        body: { action: "spin", casino_id: casinoId, casino_game_id: gameId, bets },
       });
       if (fnErr) {
         // supabase-js returns non-2xx as FunctionsHttpError; the JSON { error }

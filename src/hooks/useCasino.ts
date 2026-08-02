@@ -167,6 +167,14 @@ export function useCasino() {
     if (error) throw error;
   }
 
+  async function transferOwnership(casinoId: string, newOwnerId: string) {
+    const { error } = await supabase.rpc("transfer_casino_ownership", {
+      p_casino_id: casinoId,
+      p_new_owner_id: newOwnerId,
+    });
+    if (error) throw error;
+  }
+
   async function getMemberProfitLoss(
     casinoId: string,
     userId: string,
@@ -224,6 +232,7 @@ export function useCasino() {
     giveChips,
     removeChips,
     setMemberRole,
+    transferOwnership,
     getMemberProfitLoss,
     listChipTransactions,
     getPlatformStats,

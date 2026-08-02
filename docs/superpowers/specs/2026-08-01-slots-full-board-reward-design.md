@@ -67,28 +67,44 @@ square .25, diamond .2, star .12, seven .08):
   - **9–10 cells** → "BIG WIN"
   - **11–15 cells** → "MEGA WIN"
 
-### Tie-break rule
+### Ties
 
 Unlike single-row (where two symbols both reaching 3+ is mathematically
 impossible — 2×3 > 5), with 15 cells two symbols can land on the same max
-count. **The rarer symbol wins** (dot → square → diamond → star → seven,
-later wins ties). This rule is baked directly into the enumeration used to
-derive the payout table below, not an unaccounted-for edge case.
+count (e.g. 7 dots + 7 squares + 1 other). **Both symbols win and both pay**
+— `evaluateFullBoardWin` returns every symbol at the max count (`wins: [...]`,
+usually length 1), and `payoutForFullBoard` sums each tied symbol's rate at
+the shared tier. A three-way tie is impossible (3 × 7 = 21 > 15 cells), so
+`wins` is never longer than 2. Ties only land in the 7–8 tier — two symbols
+both reaching 9+ would need 18+ cells — and are rare (0.10% of all spins,
+0.32% of winning spins), pulling actual RTP up slightly (see below).
 
 ### Payout table
 
 Solved so total RTP lands close to single-row's exact RTP (0.98202817,
 computed the same way `engine.test.ts` already pins it: `Σ P(symbol, tier) ×
-pay(symbol, tier)`). Result: RTP 0.98168 (house edge 1.832%, vs. single-row's
-1.797%) — within the same 97–99% band `engine.test.ts` already asserts.
+pay(symbol, tier)`), under the single-winner assumption. Result: RTP 0.98220
+(house edge 1.780%, vs. single-row's 1.797%) — within the same 97–99% band
+`engine.test.ts` already asserts. Paying both symbols on a tie lifts actual
+RTP to ~0.98428 (house edge ~1.57%); still comfortably inside that band, so
+the table wasn't rescaled to claw the extra ~0.2pp back — the tie case is
+too rare (0.10% of spins) to be worth trading away the round numbers below
+for.
+
+Tier multipliers are deliberately flat (tier0:tier1:tier2 ≈ 1:3:10.5 per
+symbol) rather than a steep scale-up, using round numbers throughout. Since
+tier 0 (7–8 cells) accounts for ~63% of all full-board wins, most of the RTP
+budget lives there — spreading it this way means the common small win pays
+noticeably more (dot: 1.46x → 2x) while the rare max win pays far less
+(seven MEGA: 379.98x → 105x), for the same total payback.
 
 | Symbol | 7–8 (WIN) | 9–10 (BIG) | 11–15 (MEGA) |
 |---|---|---|---|
-| dot | 1.46x | 7.31x | 58.46x |
-| square | 2.19x | 10.23x | 80.38x |
-| diamond | 2.92x | 14.61x | 116.92x |
-| star | 4.38x | 21.92x | 189.99x |
-| seven | 7.31x | 36.54x | 379.98x |
+| dot | 2x | 6x | 21x |
+| square | 3x | 9x | 32x |
+| diamond | 4x | 12x | 42x |
+| star | 6x | 18x | 63x |
+| seven | 10x | 30x | 105x |
 
 ## Engine changes (`supabase/functions/slots/engine.ts`)
 
@@ -97,21 +113,26 @@ pay(symbol, tier)`). Result: RTP 0.98168 (house edge 1.832%, vs. single-row's
 - New `FullBoardWin` type — kept **separate** from the existing `Win` type
   rather than unifying, so single-row code and its tests are untouched:
   ```ts
-  export interface FullBoardWin {
+  export interface FullBoardTieWin {
     symbol: SymbolId;
-    count: number; // 7..15
     positions: { reel: number; row: "top" | "mid" | "bottom" }[];
+  }
+  export interface FullBoardWin {
+    count: number; // 7..15, shared by every entry in `wins`
+    wins: FullBoardTieWin[]; // length 1 normally, 2 on a tie
   }
   ```
 - New `evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null` — flattens
-  all 15 cells, counts per symbol, picks the max (tie → rarer symbol per the
-  rule above), returns `null` if the max count < 7.
+  all 15 cells, counts per symbol, finds the max, and collects every symbol
+  that reached it into `wins` (see Ties above), returns `null` if the max
+  count < 7.
 - New `payoutForFullBoard(win: FullBoardWin | null, bet: number): number` —
-  looks up `FULL_BOARD_SYMBOLS`, buckets `count` into the 7–8/9–10/11–15
-  tier, same `roundMoney` rounding as today.
+  looks up `FULL_BOARD_SYMBOLS` for each entry in `wins`, buckets `count`
+  into the 7–8/9–10/11–15 tier, sums their rates, same `roundMoney` rounding
+  as today.
 - A comment documenting the derivation (pigeonhole argument, enumeration
-  method, tie-break rule, solved scale factor), matching the existing
-  comment style above `SYMBOLS`.
+  method, tie handling, solved scale factor), matching the existing comment
+  style above `SYMBOLS`.
 
 ## Edge function (`supabase/functions/slots/index.ts`)
 
@@ -133,7 +154,7 @@ pay(symbol, tier)`). Result: RTP 0.98168 (house edge 1.832%, vs. single-row's
 
 - `CasinoGame.settings: Record<string, unknown>`.
 - `SlotWin` (existing, `positions: number[]`) unchanged.
-- New `FullBoardSlotWin { symbol: SlotSymbolId; count: number; positions: { reel: number; row: "top" | "mid" | "bottom" }[] }`.
+- New `FullBoardSlotWin { count: number; wins: { symbol: SlotSymbolId; positions: { reel: number; row: "top" | "mid" | "bottom" }[] }[] }`.
 - `SlotsResult.win: SlotWin | FullBoardSlotWin | null`, plus
   `SlotsResult.rewardMode: "single_row" | "full_board"`.
 
@@ -145,10 +166,10 @@ pay(symbol, tier)`). Result: RTP 0.98168 (house edge 1.832%, vs. single-row's
   still authoritative on payout).
 - `useSlots`/`spin()` includes `casino_game_id: gameId` in the request body.
 - Cell lit-up check: single-row mode keeps today's `win.positions.includes(i)`
-  against the mid cell only. Full-board mode builds a `Set` of `"reel:row"`
-  keys from `win.positions` and checks membership independently for each of
-  a reel's top/mid/bottom cells — so a full-board win can light up cells on
-  any row.
+  against the mid cell only. Full-board mode flattens `win.wins[*].positions`
+  (every tied symbol's cells, not just one) into a `Set` of `"reel:row"` keys
+  and checks membership independently for each of a reel's top/mid/bottom
+  cells — so a full-board win, tied or not, can light up cells on any row.
 - WIN / BIG WIN / MEGA WIN banner: today it's driven directly off
   `win.count` (3/4/5). Introduce a small `winTier(rewardMode, count): 3|4|5`
   helper that maps single-row's 3/4/5 to themselves and full-board's

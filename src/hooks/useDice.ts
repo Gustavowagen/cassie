@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import type { DiceResult, DiceDirection } from "../types";
 
-export function useDice(casinoId: string | undefined) {
+export function useDice(casinoId: string | undefined, gameId: string | undefined) {
   const [result, setResult] = useState<DiceResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export function useDice(casinoId: string | undefined) {
       setLoading(true);
       setError(null);
       const { data, error } = await supabase.functions.invoke("dice", {
-        body: { casino_id: casinoId, bet, target, direction },
+        body: { casino_id: casinoId, casino_game_id: gameId, bet, target, direction },
       });
       setLoading(false);
       if (error) {
@@ -34,7 +34,7 @@ export function useDice(casinoId: string | undefined) {
       setResult(data as DiceResult);
       return data as DiceResult;
     },
-    [casinoId]
+    [casinoId, gameId]
   );
 
   return { result, loading, error, roll };

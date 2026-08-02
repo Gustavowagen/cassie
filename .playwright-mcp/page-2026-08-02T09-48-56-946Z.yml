@@ -1,0 +1,48 @@
+- generic [ref=e3]:
+  - main [ref=e4]:
+    - generic [ref=e29]:
+      - generic [ref=e30]: OnlineCassie
+      - generic [ref=e34]:
+        - heading "Welcome back, ClaudeTest" [level=1] [ref=e35]
+        - paragraph [ref=e36]: The tables are hot and the chips are stacked — jump back into your casinos, or go find your next big win.
+        - generic [ref=e37]:
+          - button "Create casino" [ref=e38] [cursor=pointer]
+          - button "Browse" [ref=e40] [cursor=pointer]
+      - generic [ref=e44]:
+        - generic [ref=e45]:
+          - generic [ref=e46]: "3"
+          - generic [ref=e47]: Casinos
+        - generic [ref=e48]:
+          - generic [ref=e49]: "13"
+          - generic [ref=e50]: Players
+        - generic [ref=e51]:
+          - generic [ref=e52]: 100%
+          - generic [ref=e53]: Free
+      - generic [ref=e54]:
+        - heading "My Casinos" [level=2] [ref=e56]
+        - generic [ref=e57]:
+          - button "Joined Dice Test Casino 1 member" [ref=e59] [cursor=pointer]:
+            - generic [ref=e60]:
+              - generic [ref=e62]: Joined
+              - heading "Dice Test Casino" [level=3] [ref=e64]
+            - generic [ref=e65]: 1 member
+          - button "Joined Test webhook 13 members" [ref=e69] [cursor=pointer]:
+            - generic [ref=e70]:
+              - generic [ref=e72]: Joined
+              - heading "Test webhook" [level=3] [ref=e74]
+            - generic [ref=e75]: 13 members
+          - button "Joined Bjørnar Berge 13 members" [ref=e79] [cursor=pointer]:
+            - generic [ref=e80]:
+              - generic [ref=e82]: Joined
+              - heading "Bjørnar Berge" [level=3] [ref=e84]
+            - generic [ref=e85]: 13 members
+      - generic [ref=e88]:
+        - generic [ref=e89]:
+          - heading "Discover" [level=2] [ref=e90]
+          - link "Browse all casinos →" [ref=e91] [cursor=pointer]:
+            - /url: /browse
+        - paragraph [ref=e92]: You've joined every casino there is — nice work.
+  - navigation [ref=e93]:
+    - button "Home" [ref=e94] [cursor=pointer]
+    - button "Browse" [ref=e98] [cursor=pointer]
+    - button "Profile" [ref=e102] [cursor=pointer]

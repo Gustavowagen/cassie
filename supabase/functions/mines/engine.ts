@@ -18,7 +18,7 @@ export interface RoundState {
 }
 
 export function roundMoney(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100;
+  return Math.round((n + Number.EPSILON) * 10000) / 10000;
 }
 
 // Full Fisher-Yates shuffle, then take the first `count` indices — picks

@@ -1,0 +1,20 @@
+- generic [ref=e5]:
+  - banner [ref=e6]:
+    - generic [ref=e7]:
+      - heading "Members" [level=1] [ref=e8]
+      - paragraph [ref=e9]: 7 players in this casino
+  - table [ref=e11]:
+    - rowgroup [ref=e12]:
+      - row [ref=e13]:
+        - columnheader "Player" [ref=e14]
+        - columnheader "Role" [ref=e15]
+        - columnheader "Balance" [ref=e16]
+        - columnheader "Joined" [ref=e17]
+        - columnheader [ref=e18]
+    - rowgroup [ref=e19]:
+      - row [ref=e20] [cursor=pointer]:
+        - cell [ref=e21]
+        - cell [ref=e24]
+        - cell [ref=e25]
+        - cell [ref=e26]
+        - cell [ref=e27]

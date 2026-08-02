@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import type { MinesState } from "../types";
 
-export function useMines(casinoId: string | undefined) {
+export function useMines(casinoId: string | undefined, gameId: string | undefined) {
   const [state, setState] = useState<MinesState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +34,8 @@ export function useMines(casinoId: string | undefined) {
 
   const start = useCallback(
     (bet: number, minesCount: number) =>
-      invoke({ action: "start", casino_id: casinoId, bet, mines_count: minesCount }),
-    [invoke, casinoId]
+      invoke({ action: "start", casino_id: casinoId, casino_game_id: gameId, bet, mines_count: minesCount }),
+    [invoke, casinoId, gameId]
   );
 
   const reveal = useCallback(

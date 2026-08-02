@@ -1,0 +1,57 @@
+- generic [ref=f2e3]:
+  - navigation [ref=f2e4]:
+    - link "OnlineCassie" [ref=f2e5] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f2e6]:
+      - generic [ref=f2e33]: C
+      - button "Sign out" [ref=f2e34] [cursor=pointer]
+  - main [ref=f2e8]:
+    - generic [ref=f2e35]:
+      - generic [ref=f2e37]:
+        - heading "Welcome back, ClaudeTest" [level=1] [ref=f2e38]
+        - paragraph [ref=f2e39]: Jump back into your casinos or start a new one.
+        - generic [ref=f2e40]:
+          - button "Create casino" [ref=f2e41] [cursor=pointer]:
+            - img [ref=f2e42]
+            - text: Create casino
+          - button "Browse" [ref=f2e43] [cursor=pointer]
+      - generic [ref=f2e44]:
+        - heading "My Casinos" [level=2] [ref=f2e46]
+        - generic [ref=f2e47]:
+          - button "Joined Dice Test Casino 1 member" [ref=f2e49] [cursor=pointer]:
+            - generic [ref=f2e50]:
+              - generic [ref=f2e52]: Joined
+              - heading "Dice Test Casino" [level=3] [ref=f2e54]
+            - generic [ref=f2e57]: 1 member
+          - button "Joined Test webhook 13 members" [ref=f2e59] [cursor=pointer]:
+            - generic [ref=f2e60]:
+              - generic [ref=f2e62]: Joined
+              - heading "Test webhook" [level=3] [ref=f2e64]
+            - generic [ref=f2e67]: 13 members
+          - button "Joined Bjørnar Berge 13 members" [ref=f2e69] [cursor=pointer]:
+            - generic [ref=f2e70]:
+              - generic [ref=f2e72]: Joined
+              - heading "Bjørnar Berge" [level=3] [ref=f2e74]
+            - generic [ref=f2e77]: 13 members
+      - generic [ref=f2e78]:
+        - generic [ref=f2e79]:
+          - heading "Discover" [level=2] [ref=f2e80]
+          - generic [ref=f2e81]:
+            - img
+            - textbox "Search casinos" [ref=f2e82]
+        - generic [ref=f2e83]:
+          - button "Joined Dice Test Casino 1 member" [ref=f2e84] [cursor=pointer]:
+            - generic [ref=f2e85]:
+              - generic [ref=f2e87]: Joined
+              - heading "Dice Test Casino" [level=3] [ref=f2e89]
+            - generic [ref=f2e92]: 1 member
+          - button "Joined Bjørnar Berge 13 members" [ref=f2e93] [cursor=pointer]:
+            - generic [ref=f2e94]:
+              - generic [ref=f2e96]: Joined
+              - heading "Bjørnar Berge" [level=3] [ref=f2e98]
+            - generic [ref=f2e101]: 13 members
+          - button "Joined Test webhook 13 members" [ref=f2e102] [cursor=pointer]:
+            - generic [ref=f2e103]:
+              - generic [ref=f2e105]: Joined
+              - heading "Test webhook" [level=3] [ref=f2e107]
+            - generic [ref=f2e110]: 13 members

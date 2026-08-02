@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
+import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { formatChips } from "../../lib/utils";
-import { playTone } from "../../lib/sound";
+import { playTone, playDing } from "../../lib/sound";
 import { useDice } from "../../hooks/useDice";
 import type { DiceDirection } from "../../types";
 
@@ -31,8 +32,14 @@ function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+// Matches the marker's slide transition (`transition-[left] duration-500`)
+// further down — the true outcome isn't revealed until that animation, which
+// starts the instant `result` is set, has actually finished sliding.
+const REVEAL_MS = 550;
+
 interface Props {
   casinoId: string;
+  gameId: string;
   balance: number;
   minBet: number;
   maxBet: number;
@@ -51,18 +58,32 @@ const CASH_PARTICLES = Array.from({ length: 10 }, (_, i) => {
   };
 });
 
-export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit }: Props) {
-  const { result, loading, error: rollError, roll: rollDice } = useDice(casinoId);
+export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet, onExit }: Props) {
+  const { result, loading, error: rollError, roll: rollDice } = useDice(casinoId, gameId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [betText, setBetText] = useState(String(minBet));
   const [target, setTarget] = useState(50);
   const [direction, setDirection] = useState<DiceDirection>("under");
   const [formError, setFormError] = useState<string | null>(null);
   const [winId, setWinId] = useState(0);
+  const [showWin, setShowWin] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const lastTickPctRef = useRef<number | null>(null);
+  const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (winId > 0) playDing();
+  }, [winId]);
+
+  const busy = loading || revealing;
   const bet = Math.max(0, parseFloat(betText) || 0);
   const winChance = winChanceFor(target, direction);
   const multiplier = multiplierFor(winChance);
@@ -94,13 +115,13 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (loading) return;
+    if (busy) return;
     draggingRef.current = true;
     (e.target as Element).setPointerCapture(e.pointerId);
     updateFromTrackClientX(e.clientX);
   }
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
-    if (loading) return;
+    if (busy) return;
     if (!draggingRef.current) return;
     updateFromTrackClientX(e.clientX);
   }
@@ -136,13 +157,30 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
   }
 
   async function handleBet() {
-    if (!betValid || loading) return;
+    if (!betValid || busy) return;
     setFormError(null);
+    const stake = bet;
+    // The bet is lost the instant it's placed, win or lose — the slider's
+    // slide is cosmetic and must never gate this deduction.
+    setLocalBalance((b) => b - stake);
+    // Clear any still-visible celebration from a prior win so this round's
+    // outcome (and `result`, which updates as soon as the response lands,
+    // well before the reveal below) can't re-trigger the old overlay.
+    setShowWin(false);
     try {
       const res = await rollDice(bet, target, direction);
-      setLocalBalance(res.balance);
-      if (res.won) setWinId((id) => id + 1);
+      setRevealing(true);
+      revealTimeoutRef.current = setTimeout(() => {
+        // Only now reveal the true outcome — this is what credits any payout.
+        setLocalBalance(res.balance);
+        if (res.won) {
+          setWinId((id) => id + 1);
+          setShowWin(true);
+        }
+        setRevealing(false);
+      }, REVEAL_MS);
     } catch (err) {
+      setLocalBalance((b) => b + stake); // roll back the optimistic deduction
       setFormError(err instanceof Error ? err.message : "Bet failed");
     }
   }
@@ -162,9 +200,15 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
         <div className="flex items-center gap-3">
+          <BackdropToggleButton />
           <MuteButton />
-          <button type="button" onClick={onExit} className="text-muted-foreground hover:text-foreground">
-            <X className="h-5 w-5" />
+          <button
+            type="button"
+            onClick={onExit}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3.5 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:scale-95"
+          >
+            <X className="h-4 w-4" />
+            Exit
           </button>
         </div>
       </div>
@@ -172,7 +216,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
       {/* Win celebration — plays once per winning roll (~950ms), then fades out
           on its own. Nothing is shown on a loss. pointer-events-none so it never
           blocks the next bet. */}
-      {result?.won && winId > 0 && (
+      {showWin && (
         <div
           key={winId}
           className="dc-win-overlay absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
@@ -192,7 +236,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
             </span>
           ))}
           <p className="dc-win-text text-3xl font-black text-emerald-400 drop-shadow-[0_2px_8px_rgba(16,185,129,0.6)]">
-            +{formatChips(result.payout)} chips
+            +{formatChips(result?.payout ?? 0)} chips
           </p>
         </div>
       )}
@@ -206,14 +250,14 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
               min={0}
               value={betText}
               onChange={(e) => setBetText(e.target.value)}
-              disabled={loading}
+              disabled={busy}
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <div className="flex gap-2 mt-2">
               <button
                 type="button"
                 onClick={() => adjustBet(0.5)}
-                disabled={loading}
+                disabled={busy}
                 className="flex-1 rounded-md border border-border py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-foreground"
               >
                 ½
@@ -221,7 +265,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
               <button
                 type="button"
                 onClick={() => adjustBet(2)}
-                disabled={loading}
+                disabled={busy}
                 className="flex-1 rounded-md border border-border py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-foreground"
               >
                 2×
@@ -239,8 +283,8 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
             </div>
           </div>
 
-          <Button onClick={handleBet} disabled={!betValid || loading} className="mt-1 h-11 text-base font-bold">
-            {loading ? "Rolling…" : "Bet"}
+          <Button onClick={handleBet} disabled={!betValid || busy} className="mt-1 h-11 text-base font-bold">
+            {busy ? "Rolling…" : "Bet"}
           </Button>
 
           {(formError || rollError) && (
@@ -289,7 +333,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
                 step="0.0001"
                 value={multiplier.toFixed(4)}
                 onChange={(e) => handleMultiplierInput(e.target.value)}
-                disabled={loading}
+                disabled={busy}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -299,7 +343,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
                 <button
                   type="button"
                   onClick={swapDirection}
-                  disabled={loading}
+                  disabled={busy}
                   className="text-muted-foreground hover:text-foreground"
                   aria-label="Swap direction"
                 >
@@ -311,7 +355,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
                 step="0.01"
                 value={target.toFixed(2)}
                 onChange={(e) => handleTargetInput(e.target.value)}
-                disabled={loading}
+                disabled={busy}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -322,7 +366,7 @@ export function Dice({ casinoId, balance: initialBalance, minBet, maxBet, onExit
                 step="0.01"
                 value={winChance.toFixed(2)}
                 onChange={(e) => handleWinChanceInput(e.target.value)}
-                disabled={loading}
+                disabled={busy}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

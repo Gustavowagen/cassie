@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import type { BlackjackState, Move } from "../types";
 
-export function useBlackjack(casinoId: string | undefined) {
+export function useBlackjack(casinoId: string | undefined, gameId: string | undefined) {
   const [state, setState] = useState<BlackjackState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +33,8 @@ export function useBlackjack(casinoId: string | undefined) {
   }, []);
 
   const start = useCallback(
-    (bet: number) => invoke({ action: "start", casino_id: casinoId, bet }),
-    [invoke, casinoId]
+    (bet: number) => invoke({ action: "start", casino_id: casinoId, casino_game_id: gameId, bet }),
+    [invoke, casinoId, gameId]
   );
 
   const act = useCallback(
