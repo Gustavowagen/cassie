@@ -113,7 +113,10 @@ export function Profile() {
       <div className="flex items-center gap-3.5">
         <button
           type="button"
-          onClick={() => setPickerOpen(true)}
+          onClick={() => {
+            setAvatarError(null);
+            setPickerOpen(true);
+          }}
           className="group relative h-[84px] w-[84px] rounded-full flex items-center justify-center text-2xl font-bold text-white flex-none"
           style={{ background: selectedPreset ? selectedPreset.gradient : avatarGradient(displayName) }}
         >
@@ -169,7 +172,7 @@ export function Profile() {
       </button>
 
       {pickerOpen && (
-        <Modal onClose={() => setPickerOpen(false)} size="md">
+        <Modal onClose={() => setPickerOpen(false)} size="md" dismissible={avatarSaving === null}>
           <div className={`rounded-2xl ${GLASS} p-5 space-y-4`}>
             <h2 className="text-base font-bold">Choose a profile picture</h2>
             <div className="grid grid-cols-3 gap-3">
