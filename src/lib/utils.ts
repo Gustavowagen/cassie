@@ -53,3 +53,36 @@ export function gradientFromColor(hex: string): string {
   const botL = Math.max(topL - 30, 8);
   return `linear-gradient(180deg, hsl(${h} ${s}% ${topL}%), hsl(${h} ${s}% ${botL}%))`;
 }
+
+export interface AvatarPreset {
+  key: string;
+  emoji: string;
+  gradient: string;
+}
+
+export const AVATAR_PRESETS: AvatarPreset[] = [
+  { key: "dice", emoji: "🎲", gradient: "linear-gradient(135deg, hsl(263 70% 55%), hsl(303 70% 40%))" },
+  { key: "spade", emoji: "♠️", gradient: "linear-gradient(135deg, hsl(220 70% 50%), hsl(260 70% 35%))" },
+  { key: "diamond", emoji: "♦️", gradient: "linear-gradient(135deg, hsl(0 70% 55%), hsl(340 70% 40%))" },
+  { key: "club", emoji: "♣️", gradient: "linear-gradient(135deg, hsl(150 65% 42%), hsl(190 65% 32%))" },
+  { key: "heart", emoji: "♥️", gradient: "linear-gradient(135deg, hsl(340 75% 55%), hsl(0 75% 45%))" },
+  { key: "slots", emoji: "🎰", gradient: "linear-gradient(135deg, hsl(40 80% 55%), hsl(15 80% 45%))" },
+  { key: "joker", emoji: "🃏", gradient: "linear-gradient(135deg, hsl(280 65% 55%), hsl(320 65% 40%))" },
+  { key: "roulette", emoji: "🎡", gradient: "linear-gradient(135deg, hsl(190 70% 50%), hsl(230 70% 40%))" },
+  { key: "chip", emoji: "🪙", gradient: "linear-gradient(135deg, hsl(45 85% 55%), hsl(30 85% 40%))" },
+];
+
+const AVATAR_PRESET_PREFIX = "preset:";
+
+export function avatarPresetUrl(key: string): string {
+  return `${AVATAR_PRESET_PREFIX}${key}`;
+}
+
+export function avatarPresetKeyFromUrl(avatarUrl: string | null | undefined): string | null {
+  if (!avatarUrl || !avatarUrl.startsWith(AVATAR_PRESET_PREFIX)) return null;
+  return avatarUrl.slice(AVATAR_PRESET_PREFIX.length);
+}
+
+export function findAvatarPreset(key: string): AvatarPreset | undefined {
+  return AVATAR_PRESETS.find((p) => p.key === key);
+}
