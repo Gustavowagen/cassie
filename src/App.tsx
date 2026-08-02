@@ -6,6 +6,7 @@ import { Home } from "./pages/Home";
 import { Auth } from "./pages/Auth";
 import { CreateCasino } from "./pages/CreateCasino";
 import { BrowseCasinos } from "./pages/BrowseCasinos";
+import { Profile } from "./pages/Profile";
 import { CasinoDashboard } from "./pages/CasinoDashboard";
 import { ConfirmEmail } from "./pages/ConfirmEmail";
 import { SetupNickname } from "./pages/SetupNickname";
@@ -36,6 +37,7 @@ function AppRoutes() {
         }
       />
       <Route path="/casino/:slug" element={<CasinoDashboard />} />
+      <Route path="/profile" element={<Profile />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

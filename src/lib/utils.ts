@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatChips(amount: number): string {
-  return amount.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return amount.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 }
 
 export function slugify(text: string): string {
@@ -52,6 +52,21 @@ export function gradientFromColor(hex: string): string {
   const topL = Math.min(l, 55);
   const botL = Math.max(topL - 30, 8);
   return `linear-gradient(180deg, hsl(${h} ${s}% ${topL}%), hsl(${h} ${s}% ${botL}%))`;
+}
+
+// Stable per-user gradient — hash the seed (username) to a hue pair.
+export function avatarGradient(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  const h1 = Math.abs(hash) % 360;
+  const h2 = (h1 + 40) % 360;
+  return `linear-gradient(135deg, hsl(${h1} 70% 55%), hsl(${h2} 70% 40%))`;
+}
+
+export function initialsOf(s: string): string {
+  return s.trim().charAt(0).toUpperCase() || "?";
 }
 
 export interface AvatarPreset {
