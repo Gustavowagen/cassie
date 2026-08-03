@@ -82,6 +82,15 @@ describe("resolveCashout", () => {
     expect(next.cashedOutAt).toBeUndefined();
   });
 
+  it("busts on an exact tie between the current multiplier and the crash point", () => {
+    const t = 2; // arbitrary fixed elapsed seconds
+    const crashPoint = multiplierAt(t);
+    const round = makeRound(crashPoint);
+    const now = started.getTime() + t * 1000;
+    const next = resolveCashout(round, now);
+    expect(next.outcome).toBe("busted");
+  });
+
   it("throws if the round is already complete", () => {
     const round: CrashRoundState = { ...makeRound(2), status: "complete" };
     expect(() => resolveCashout(round, started.getTime())).toThrow("already complete");
