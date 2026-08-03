@@ -1,6 +1,6 @@
 # Crash Game Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a "Crash" casino game — bet, watch a multiplier climb from 1.00x, cash out any time before it secretly busts — matching the design in `docs/superpowers/specs/2026-08-03-crash-game-design.md`.
 
@@ -25,7 +25,7 @@
 **Files:**
 - Create: `supabase/migrations/039_crash_rounds.sql`
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- crash_rounds mirrors mines_rounds' shape and guarantees exactly: one
@@ -51,15 +51,15 @@ create unique index crash_rounds_one_active_idx
 alter table public.crash_rounds enable row level security;
 ```
 
-- [ ] **Step 2: Apply the migration**
+- [x] **Step 2: Apply the migration**
 
 Use the Supabase MCP `apply_migration` tool against project `tvivhadsgtvfvxwpahef`, with `name: "crash_rounds"` and `query` set to the exact SQL above.
 
-- [ ] **Step 3: Verify the table exists**
+- [x] **Step 3: Verify the table exists**
 
 Use the Supabase MCP `list_tables` tool (schema `public`) and confirm `crash_rounds` appears with columns `id, casino_id, user_id, state, status, created_at, updated_at` and RLS enabled.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/migrations/039_crash_rounds.sql
@@ -74,7 +74,7 @@ git commit -m "feat(crash): add crash_rounds table"
 - Create: `supabase/functions/crash/engine.ts`
 - Test: `supabase/functions/crash/engine.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `supabase/functions/crash/engine.test.ts`:
 
@@ -198,12 +198,12 @@ describe("roundMoney", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npm test -- supabase/functions/crash/engine.test.ts`
 Expected: FAIL — `Cannot find module './engine'` (the file doesn't exist yet).
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `supabase/functions/crash/engine.ts`:
 
@@ -306,12 +306,12 @@ export function sanitize(state: CrashRoundState, roundId: string, balance: numbe
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npm test -- supabase/functions/crash/engine.test.ts`
 Expected: PASS (13 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/functions/crash/engine.ts supabase/functions/crash/engine.test.ts
@@ -325,7 +325,7 @@ git commit -m "feat(crash): add crash engine with 1% house edge"
 **Files:**
 - Create: `supabase/functions/crash/index.ts`
 
-- [ ] **Step 1: Write the edge function**
+- [x] **Step 1: Write the edge function**
 
 ```typescript
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -488,15 +488,15 @@ Deno.serve(async (req) => {
 });
 ```
 
-- [ ] **Step 2: Deploy the edge function**
+- [x] **Step 2: Deploy the edge function**
 
 Use the Supabase MCP `deploy_edge_function` tool to deploy the `crash` function (both `engine.ts` and `index.ts`) to project `tvivhadsgtvfvxwpahef`. Local edits under `supabase/functions/` do not go live until this is called.
 
-- [ ] **Step 3: Verify it deployed**
+- [x] **Step 3: Verify it deployed**
 
 Use the Supabase MCP `list_edge_functions` tool and confirm `crash` appears and its status is `ACTIVE`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/functions/crash/index.ts
@@ -510,7 +510,7 @@ git commit -m "feat(crash): add crash edge function (start/cashout)"
 **Files:**
 - Modify: `src/types/index.ts`
 
-- [ ] **Step 1: Add the `CrashState` type**
+- [x] **Step 1: Add the `CrashState` type**
 
 Append to the end of `src/types/index.ts`:
 
@@ -530,12 +530,12 @@ export interface CrashState {
 }
 ```
 
-- [ ] **Step 2: Verify the project still type-checks**
+- [x] **Step 2: Verify the project still type-checks**
 
 Run: `npm run build`
 Expected: builds successfully (this type isn't consumed anywhere yet, so it can't break anything, but confirms no syntax error was introduced).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/types/index.ts
@@ -549,7 +549,7 @@ git commit -m "feat(crash): add CrashState type"
 **Files:**
 - Create: `src/hooks/useCrash.ts`
 
-- [ ] **Step 1: Write the hook**
+- [x] **Step 1: Write the hook**
 
 ```typescript
 import { useState, useCallback } from "react";
@@ -602,12 +602,12 @@ export function useCrash(casinoId: string | undefined, gameId: string | undefine
 }
 ```
 
-- [ ] **Step 2: Verify the project type-checks**
+- [x] **Step 2: Verify the project type-checks**
 
 Run: `npm run build`
 Expected: builds successfully.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/hooks/useCrash.ts
@@ -621,7 +621,7 @@ git commit -m "feat(crash): add useCrash hook"
 **Files:**
 - Create: `src/components/games/Crash.tsx`
 
-- [ ] **Step 1: Write the component**
+- [x] **Step 1: Write the component**
 
 ```tsx
 import { useEffect, useState } from "react";
@@ -993,12 +993,12 @@ function CrashStyles() {
 }
 ```
 
-- [ ] **Step 2: Verify the project type-checks and builds**
+- [x] **Step 2: Verify the project type-checks and builds**
 
 Run: `npm run build`
 Expected: builds successfully (the component isn't wired into any page yet, so this only confirms it compiles in isolation).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/components/games/Crash.tsx
@@ -1012,7 +1012,7 @@ git commit -m "feat(crash): add Crash game component"
 **Files:**
 - Modify: `src/pages/CasinoDashboard.tsx`
 
-- [ ] **Step 1: Add the import**
+- [x] **Step 1: Add the import**
 
 Find this block (around line 20-21):
 
@@ -1029,7 +1029,7 @@ import { Crash } from "../components/games/Crash";
 import { Slots } from "../components/games/Slots";
 ```
 
-- [ ] **Step 2: Register the game type as playable and managed**
+- [x] **Step 2: Register the game type as playable and managed**
 
 Find (around line 36-37):
 
@@ -1045,7 +1045,7 @@ const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "sl
 const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines", "plinko", "crash"];
 ```
 
-- [ ] **Step 3: Add the render branch**
+- [x] **Step 3: Add the render branch**
 
 Find the `mines` branch inside the game modal switch (around line 395-404):
 
@@ -1077,12 +1077,12 @@ Add this immediately after it:
           )}
 ```
 
-- [ ] **Step 4: Verify the project builds**
+- [x] **Step 4: Verify the project builds**
 
 Run: `npm run build`
 Expected: builds successfully.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/CasinoDashboard.tsx
@@ -1095,30 +1095,30 @@ git commit -m "feat(crash): wire Crash into CasinoDashboard"
 
 **No files** — this task drives the running app to confirm the feature actually works end-to-end, per this project's rule that UI changes must be verified in a browser, not just type-checked.
 
-- [ ] **Step 1: Start the dev server**
+- [x] **Step 1: Start the dev server**
 
 Run: `npm run dev` (leave running; it serves on `http://localhost:5173`)
 
-- [ ] **Step 2: Sign in as the test account**
+- [x] **Step 2: Sign in as the test account**
 
 Using Playwright (or claude-in-chrome), navigate to `http://localhost:5173`, sign in with `claudetest.cassie@gmail.com` / `ClaudeTest123!` (per CLAUDE.md — this account is admin in all casinos).
 
-- [ ] **Step 3: Enable the Crash game in a casino**
+- [x] **Step 3: Enable the Crash game in a casino**
 
 Open any casino's admin "Games" settings tab, add a new game instance choosing **Crash** from the game type dropdown (it's now in `MANAGED_GAME_IDS`), accept the default min/max bet, and create it.
 
-- [ ] **Step 4: Play a winning round**
+- [x] **Step 4: Play a winning round**
 
 From the casino dashboard, open the new Crash tile. Confirm: the modal opens at a large size, balance shows in the header, the "Bet Amount" field defaults to the game's min bet. Click **Bet**. Confirm: balance decreases immediately by the bet amount, the rocket starts climbing, the multiplier readout ticks up continuously. After a couple of seconds, click **Cash Out**. Confirm: balance increases by the payout shown, a green banner reads "Cashed out at X.XXx — it would have busted at Y.YYx", and the cash-particle celebration plays once.
 
-- [ ] **Step 5: Play a losing round**
+- [x] **Step 5: Play a losing round**
 
 Click **Bet** again. This time, wait without clicking Cash Out — at `GROWTH_RATE = 0.115`, by ~30 seconds the multiplier has climbed to roughly 31x, and `P(crash_point >= 31x) = (1 - HOUSE_EDGE) / 31 ≈ 3%`, so waiting that long makes it about 97% likely the round has already secretly busted. Then click **Cash Out** anyway. Confirm: balance does **not** increase (bet stays deducted), a red banner reads "Busted at Z.ZZx", and the debris-burst animation plays once. (On the rare chance it hasn't busted yet, just wait a little longer and click Cash Out again.)
 
-- [ ] **Step 6: Sanity-check responsive sizing**
+- [x] **Step 6: Sanity-check responsive sizing**
 
 Resize the browser (or use Playwright's viewport resize) to roughly 375px wide, then to roughly 1920px wide, reopening the Crash modal at each size. Confirm: the modal and rocket scene visibly grow at the larger size rather than sitting small with empty space, and nothing overflows or clips at the smaller size.
 
-- [ ] **Step 7: Report results**
+- [x] **Step 7: Report results**
 
 Summarize pass/fail for each of steps 4-6. If anything fails, fix the underlying code (not this test task) and re-run the relevant step before considering Task 8 done.
