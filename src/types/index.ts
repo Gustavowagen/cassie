@@ -192,3 +192,17 @@ export interface MinesState {
   payout: number | null;
   balance: number;
 }
+
+export type CrashOutcome = "cashed_out" | "busted";
+
+export interface CrashState {
+  roundId: string;
+  status: "active" | "complete";
+  bet: number;
+  startedAt: string;
+  crashPoint: number | null;
+  outcome?: CrashOutcome;
+  payout: number | null;
+  cashedOutAt: number | null;
+  balance: number;
+}
