@@ -18,6 +18,7 @@ import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
 import { Dice } from "../components/games/Dice";
 import { Mines } from "../components/games/Mines";
+import { Crash } from "../components/games/Crash";
 import { Slots } from "../components/games/Slots";
 import { Plinko } from "../components/games/Plinko";
 import { Modal } from "../components/ui/modal";
@@ -33,8 +34,8 @@ const CTA_GRADIENT = "bg-gradient-to-r from-primary to-indigo-400 hover:opacity-
 
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
-const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko"]);
-const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines", "plinko"];
+const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko", "crash"]);
+const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines", "plinko", "crash"];
 
 type OwnerTab = "games" | "members" | "stats" | "trades" | "settings";
 
@@ -394,6 +395,16 @@ export function CasinoDashboard() {
           )}
           {activeGame.game_type_id === "mines" && (
             <Mines
+              casinoId={currentCasino.id}
+              gameId={activeGame.id}
+              balance={membership?.balance ?? 0}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
+              onExit={() => setActiveGame(null)}
+            />
+          )}
+          {activeGame.game_type_id === "crash" && (
+            <Crash
               casinoId={currentCasino.id}
               gameId={activeGame.id}
               balance={membership?.balance ?? 0}
