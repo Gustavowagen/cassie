@@ -60,10 +60,17 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
       setLiveMultiplier(1);
       return;
     }
-    const startedAt = new Date(state.startedAt).getTime();
+    // Anchor to the client's own clock the instant the round becomes active,
+    // rather than the server's absolute `startedAt` timestamp — comparing
+    // two different clocks (client Date.now() vs. the server's clock) is
+    // unreliable whenever they're skewed, which showed up as a badly
+    // desynced multiplier in manual testing. This is purely cosmetic
+    // rendering anyway (the server is authoritative at cash-out), so a
+    // client-relative timer is both simpler and correct.
+    const localStart = Date.now();
     let frame: number;
     function tick() {
-      const elapsed = (Date.now() - startedAt) / 1000;
+      const elapsed = (Date.now() - localStart) / 1000;
       setLiveMultiplier(Math.exp(GROWTH_RATE * elapsed));
       frame = requestAnimationFrame(tick);
     }
