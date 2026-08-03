@@ -112,7 +112,7 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
       : state!.crashPoint!
     : 1;
 
-  const rocketPct = Math.min(1, Math.log(displayMultiplier) / Math.log(DISPLAY_CAP));
+  const rocketPct = Math.max(0, Math.min(1, Math.log(displayMultiplier) / Math.log(DISPLAY_CAP)));
   const rocketVisible = !isComplete || state!.outcome === "cashed_out";
 
   return (
