@@ -25,11 +25,11 @@ interface ClientSymbol {
   pay: { 3: number; 4: number; 5: number };
 }
 const CLIENT_SYMBOLS: ClientSymbol[] = [
-  { id: "dot", cls: "sl-sym-dot", label: "", pay: { 3: 1, 4: 3, 5: 33 } },
-  { id: "square", cls: "sl-sym-square", label: "", pay: { 3: 1.5, 4: 4.5, 5: 48 } },
-  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: { 3: 2, 4: 6.5, 5: 70 } },
-  { id: "star", cls: "sl-sym-star", label: "", pay: { 3: 2.5, 4: 11, 5: 115 } },
-  { id: "seven", cls: "sl-sym-seven", label: "7", pay: { 3: 4.5, 4: 19, 5: 240 } },
+  { id: "dot", cls: "sl-sym-dot", label: "", pay: { 3: 1.5, 4: 3, 5: 12 } },
+  { id: "square", cls: "sl-sym-square", label: "", pay: { 3: 2, 4: 4, 5: 15 } },
+  { id: "diamond", cls: "sl-sym-diamond", label: "", pay: { 3: 2.5, 4: 5, 5: 19 } },
+  { id: "star", cls: "sl-sym-star", label: "", pay: { 3: 3, 4: 6.5, 5: 25 } },
+  { id: "seven", cls: "sl-sym-seven", label: "7", pay: { 3: 4, 4: 8.5, 5: 40 } },
 ];
 const SYMBOL_BY_ID = Object.fromEntries(CLIENT_SYMBOLS.map((s) => [s.id, s])) as Record<SlotSymbolId, ClientSymbol>;
 
@@ -55,7 +55,7 @@ const CLIENT_FULL_BOARD_SYMBOLS: ClientFullBoardSymbol[] = [
 // server uses to scale actual payouts is what keeps this paytable truthful
 // for whatever house edge the admin picked; it never changes hit frequency,
 // only these displayed multipliers.
-const BASELINE_RTP_SINGLE_ROW = 0.98202817025;
+const BASELINE_RTP_SINGLE_ROW = 0.9619252895;
 const BASELINE_RTP_FULL_BOARD = 0.984280455592317;
 function edgeScale(baselineRtp: number, houseEdge: number): number {
   return (1 - houseEdge) / baselineRtp;

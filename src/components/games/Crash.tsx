@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
@@ -14,10 +14,43 @@ import { playWinChime, playLoseThud } from "../../lib/sound";
 // Mirrors supabase/functions/crash/engine.ts — cosmetic only, the server
 // independently recomputes and is authoritative at cash-out time.
 const GROWTH_RATE = 0.115;
-// The rocket sprite reaches the top of its track around this multiplier and
-// stays pinned there while the number keeps climbing beyond it (10x is
-// already a rare outcome at 1% house edge).
-const DISPLAY_CAP = 10;
+// Mirrors engine.ts's MAX_CRASH_POINT — the crash point can never exceed
+// this, so once the live multiplier reaches it the round is guaranteed to
+// bust. Auto-trigger the cash-out request at that point rather than letting
+// the animation climb forever waiting on a click that can no longer help.
+const MAX_MULTIPLIER = 1000;
+// The flight-path curve plots elapsed time against the *raw* multiplier
+// (not its logarithm), so it renders as a true exponential hockey-stick —
+// flat at first, then bending sharply upward — matching real crash-game
+// visuals instead of a straight, constant-speed climb.
+// Below this multiplier the view window stays fixed, so the initial curve
+// is clearly visible rather than over-zoomed-out from the first frame.
+const BASE_VIEW_CAP = 4;
+const BASE_VIEW_SPAN = Math.log(BASE_VIEW_CAP) / GROWTH_RATE;
+// Once the flight runs past the base window, the view keeps expanding so
+// the current point always sits at ~78% of the visible track — the rocket
+// keeps gently creeping forward for the whole round instead of hitting a
+// hard ceiling and freezing.
+const VIEW_MARGIN = 0.78;
+// Track margins, in % of the scene box, that the flight path is drawn within.
+const TRACK_LEFT = 5;
+const TRACK_WIDTH = 84;
+const TRACK_BOTTOM = 8;
+const TRACK_HEIGHT = 76;
+const PATH_SAMPLES = 40;
+// Starfield parallax: scroll speed (px/sec at 1x) scales with the current
+// multiplier the same way the flight path's own vertical speed does, so the
+// background visibly streaks past faster as the round climbs. Two layers at
+// different speeds/sizes give it depth.
+const STAR_NEAR_SPEED = 70;
+const STAR_FAR_SPEED = 25;
+// Scroll speed keeps scaling with the multiplier up to this point, then
+// holds steady — otherwise, since it tracks the same uncapped exponential as
+// the flight path, it'd keep accelerating for the whole 1000x auto-cashout
+// range and the background would turn into an unreadable blur.
+const STAR_SPEED_CAP_MULT = 25;
+const STAR_SPEED_CAP_TIME = Math.log(STAR_SPEED_CAP_MULT) / GROWTH_RATE;
+const STAR_SCROLL_AT_CAP = (STAR_SPEED_CAP_MULT - 1) / GROWTH_RATE;
 
 function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
@@ -50,6 +83,33 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
   const [formError, setFormError] = useState<string | null>(null);
   const [liveMultiplier, setLiveMultiplier] = useState(1);
   const [showInfo, setShowInfo] = useState(false);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const [sceneSize, setSceneSize] = useState({ w: 800, h: 500 });
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    const handler = () => setReducedMotion(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // Measures the scene box so the flight path can be drawn in real pixel
+  // coordinates (a plain 0-100 viewBox would stretch the stroke and distort
+  // the curve on non-square layouts).
+  useLayoutEffect(() => {
+    const el = sceneRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) setSceneSize({ w: r.width, h: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const betValid = bet >= minBet && bet <= maxBet && bet <= localBalance;
@@ -75,7 +135,13 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
     let frame: number;
     function tick() {
       const elapsed = (Date.now() - localStart) / 1000;
-      setLiveMultiplier(Math.exp(GROWTH_RATE * elapsed));
+      const mult = Math.exp(GROWTH_RATE * elapsed);
+      if (mult >= MAX_MULTIPLIER) {
+        setLiveMultiplier(MAX_MULTIPLIER);
+        handleCashOut();
+        return;
+      }
+      setLiveMultiplier(mult);
       frame = requestAnimationFrame(tick);
     }
     frame = requestAnimationFrame(tick);
@@ -123,8 +189,48 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
       : state!.crashPoint!
     : 1;
 
-  const rocketPct = Math.max(0, Math.min(1, Math.log(displayMultiplier) / Math.log(DISPLAY_CAP)));
   const rocketVisible = !isComplete || state!.outcome === "cashed_out";
+
+  // elapsedSec is derived rather than tracked, since displayMultiplier already
+  // encodes it via the same exp(rate*t) formula for every state (idle/active/
+  // complete) — this keeps the frozen post-round curve consistent for free.
+  const elapsedSec = Math.log(displayMultiplier) / GROWTH_RATE;
+  const viewCap = Math.max(BASE_VIEW_CAP, displayMultiplier / VIEW_MARGIN);
+  const viewSpan = Math.max(BASE_VIEW_SPAN, elapsedSec / VIEW_MARGIN);
+
+  function flightPoint(tSec: number) {
+    const m = Math.exp(GROWTH_RATE * tSec);
+    const leftPct = TRACK_LEFT + (tSec / viewSpan) * TRACK_WIDTH;
+    const bottomPct = TRACK_BOTTOM + ((m - 1) / (viewCap - 1)) * TRACK_HEIGHT;
+    return {
+      x: (leftPct / 100) * sceneSize.w,
+      yTop: sceneSize.h - (bottomPct / 100) * sceneSize.h,
+      bottomPx: (bottomPct / 100) * sceneSize.h,
+    };
+  }
+
+  const pathPoints = Array.from({ length: PATH_SAMPLES + 1 }, (_, i) => flightPoint((elapsedSec * i) / PATH_SAMPLES));
+  const pathD = pathPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.yTop.toFixed(1)}`).join(" ");
+  const rocketPoint = pathPoints[pathPoints.length - 1];
+
+  // Tangent angle of the curve at the current point, via its analytic
+  // derivative — so the rocket's nose points along its direction of travel
+  // instead of a fixed tilt.
+  const dyPxPerSec = ((GROWTH_RATE * displayMultiplier) / (viewCap - 1)) * (TRACK_HEIGHT / 100) * sceneSize.h;
+  const dxPxPerSec = (1 / viewSpan) * (TRACK_WIDTH / 100) * sceneSize.w;
+  const rocketAngle = state ? Math.max(0, Math.min(80, (Math.atan2(dxPxPerSec, dyPxPerSec) * 180) / Math.PI)) : 0;
+
+  // Closed-form integral of speed*min(multiplier(t), CAP) dt — grows in
+  // lockstep with the rocket's own exponential climb (same trick as
+  // elapsedSec above) up to STAR_SPEED_CAP_MULT, then continues at that
+  // constant capped speed instead of keeping pace with the uncapped climb.
+  const starScroll = reducedMotion
+    ? 0
+    : displayMultiplier <= STAR_SPEED_CAP_MULT
+    ? (displayMultiplier - 1) / GROWTH_RATE
+    : STAR_SCROLL_AT_CAP + STAR_SPEED_CAP_MULT * (elapsedSec - STAR_SPEED_CAP_TIME);
+  const nearStarOffset = STAR_NEAR_SPEED * starScroll;
+  const farStarOffset = STAR_FAR_SPEED * starScroll;
 
   return (
     <div
@@ -265,16 +371,33 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
           {(formError || reqError) && <p className="text-xs text-destructive">{formError ?? reqError}</p>}
         </div>
 
-        <div className="cx-scene relative flex flex-1 items-center justify-center min-w-0 overflow-hidden">
-          <div className="cx-stars absolute inset-0" />
+        <div ref={sceneRef} className="cx-scene relative flex flex-1 items-center justify-center min-w-0 overflow-hidden">
+          <div className="cx-stars-far absolute inset-0" style={{ backgroundPosition: `0 ${farStarOffset}px` }} />
+          <div className="cx-stars-near absolute inset-0" style={{ backgroundPosition: `0 ${nearStarOffset}px` }} />
           <p className="cx-readout absolute top-4 right-5 font-mono font-black text-amber-400">
             {displayMultiplier.toFixed(2)}x
           </p>
+          <svg
+            className="cx-trail-svg absolute inset-0"
+            width={sceneSize.w}
+            height={sceneSize.h}
+            style={{ opacity: rocketVisible ? 1 : 0 }}
+          >
+            <defs>
+              <linearGradient id="cxTrailGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(251,146,60,0)" />
+                <stop offset="35%" stopColor="rgba(251,146,60,0.65)" />
+                <stop offset="100%" stopColor="rgba(253,186,116,1)" />
+              </linearGradient>
+            </defs>
+            <path d={pathD} fill="none" stroke="url(#cxTrailGradient)" strokeWidth={3} strokeLinecap="round" />
+          </svg>
           <div
-            className="cx-rocket absolute left-1/2"
+            className="cx-rocket absolute"
             style={{
-              bottom: `${8 + rocketPct * 78}%`,
-              transform: "translateX(-50%) rotate(-25deg)",
+              left: `${rocketPoint.x}px`,
+              bottom: `${rocketPoint.bottomPx}px`,
+              transform: `translateX(-50%) rotate(${rocketAngle}deg)`,
               opacity: rocketVisible ? 1 : 0,
             }}
           >
@@ -296,15 +419,39 @@ function CrashStyles() {
       .cx-scene {
         background: linear-gradient(180deg, #0a0e27 0%, #1a1040 60%, #2d1b4e 100%);
       }
-      .cx-stars {
+      .cx-stars-far, .cx-stars-near {
+        background-repeat: repeat;
+        will-change: background-position;
+      }
+      .cx-stars-far {
         background-image:
-          radial-gradient(2px 2px at 20% 30%, white, transparent),
-          radial-gradient(2px 2px at 60% 15%, white, transparent),
-          radial-gradient(1px 1px at 80% 40%, white, transparent),
-          radial-gradient(1px 1px at 30% 70%, white, transparent),
-          radial-gradient(2px 2px at 90% 80%, white, transparent),
-          radial-gradient(1px 1px at 45% 85%, white, transparent);
-        opacity: 0.6;
+          radial-gradient(1px 1px at 8% 12%, white, transparent),
+          radial-gradient(1px 1px at 24% 48%, white, transparent),
+          radial-gradient(1px 1px at 41% 8%, white, transparent),
+          radial-gradient(1px 1px at 57% 62%, white, transparent),
+          radial-gradient(1px 1px at 68% 28%, white, transparent),
+          radial-gradient(1px 1px at 79% 84%, white, transparent),
+          radial-gradient(1px 1px at 88% 45%, white, transparent),
+          radial-gradient(1px 1px at 15% 78%, white, transparent),
+          radial-gradient(1px 1px at 33% 92%, white, transparent),
+          radial-gradient(1px 1px at 94% 15%, white, transparent);
+        background-size: 340px 340px;
+        opacity: 0.45;
+      }
+      .cx-stars-near {
+        background-image:
+          radial-gradient(2px 2px at 12% 22%, white, transparent),
+          radial-gradient(1.5px 1.5px at 27% 65%, white, transparent),
+          radial-gradient(2px 2px at 45% 18%, white, transparent),
+          radial-gradient(1.5px 1.5px at 63% 78%, white, transparent),
+          radial-gradient(2.5px 2.5px at 71% 38%, white, transparent),
+          radial-gradient(1.5px 1.5px at 85% 88%, white, transparent),
+          radial-gradient(2px 2px at 92% 55%, white, transparent),
+          radial-gradient(1.5px 1.5px at 18% 90%, white, transparent),
+          radial-gradient(2px 2px at 38% 42%, white, transparent),
+          radial-gradient(1.5px 1.5px at 55% 8%, white, transparent);
+        background-size: 260px 260px;
+        opacity: 0.75;
       }
       .cx-readout {
         font-size: clamp(28px, 3.4vw, 52px);
@@ -313,7 +460,21 @@ function CrashStyles() {
       .cx-rocket {
         width: clamp(28px, 3vw, 44px);
         height: clamp(46px, 5vw, 74px);
-        transition: bottom 80ms linear, opacity 300ms ease-out;
+        /* Pivot at the bottom-center — the exact point positioned at the
+           trail's tip — instead of the sprite's own center. Rotating around
+           the center swings that point away from the line as the tilt
+           increases, making the rocket look detached from its own trail. */
+        transform-origin: 50% 100%;
+        /* No transition on left/bottom: the trail SVG redraws instantly every
+           animation frame, and a smoothing transition here would make the
+           rocket visibly lag behind its own trail tip once movement is fast
+           and diagonal (found by testing — looked disconnected at high accel). */
+        transition: opacity 300ms ease-out;
+      }
+      .cx-trail-svg {
+        overflow: visible;
+        filter: drop-shadow(0 0 5px rgba(249, 115, 22, 0.6)) drop-shadow(0 0 12px rgba(251, 146, 60, 0.35));
+        transition: opacity 300ms ease-out;
       }
       .cx-rocket-body {
         width: 100%;
@@ -378,7 +539,7 @@ function CrashStyles() {
         .cx-cash, .cx-debris, .cx-rocket-flame { display: none; animation: none; }
         .cx-win-overlay, .cx-bust-overlay, .cx-win-text, .cx-bust-text { animation: none; }
         .cx-win-overlay, .cx-bust-overlay { opacity: 0; }
-        .cx-rocket { transition: none; }
+        .cx-rocket, .cx-trail-svg { transition: none; }
       }
     `}</style>
   );

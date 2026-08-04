@@ -120,7 +120,7 @@ export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBe
       : null;
 
   return (
-    <div className="relative bg-card overflow-hidden flex flex-col w-full h-screen h-[100dvh] rounded-2xl sm:w-[min(98vw,900px)] sm:h-[min(90vh,640px)]">
+    <div className="relative bg-card overflow-hidden flex flex-col w-full h-screen h-[100dvh] rounded-2xl sm:mx-auto sm:w-[min(96vw,1100px)] sm:h-[min(90vh,760px)]">
       <MinesStyles />
       <div className="flex items-center justify-between px-4 py-2 sm:px-5 sm:py-3 border-b border-border shrink-0">
         <div>
@@ -262,7 +262,7 @@ export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBe
         </div>
 
         <div className="flex flex-1 items-center justify-center px-11 py-1 sm:p-5 min-w-0">
-          <div key={state?.roundId ?? "idle"} className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full max-w-[420px]">
+          <div key={state?.roundId ?? "idle"} className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full max-w-[clamp(420px,38vw,620px)]">
             {Array.from({ length: GRID_SIZE }, (_, i) => {
               const content = tileContent(i);
               const wasClicked = state?.revealed.includes(i) ?? false;

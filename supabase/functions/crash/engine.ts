@@ -2,7 +2,7 @@ export type Rng = () => number;
 
 export const HOUSE_EDGE = 0.01;
 export const GROWTH_RATE = 0.115; // "Gentle" pacing, approved via live preview
-export const MAX_CRASH_POINT = 100; // sanity cap on the rare extreme tail
+export const MAX_CRASH_POINT = 1000; // sanity cap on the rare extreme tail
 
 export function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 10000) / 10000;

@@ -18,17 +18,26 @@ interface SymbolDef {
 // and pay[4] are scaled down accordingly to hold RTP steady (pay[5] needs no
 // adjustment, since all 5 reels matching is the same event either way).
 //
+// The pay[5] tail is deliberately compressed relative to pay[3]/pay[4]:
+// dot's 3-of-a-kind (the single most frequent winning event, ~18% of all
+// spins) pays 1.5x, while seven's 5-of-a-kind (~0.0003% of spins) pays 40x
+// rather than a naive odds-implied multiplier in the hundreds. This lowers
+// volatility — frequent small wins feel more substantial, the rare jackpot
+// less dominant — without changing hit frequency (weights, not pay,
+// determine how often a spin wins) or RTP (still fully renormalized by
+// edgeScale at every house edge setting).
+//
 // For symbol i, P(exactly k matches among 5 reels) = C(5,k) * weight_i^k *
 // (1 - weight_i)^(5-k). Summing that times pay_i[k] over all symbols and
-// counts gives RTP ≈ 0.982 (house edge ≈ 1.8%, hit frequency ≈ 41.5% —
-// unchanged, since hit frequency depends only on weight, not pay) — see
-// engine.test.ts, which recomputes this exactly and pins it.
+// counts gives RTP ≈ 0.962 (hit frequency ≈ 41.5% — unchanged, since hit
+// frequency depends only on weight, not pay) — see engine.test.ts, which
+// recomputes this exactly and pins it.
 export const SYMBOLS: SymbolDef[] = [
-  { id: "dot", weight: 0.35, pay: { 3: 1, 4: 3, 5: 33 } },
-  { id: "square", weight: 0.25, pay: { 3: 1.5, 4: 4.5, 5: 48 } },
-  { id: "diamond", weight: 0.2, pay: { 3: 2, 4: 6.5, 5: 70 } },
-  { id: "star", weight: 0.12, pay: { 3: 2.5, 4: 11, 5: 115 } },
-  { id: "seven", weight: 0.08, pay: { 3: 4.5, 4: 19, 5: 240 } },
+  { id: "dot", weight: 0.35, pay: { 3: 1.5, 4: 3, 5: 12 } },
+  { id: "square", weight: 0.25, pay: { 3: 2, 4: 4, 5: 15 } },
+  { id: "diamond", weight: 0.2, pay: { 3: 2.5, 4: 5, 5: 19 } },
+  { id: "star", weight: 0.12, pay: { 3: 3, 4: 6.5, 5: 25 } },
+  { id: "seven", weight: 0.08, pay: { 3: 4, 4: 8.5, 5: 40 } },
 ];
 
 export const REEL_COUNT = 5;
@@ -39,7 +48,7 @@ export const REEL_COUNT = 5;
 // figure includes the pay-both-ties rule). A chosen house edge scales
 // payouts by (1 - houseEdge) / baseline, so the resulting theoretical RTP
 // equals 1 - houseEdge exactly, regardless of which baseline it started from.
-export const BASELINE_RTP_SINGLE_ROW = 0.98202817025;
+export const BASELINE_RTP_SINGLE_ROW = 0.9619252895;
 export const BASELINE_RTP_FULL_BOARD = 0.984280455592317;
 
 // The only house-edge values an admin can pick (a fixed menu, not free

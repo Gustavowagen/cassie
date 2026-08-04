@@ -144,13 +144,13 @@ describe("payoutFor", () => {
   });
 
   it("multiplies bet by the symbol's pay table at the matched count", () => {
-    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 10)).toBe(10);
-    expect(payoutFor({ symbol: "seven", count: 5, positions: [0, 1, 2, 3, 4] }, 2)).toBe(480);
+    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 10)).toBe(15);
+    expect(payoutFor({ symbol: "seven", count: 5, positions: [0, 1, 2, 3, 4] }, 2)).toBe(80);
   });
 
   it("rounds to 4 decimal places", () => {
-    // 0.10005 * 1.5 = 0.150075 -> rounds to 0.1501 (square's 3-of-a-kind pays 1.5x)
-    expect(payoutFor({ symbol: "square", count: 3, positions: [0, 1, 2] }, 0.10005)).toBe(0.1501);
+    // 0.10005 * 1.5 = 0.150075 -> rounds to 0.1501 (dot's 3-of-a-kind pays 1.5x)
+    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 0.10005)).toBe(0.1501);
   });
 
   it("scales the raw payout by (1 - houseEdge) / BASELINE_RTP_SINGLE_ROW when houseEdge is given", () => {
@@ -198,10 +198,10 @@ describe("RTP", () => {
     return { rtp, hitFrequency };
   }
 
-  it("pays back roughly 97-99% over the long run (a ~1.8% house edge)", () => {
+  it("pays back roughly 94-98% over the long run (a ~3.8% raw house edge before edgeScale normalization)", () => {
     const { rtp } = theoreticalRtp();
-    expect(rtp).toBeGreaterThan(0.97);
-    expect(rtp).toBeLessThan(0.99);
+    expect(rtp).toBeGreaterThan(0.94);
+    expect(rtp).toBeLessThan(0.98);
   });
 
   it("matches the pinned BASELINE_RTP_SINGLE_ROW constant used to scale house edge", () => {
