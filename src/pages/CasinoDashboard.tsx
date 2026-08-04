@@ -174,7 +174,6 @@ export function CasinoDashboard() {
     );
 
   const { theme, name, description, join_code, member_count } = currentCasino;
-  const hasLogo = Boolean(theme.logoUrl);
   const isMember = Boolean(membership);
 
   return (
@@ -190,17 +189,26 @@ export function CasinoDashboard() {
 
       {/* Casino header */}
       <div
-        className="rounded-2xl overflow-hidden border border-border"
-        style={{ background: gradientFromColor(theme.primaryColor) }}
+        className="relative rounded-2xl overflow-hidden border border-border min-h-[220px] md:min-h-[280px]"
+        style={
+          theme.backgroundUrl
+            ? undefined
+            : { background: gradientFromColor(theme.primaryColor) }
+        }
       >
-        <div className="p-6 md:p-8 flex flex-wrap items-start gap-5">
-          {hasLogo && (
-            <img
-              src={theme.logoUrl!}
-              alt={name}
-              className="h-20 w-20 rounded-xl object-cover border-2 border-white/20 shadow-lg shrink-0"
-            />
-          )}
+        {theme.backgroundUrl && (
+          <img
+            src={theme.backgroundUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: "50% 35%" }}
+          />
+        )}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10"
+        />
+        <div className="relative p-6 md:p-8 flex flex-wrap items-end h-full gap-5">
           <div className="flex-1 min-w-[10rem]">
             <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow break-words">
               {name}

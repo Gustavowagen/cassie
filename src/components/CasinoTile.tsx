@@ -54,15 +54,6 @@ export function CasinoTile({ casino, isMember }: Props) {
           className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent"
         />
 
-        {/* logo top-left */}
-        {theme.logoUrl && (
-          <img
-            src={theme.logoUrl}
-            alt=""
-            className="absolute top-2 left-2 h-10 w-10 rounded-md object-cover border border-white/20 bg-black/30"
-          />
-        )}
-
         {/* joined pill top-right */}
         {isMember && (
           <span className="absolute top-2 right-2 text-[10px] font-semibold uppercase tracking-wide rounded-full bg-white/15 backdrop-blur px-2 py-0.5 text-white">

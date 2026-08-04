@@ -1,6 +1,5 @@
 export interface CasinoTheme {
   primaryColor: string;
-  logoUrl: string | null;
   backgroundUrl: string | null;
 }
 

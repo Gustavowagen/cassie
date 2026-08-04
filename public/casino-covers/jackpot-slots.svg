@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="js-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5c1240"/>
+      <stop offset="100%" stop-color="#170510"/>
+    </linearGradient>
+    <radialGradient id="js-glow" cx="50%" cy="34%" r="46%">
+      <stop offset="0%" stop-color="#ffcf6b" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ffcf6b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="js-cabinet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a1338"/>
+      <stop offset="100%" stop-color="#2c0a22"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#js-bg)"/>
+  <circle cx="400" cy="360" r="300" fill="url(#js-glow)"/>
+
+  <!-- coin burst -->
+  <g fill="#ffcf6b">
+    <circle cx="150" cy="150" r="10" opacity="0.85"/>
+    <circle cx="200" cy="90" r="7" opacity="0.7"/>
+    <circle cx="640" cy="140" r="9" opacity="0.85"/>
+    <circle cx="600" cy="80" r="6" opacity="0.6"/>
+    <circle cx="110" cy="240" r="6" opacity="0.6"/>
+    <circle cx="700" cy="250" r="7" opacity="0.7"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="90" cy="620" r="2" opacity="0.5"/>
+    <circle cx="710" cy="600" r="2.2" opacity="0.6"/>
+    <circle cx="130" cy="700" r="1.6" opacity="0.4"/>
+  </g>
+
+  <!-- cabinet -->
+  <rect x="210" y="300" width="380" height="470" rx="30" fill="url(#js-cabinet)" stroke="#ffcf6b" stroke-width="5"/>
+
+  <!-- marquee -->
+  <path d="M210 330 a30 30 0 0 1 30 -30 h320 a30 30 0 0 1 30 30 v34 h-380 Z" fill="#ffcf6b"/>
+  <g fill="#5c1240">
+    <circle cx="240" cy="317" r="6"/>
+    <circle cx="278" cy="317" r="6"/>
+    <circle cx="316" cy="317" r="6"/>
+    <circle cx="354" cy="317" r="6"/>
+    <circle cx="400" cy="317" r="6"/>
+    <circle cx="446" cy="317" r="6"/>
+    <circle cx="484" cy="317" r="6"/>
+    <circle cx="522" cy="317" r="6"/>
+    <circle cx="560" cy="317" r="6"/>
+  </g>
+
+  <!-- reel windows -->
+  <g>
+    <rect x="240" y="392" width="98" height="150" rx="12" fill="#fbf3e2"/>
+    <rect x="351" y="392" width="98" height="150" rx="12" fill="#fbf3e2"/>
+    <rect x="462" y="392" width="98" height="150" rx="12" fill="#fbf3e2"/>
+  </g>
+
+  <!-- cherry symbol -->
+  <g transform="translate(289,467)">
+    <path d="M-4 -34 C4 -20 10 -8 6 4" fill="none" stroke="#3a7a3a" stroke-width="5" stroke-linecap="round"/>
+    <path d="M6 -30 C10 -18 12 -6 6 4" fill="none" stroke="#3a7a3a" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="-8" cy="16" r="19" fill="#c81f3f"/>
+    <circle cx="16" cy="20" r="19" fill="#c81f3f"/>
+    <circle cx="-13" cy="10" r="6" fill="#ffffff" opacity="0.35"/>
+    <circle cx="11" cy="14" r="6" fill="#ffffff" opacity="0.35"/>
+  </g>
+
+  <!-- seven symbol -->
+  <text x="400" y="490" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="98" fill="#c81f3f" text-anchor="middle">7</text>
+
+  <!-- bar symbol -->
+  <g transform="translate(511,467)">
+    <rect x="-38" y="-32" width="76" height="64" rx="8" fill="#ffcf6b"/>
+    <text x="0" y="12" font-family="Arial, sans-serif" font-weight="800" font-size="30" fill="#2c0a22" text-anchor="middle">BAR</text>
+  </g>
+
+  <!-- lever -->
+  <rect x="595" y="380" width="10" height="130" rx="5" fill="#d8d8d8"/>
+  <circle cx="600" cy="368" r="24" fill="#c81f3f" stroke="#ffcf6b" stroke-width="4"/>
+
+  <!-- payout tray -->
+  <rect x="250" y="700" width="300" height="40" rx="10" fill="#2c0a22" stroke="#ffcf6b" stroke-width="3"/>
+</svg>

@@ -11,7 +11,7 @@ export function useCasino() {
   async function createCasino(data: {
     name: string;
     description: string;
-    logoUrl?: string;
+    backgroundUrl?: string;
   }): Promise<Casino> {
     const {
       data: { user },
@@ -33,8 +33,7 @@ export function useCasino() {
         },
         theme: {
           primaryColor: "#7c3aed",
-          logoUrl: data.logoUrl ?? null,
-          backgroundUrl: null,
+          backgroundUrl: data.backgroundUrl ?? null,
         },
       })
       .select()
