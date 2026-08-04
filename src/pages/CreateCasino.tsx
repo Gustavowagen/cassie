@@ -1,19 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent } from "../components/ui/card";
+import { CoverPicker } from "../components/CoverPicker";
+import { COVER_PRESETS } from "../lib/casinoCovers";
 import { useCasino } from "../hooks/useCasino";
-
-const COVER_PRESETS = [
-  { id: "neon-roulette", url: "/casino-covers/neon-roulette.svg", label: "Neon Roulette" },
-  { id: "champagne-toast", url: "/casino-covers/champagne-toast.svg", label: "Champagne Toast" },
-  { id: "jackpot-slots", url: "/casino-covers/jackpot-slots.svg", label: "Jackpot Slots" },
-  { id: "high-roller-dice", url: "/casino-covers/high-roller-dice.svg", label: "High Roller Dice" },
-  { id: "vegas-skyline", url: "/casino-covers/vegas-skyline.svg", label: "Vegas Skyline" },
-];
 
 export function CreateCasino() {
   const [name, setName] = useState("");
@@ -78,35 +71,7 @@ export function CreateCasino() {
               <p className="text-xs text-muted-foreground mb-2 mt-0.5">
                 Shown on the homepage, in search, and on your casino's page — pick one.
               </p>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                {COVER_PRESETS.map((preset) => {
-                  const selected = selectedCover === preset.url;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setSelectedCover(preset.url)}
-                      title={preset.label}
-                      className={`relative rounded-xl overflow-hidden border-2 transition-all ${
-                        selected
-                          ? "border-primary shadow-[0_0_0_2px_hsl(var(--primary)/0.3)]"
-                          : "border-border hover:border-muted-foreground"
-                      }`}
-                    >
-                      <img
-                        src={preset.url}
-                        alt={preset.label}
-                        className="w-full aspect-[4/5] object-cover"
-                      />
-                      {selected && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                          <Check className="h-6 w-6 text-white drop-shadow" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              <CoverPicker value={selectedCover} onChange={setSelectedCover} />
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

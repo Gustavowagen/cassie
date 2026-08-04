@@ -13,7 +13,7 @@ import { useCasinoStore } from "../stores/casinoStore";
 import { useAuthStore } from "../stores/authStore";
 import { useGames } from "../hooks/useGames";
 import { formatChips, gradientFromColor, avatarGradient, initialsOf } from "../lib/utils";
-import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino, SlotsInstanceSettings } from "../types";
+import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino, CasinoTheme, SlotsInstanceSettings } from "../types";
 import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
 import { Dice } from "../components/games/Dice";
@@ -24,6 +24,7 @@ import { Plinko } from "../components/games/Plinko";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
 import { GameSettingsModal } from "../components/GameSettingsModal";
+import { CoverPicker } from "../components/CoverPicker";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 import { GAME_ART } from "../lib/gameArt";
 
@@ -334,6 +335,9 @@ export function CasinoDashboard() {
                 await deleteGame(id);
                 setCasinoGames((prev) => prev.filter((g) => g.id !== id));
               }}
+              onDetailsSaved={(description, theme) => {
+                setCasino({ ...currentCasino, description, theme });
+              }}
             />
           )}
         </div>
@@ -523,6 +527,7 @@ function SettingsTab({
   onCreate,
   onUpdate,
   onDelete,
+  onDetailsSaved,
 }: {
   casinoId: string;
   casino: Casino;
@@ -543,12 +548,14 @@ function SettingsTab({
     settings: Record<string, unknown>
   ) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onDetailsSaved: (description: string, theme: CasinoTheme) => void;
 }) {
   const [gameModal, setGameModal] = useState<GameModalState>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [description, setDescription] = useState(casino.description ?? "");
   const [primaryColor, setPrimaryColor] = useState(casino.theme.primaryColor);
+  const [backgroundUrl, setBackgroundUrl] = useState(casino.theme.backgroundUrl ?? "");
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [detailsMessage, setDetailsMessage] = useState<string | null>(null);
 
@@ -569,10 +576,12 @@ function SettingsTab({
     setDetailsSaving(true);
     setDetailsMessage(null);
     try {
+      const theme: CasinoTheme = { ...casino.theme, primaryColor, backgroundUrl: backgroundUrl || null };
       await supabase
         .from("casinos")
-        .update({ description, theme: { ...casino.theme, primaryColor } })
+        .update({ description, theme })
         .eq("id", casino.id);
+      onDetailsSaved(description, theme);
       setDetailsMessage("Saved!");
       setTimeout(() => setDetailsMessage(null), 2000);
     } catch (err) {
@@ -697,6 +706,13 @@ function SettingsTab({
               maxLength={200}
               className="mt-1"
             />
+          </div>
+          <div>
+            <Label>Cover Image</Label>
+            <p className="text-xs text-muted-foreground mb-2 mt-0.5">
+              Shown on the homepage, in search, and on this page.
+            </p>
+            <CoverPicker value={backgroundUrl} onChange={setBackgroundUrl} />
           </div>
           <div>
             <Label>Primary Color</Label>
