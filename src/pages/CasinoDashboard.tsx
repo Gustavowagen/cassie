@@ -411,6 +411,9 @@ export function CasinoDashboard() {
                   ? "full_board"
                   : "single_row"
               }
+              // Mirrors the slots edge function's DEFAULT_HOUSE_EDGE fallback
+              // (supabase/functions/slots/engine.ts) for pre-existing rows.
+              houseEdge={(activeGame.settings as SlotsInstanceSettings)?.houseEdge ?? 0.02}
               balance={membership?.balance ?? 0}
               minBet={activeGame.min_bet}
               maxBet={activeGame.max_bet}

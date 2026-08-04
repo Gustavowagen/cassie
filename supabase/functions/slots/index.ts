@@ -6,6 +6,8 @@ import {
   payoutFor,
   payoutForFullBoard,
   roundMoney,
+  HOUSE_EDGE_OPTIONS,
+  DEFAULT_HOUSE_EDGE,
 } from "./engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -46,6 +48,22 @@ function resolveRewardMode(settings: unknown): RewardMode {
     return "full_board";
   }
   return "single_row";
+}
+
+// Unknown/missing/off-menu settings default to DEFAULT_HOUSE_EDGE (2%) —
+// this is what every pre-existing casino_games row (settings = '{}') gets,
+// and it doubles as server-side enforcement of the fixed 0-5% menu in case
+// the admin UI's dropdown were ever bypassed. Float-tolerant equality since
+// `raw` round-trips through JSON.
+function resolveHouseEdge(settings: unknown): number {
+  const raw =
+    settings && typeof settings === "object"
+      ? (settings as Record<string, unknown>).houseEdge
+      : undefined;
+  if (typeof raw === "number" && HOUSE_EDGE_OPTIONS.some((o) => Math.abs(o - raw) < 1e-9)) {
+    return raw;
+  }
+  return DEFAULT_HOUSE_EDGE;
 }
 
 type DescribableWin = { symbol: string; count: number } | { count: number; wins: { symbol: string }[] };
@@ -109,16 +127,17 @@ Deno.serve(async (req) => {
     if (validBet > member.balance) return json({ error: "Insufficient balance" }, 400);
 
     const rewardMode = resolveRewardMode(cg.settings);
+    const houseEdge = resolveHouseEdge(cg.settings);
     const reels = spin(rng);
 
     let win: ReturnType<typeof evaluateWin> | ReturnType<typeof evaluateFullBoardWin>;
     let payout: number;
     if (rewardMode === "full_board") {
       win = evaluateFullBoardWin(reels);
-      payout = payoutForFullBoard(win, validBet);
+      payout = payoutForFullBoard(win, validBet, houseEdge);
     } else {
       win = evaluateWin(reels);
-      payout = payoutFor(win, validBet);
+      payout = payoutFor(win, validBet, houseEdge);
     }
     const net = roundMoney(payout - validBet);
     const balance = roundMoney(member.balance + net);

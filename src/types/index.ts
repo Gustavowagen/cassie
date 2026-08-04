@@ -73,6 +73,11 @@ export interface CasinoGame {
 // Shape of CasinoGame.settings for a slots instance.
 export interface SlotsInstanceSettings {
   rewardMode?: "single_row" | "full_board";
+  // Picked from a fixed menu (0%-5% in 1% steps), never freely typed.
+  // Missing/off-menu defaults to 0.02 (2%), both here and server-side in
+  // the slots edge function (supabase/functions/slots/engine.ts's
+  // HOUSE_EDGE_OPTIONS / DEFAULT_HOUSE_EDGE).
+  houseEdge?: 0 | 0.01 | 0.02 | 0.03 | 0.04 | 0.05;
 }
 
 // Mirror of the edge function's sanitized output (engine.ts BlackjackState).

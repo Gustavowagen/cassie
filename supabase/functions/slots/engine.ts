@@ -33,6 +33,31 @@ export const SYMBOLS: SymbolDef[] = [
 
 export const REEL_COUNT = 5;
 
+// Theoretical RTP of the pay tables above (SYMBOLS / FULL_BOARD_SYMBOLS) with
+// no house-edge scaling applied — exact values, recomputed independently by
+// engine.test.ts's "RTP" / "full board RTP" describe blocks (the full-board
+// figure includes the pay-both-ties rule). A chosen house edge scales
+// payouts by (1 - houseEdge) / baseline, so the resulting theoretical RTP
+// equals 1 - houseEdge exactly, regardless of which baseline it started from.
+export const BASELINE_RTP_SINGLE_ROW = 0.98202817025;
+export const BASELINE_RTP_FULL_BOARD = 0.984280455592317;
+
+// The only house-edge values an admin can pick (a fixed menu, not free
+// entry) — 0%, 1%, 2%, ..., 5%.
+export const HOUSE_EDGE_OPTIONS = [0, 0.01, 0.02, 0.03, 0.04, 0.05] as const;
+export const MIN_HOUSE_EDGE = HOUSE_EDGE_OPTIONS[0];
+export const MAX_HOUSE_EDGE = HOUSE_EDGE_OPTIONS[HOUSE_EDGE_OPTIONS.length - 1];
+export const DEFAULT_HOUSE_EDGE = 0.02;
+
+// houseEdge only ever scales *how much* a win pays (see payoutFor /
+// payoutForFullBoard below) — it never touches SYMBOLS' weights or
+// evaluateWin/evaluateFullBoardWin, which decide *whether* a spin wins.
+// That keeps hit frequency identical at every edge setting; only the
+// pay-table "x" multipliers move.
+function edgeScale(baselineRtp: number, houseEdge: number): number {
+  return (1 - houseEdge) / baselineRtp;
+}
+
 export function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 10000) / 10000;
 }
@@ -94,10 +119,15 @@ export function evaluateWin(reels: Reel[]): Win | null {
   return null;
 }
 
-export function payoutFor(win: Win | null, bet: number): number {
+// `houseEdge` left undefined leaves the raw pay table untouched (scale 1) —
+// callers that care about a configurable edge (the slots edge function)
+// always pass one; engine.test.ts's pinned-payout assertions rely on the
+// unscaled default.
+export function payoutFor(win: Win | null, bet: number, houseEdge?: number): number {
   if (!win) return 0;
   const symbol = SYMBOLS.find((s) => s.id === win.symbol)!;
-  return roundMoney(bet * symbol.pay[win.count]);
+  const scale = houseEdge === undefined ? 1 : edgeScale(BASELINE_RTP_SINGLE_ROW, houseEdge);
+  return roundMoney(bet * symbol.pay[win.count] * scale);
 }
 
 // --- Full board reward mode -------------------------------------------
@@ -207,12 +237,13 @@ export function evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null {
 
 // Every tied symbol pays out — a 7-dot/7-square tie pays dot's tier-0 rate
 // plus square's, not just the rarer one.
-export function payoutForFullBoard(win: FullBoardWin | null, bet: number): number {
+export function payoutForFullBoard(win: FullBoardWin | null, bet: number, houseEdge?: number): number {
   if (!win) return 0;
   const tier = fullBoardTierIndex(win.count);
   const total = win.wins.reduce((sum, w) => {
     const symbol = FULL_BOARD_SYMBOLS.find((s) => s.id === w.symbol)!;
     return sum + symbol.pay[tier];
   }, 0);
-  return roundMoney(bet * total);
+  const scale = houseEdge === undefined ? 1 : edgeScale(BASELINE_RTP_FULL_BOARD, houseEdge);
+  return roundMoney(bet * total * scale);
 }

@@ -10,6 +10,11 @@ import {
   FULL_BOARD_SYMBOLS,
   evaluateFullBoardWin,
   payoutForFullBoard,
+  BASELINE_RTP_SINGLE_ROW,
+  BASELINE_RTP_FULL_BOARD,
+  MIN_HOUSE_EDGE,
+  MAX_HOUSE_EDGE,
+  DEFAULT_HOUSE_EDGE,
   type Reel,
   type SymbolId,
 } from "./engine";
@@ -147,6 +152,20 @@ describe("payoutFor", () => {
     // 0.10005 * 1.5 = 0.150075 -> rounds to 0.1501 (square's 3-of-a-kind pays 1.5x)
     expect(payoutFor({ symbol: "square", count: 3, positions: [0, 1, 2] }, 0.10005)).toBe(0.1501);
   });
+
+  it("scales the raw payout by (1 - houseEdge) / BASELINE_RTP_SINGLE_ROW when houseEdge is given", () => {
+    const win = { symbol: "seven" as const, count: 5 as const, positions: [0, 1, 2, 3, 4] };
+    const raw = payoutFor(win, 100); // no houseEdge -> unscaled
+    const scaled = payoutFor(win, 100, DEFAULT_HOUSE_EDGE);
+    expect(scaled).toBe(roundMoney(raw * ((1 - DEFAULT_HOUSE_EDGE) / BASELINE_RTP_SINGLE_ROW)));
+  });
+
+  it("a lower house edge pays more, a higher house edge pays less, than the unscaled default", () => {
+    const win = { symbol: "seven" as const, count: 5 as const, positions: [0, 1, 2, 3, 4] };
+    const raw = payoutFor(win, 100);
+    expect(payoutFor(win, 100, MIN_HOUSE_EDGE)).toBeGreaterThan(raw);
+    expect(payoutFor(win, 100, MAX_HOUSE_EDGE)).toBeLessThan(raw);
+  });
 });
 
 describe("roundMoney", () => {
@@ -183,6 +202,19 @@ describe("RTP", () => {
     const { rtp } = theoreticalRtp();
     expect(rtp).toBeGreaterThan(0.97);
     expect(rtp).toBeLessThan(0.99);
+  });
+
+  it("matches the pinned BASELINE_RTP_SINGLE_ROW constant used to scale house edge", () => {
+    const { rtp } = theoreticalRtp();
+    expect(rtp).toBeCloseTo(BASELINE_RTP_SINGLE_ROW, 10);
+  });
+
+  it("a chosen house edge scales theoretical RTP to exactly 1 - houseEdge", () => {
+    const { rtp: baseline } = theoreticalRtp();
+    for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
+      const scale = (1 - houseEdge) / baseline;
+      expect(baseline * scale).toBeCloseTo(1 - houseEdge, 10);
+    }
   });
 
   it("hit frequency reflects that matches count anywhere on the payline, not just left-aligned", () => {
@@ -312,6 +344,20 @@ describe("payoutForFullBoard", () => {
     };
     expect(payoutForFullBoard(win, 10)).toBe(50);
   });
+
+  it("scales the raw payout by (1 - houseEdge) / BASELINE_RTP_FULL_BOARD when houseEdge is given", () => {
+    const win = { count: 11, wins: [{ symbol: "seven" as const, positions: [] }] };
+    const raw = payoutForFullBoard(win, 100);
+    const scaled = payoutForFullBoard(win, 100, DEFAULT_HOUSE_EDGE);
+    expect(scaled).toBe(roundMoney(raw * ((1 - DEFAULT_HOUSE_EDGE) / BASELINE_RTP_FULL_BOARD)));
+  });
+
+  it("a lower house edge pays more, a higher house edge pays less, than the unscaled default", () => {
+    const win = { count: 11, wins: [{ symbol: "seven" as const, positions: [] }] };
+    const raw = payoutForFullBoard(win, 100);
+    expect(payoutForFullBoard(win, 100, MIN_HOUSE_EDGE)).toBeGreaterThan(raw);
+    expect(payoutForFullBoard(win, 100, MAX_HOUSE_EDGE)).toBeLessThan(raw);
+  });
 });
 
 describe("full board RTP", () => {
@@ -375,6 +421,19 @@ describe("full board RTP", () => {
     const { rtp } = theoreticalFullBoardRtp();
     expect(rtp).toBeGreaterThan(0.97);
     expect(rtp).toBeLessThan(0.99);
+  });
+
+  it("matches the pinned BASELINE_RTP_FULL_BOARD constant used to scale house edge", () => {
+    const { rtp } = theoreticalFullBoardRtp();
+    expect(rtp).toBeCloseTo(BASELINE_RTP_FULL_BOARD, 10);
+  });
+
+  it("a chosen house edge scales theoretical RTP to exactly 1 - houseEdge", () => {
+    const { rtp: baseline } = theoreticalFullBoardRtp();
+    for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
+      const scale = (1 - houseEdge) / baseline;
+      expect(baseline * scale).toBeCloseTo(1 - houseEdge, 10);
+    }
   });
 
   it("hits noticeably less often than single-row, since it needs 7+ of 15 cells", () => {

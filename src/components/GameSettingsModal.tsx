@@ -20,6 +20,11 @@ const REWARD_MODES = [
   },
 ];
 
+// Fixed menu — mirrors supabase/functions/slots/engine.ts's HOUSE_EDGE_OPTIONS.
+// Admins pick one of these; there's no free-entry field.
+const HOUSE_EDGE_OPTIONS = [0, 0.01, 0.02, 0.03, 0.04, 0.05] as const;
+type HouseEdge = (typeof HOUSE_EDGE_OPTIONS)[number];
+
 interface GameSettingsModalProps {
   title: string;
   imageUrl: string | undefined;
@@ -49,6 +54,11 @@ export function GameSettingsModal({
   const [rewardMode, setRewardMode] = useState<"single_row" | "full_board">(
     initialSettings.rewardMode === "full_board" ? "full_board" : "single_row"
   );
+  const [houseEdge, setHouseEdge] = useState<HouseEdge>(
+    HOUSE_EDGE_OPTIONS.includes(initialSettings.houseEdge as HouseEdge)
+      ? (initialSettings.houseEdge as HouseEdge)
+      : 0.02
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,13 +67,14 @@ export function GameSettingsModal({
   const maxBet = parseFloat(maxBetText);
   const betRangeValid = isFinite(minBet) && minBet > 0 && isFinite(maxBet) && maxBet >= minBet;
   const isSlots = gameTypeId === "slots";
+  const canSave = trimmed && betRangeValid;
 
   async function handleSave() {
-    if (!trimmed || !betRangeValid || saving) return;
+    if (!canSave || saving) return;
     setSaving(true);
     setError(null);
     try {
-      const settings = isSlots ? { ...initialSettings, rewardMode } : initialSettings;
+      const settings = isSlots ? { ...initialSettings, rewardMode, houseEdge } : initialSettings;
       await onSave(trimmed, minBet, maxBet, settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save game");
@@ -171,13 +182,38 @@ export function GameSettingsModal({
           </div>
         )}
 
+        {isSlots && (
+          <div>
+            <Label>House edge</Label>
+            <div className="mt-1.5 grid grid-cols-6 gap-1.5">
+              {HOUSE_EDGE_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setHouseEdge(option)}
+                  className={`rounded-lg border py-1.5 text-sm font-medium transition-colors ${
+                    houseEdge === option
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-foreground/30"
+                  }`}
+                >
+                  {Math.round(option * 100)}%
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Only changes the payout multiplier for a win — never how often players win.
+            </p>
+          </div>
+        )}
+
         {error && <p className="text-xs text-destructive">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <Button size="sm" variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || !trimmed || !betRangeValid}>
+          <Button size="sm" onClick={handleSave} disabled={saving || !canSave}>
             {saving ? "Saving…" : "Save"}
           </Button>
         </div>

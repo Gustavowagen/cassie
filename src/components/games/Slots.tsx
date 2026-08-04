@@ -46,6 +46,21 @@ const CLIENT_FULL_BOARD_SYMBOLS: ClientFullBoardSymbol[] = [
   { id: "seven", cls: "sl-sym-seven", label: "7", pay: [10, 30, 105] },
 ];
 
+// Mirrors supabase/functions/slots/engine.ts's BASELINE_RTP_SINGLE_ROW /
+// BASELINE_RTP_FULL_BOARD and edgeScale — same dependency-free-copy pattern
+// as CLIENT_SYMBOLS above. Scaling the displayed "x" by the same formula the
+// server uses to scale actual payouts is what keeps this paytable truthful
+// for whatever house edge the admin picked; it never changes hit frequency,
+// only these displayed multipliers.
+const BASELINE_RTP_SINGLE_ROW = 0.98202817025;
+const BASELINE_RTP_FULL_BOARD = 0.984280455592317;
+function edgeScale(baselineRtp: number, houseEdge: number): number {
+  return (1 - houseEdge) / baselineRtp;
+}
+function displayX(n: number): string {
+  return (Math.round(n * 100) / 100).toString();
+}
+
 // Maps a win's raw count to the existing 3/4/5 CSS win-tier hooks
 // (sl-win-tier-3/4/5), so full-board reuses the same banner/shake styling
 // as single-row without any new CSS.
@@ -88,13 +103,23 @@ interface Props {
   casinoId: string;
   gameId: string;
   rewardMode: RewardMode;
+  houseEdge: number;
   balance: number;
   minBet: number;
   maxBet: number;
   onExit: () => void;
 }
 
-export function Slots({ casinoId, gameId, rewardMode, balance: initialBalance, minBet, maxBet, onExit }: Props) {
+export function Slots({
+  casinoId,
+  gameId,
+  rewardMode,
+  houseEdge,
+  balance: initialBalance,
+  minBet,
+  maxBet,
+  onExit,
+}: Props) {
   const { loading, error: spinError, spin: spinSlots } = useSlots(casinoId, gameId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [betText, setBetText] = useState(String(minBet));
@@ -151,6 +176,23 @@ export function Slots({ casinoId, gameId, rewardMode, balance: initialBalance, m
       setFormError(err instanceof Error ? err.message : "Spin failed");
     }
   }
+
+  // Scaled to the game's actual configured house edge, so the displayed "x"
+  // always matches what the server (supabase/functions/slots/index.ts) pays.
+  const scaledSingleRowPay = useMemo(() => {
+    const scale = edgeScale(BASELINE_RTP_SINGLE_ROW, houseEdge);
+    return CLIENT_SYMBOLS.map((s) => ({
+      ...s,
+      pay: { 3: s.pay[3] * scale, 4: s.pay[4] * scale, 5: s.pay[5] * scale },
+    }));
+  }, [houseEdge]);
+  const scaledFullBoardPay = useMemo(() => {
+    const scale = edgeScale(BASELINE_RTP_FULL_BOARD, houseEdge);
+    return CLIENT_FULL_BOARD_SYMBOLS.map((s) => ({
+      ...s,
+      pay: [s.pay[0] * scale, s.pay[1] * scale, s.pay[2] * scale] as [number, number, number],
+    }));
+  }, [houseEdge]);
 
   const tier = win ? winTier(rewardMode, win.count) : null;
   const winMessage = tier === 5 ? "MEGA WIN" : tier === 4 ? "BIG WIN" : tier === 3 ? "WIN" : "";
@@ -234,23 +276,23 @@ export function Slots({ casinoId, gameId, rewardMode, balance: initialBalance, m
               {rewardMode === "full_board" ? "Paytable (7-8 · 9-10 · 11+)" : "Paytable (3× · 4× · 5×)"}
             </p>
             {rewardMode === "full_board"
-              ? CLIENT_FULL_BOARD_SYMBOLS.map((s) => (
+              ? scaledFullBoardPay.map((s) => (
                   <div key={s.id} className="flex items-center gap-2 text-xs">
                     <span className="sl-sym-mini">
                       <span className={`sl-sym ${s.cls}`}>{s.label}</span>
                     </span>
                     <span className="text-muted-foreground font-mono">
-                      {s.pay[0]}x · {s.pay[1]}x · {s.pay[2]}x
+                      {displayX(s.pay[0])}x · {displayX(s.pay[1])}x · {displayX(s.pay[2])}x
                     </span>
                   </div>
                 ))
-              : CLIENT_SYMBOLS.map((s) => (
+              : scaledSingleRowPay.map((s) => (
                   <div key={s.id} className="flex items-center gap-2 text-xs">
                     <span className="sl-sym-mini">
                       <span className={`sl-sym ${s.cls}`}>{s.label}</span>
                     </span>
                     <span className="text-muted-foreground font-mono">
-                      {s.pay[3]}x · {s.pay[4]}x · {s.pay[5]}x
+                      {displayX(s.pay[3])}x · {displayX(s.pay[4])}x · {displayX(s.pay[5])}x
                     </span>
                   </div>
                 ))}
