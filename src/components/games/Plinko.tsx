@@ -4,6 +4,9 @@ import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { playTone } from "../../lib/sound";
 import { usePlinko } from "../../hooks/usePlinko";
@@ -123,6 +126,7 @@ export function Plinko({ casinoId, gameId, balance: initialBalance, minBet, maxB
   const [busyCount, setBusyCount] = useState(0);
   const [ballIds, setBallIds] = useState<number[]>([]);
   const [history, setHistory] = useState<{ multiplier: number; bucket: number; id: number }[]>([]);
+  const [showInfo, setShowInfo] = useState(false);
 
   const activeBallsRef = useRef<Map<number, ActiveBall>>(new Map());
   const ballElsRef = useRef<Map<number, HTMLDivElement | null>>(new Map());
@@ -305,6 +309,7 @@ export function Plinko({ casinoId, gameId, balance: initialBalance, minBet, maxB
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
           <MuteButton />
+          <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
             onClick={onExit}
@@ -316,6 +321,11 @@ export function Plinko({ casinoId, gameId, balance: initialBalance, minBet, maxB
         </div>
       </div>
 
+      {showInfo ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <GameInfoPanel info={GAME_INFO.plinko} onBack={() => setShowInfo(false)} />
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
         <div className="flex flex-col gap-1 p-2.5 sm:gap-3 sm:p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
@@ -483,6 +493,7 @@ export function Plinko({ casinoId, gameId, balance: initialBalance, minBet, maxB
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

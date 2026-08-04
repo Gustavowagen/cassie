@@ -2,6 +2,9 @@ import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "re
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { supabase } from "../../lib/supabase";
 import { formatChips } from "../../lib/utils";
 import { CHIPS_BY_TIER, formatChipLabel, TIER_LABELS, type Tier, type ChipDef } from "../../lib/stakeTiers";
@@ -420,6 +423,7 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [error, setError] = useState<string | null>(null);
   const [winId, setWinId] = useState(0);
+  const [showInfo, setShowInfo] = useState(false);
   const spinRef = useRef(false);
   const wheelRef = useRef<WheelHandle>(null);
   const verticalBoard = useNarrowBoard(596);
@@ -642,6 +646,7 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
           <MuteButton />
+          <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
             onClick={onExit}
@@ -683,6 +688,11 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
       )}
 
       {/* Main body */}
+      {showInfo ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <GameInfoPanel info={GAME_INFO.roulette} onBack={() => setShowInfo(false)} />
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
         {/* Wheel panel — capped small on mobile (stacked layout) so it never
             crowds out the betting board; unconstrained from md: up, where the
@@ -1046,6 +1056,7 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
           {error && <p className="text-xs text-destructive mt-2">{error}</p>}
         </div>
       </div>
+      )}
     </div>
   );
 }

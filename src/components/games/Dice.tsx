@@ -4,6 +4,9 @@ import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { playTone, playDing } from "../../lib/sound";
 import { useDice } from "../../hooks/useDice";
@@ -68,6 +71,7 @@ export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet
   const [winId, setWinId] = useState(0);
   const [showWin, setShowWin] = useState(false);
   const [revealing, setRevealing] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const lastTickPctRef = useRef<number | null>(null);
@@ -202,6 +206,7 @@ export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
           <MuteButton />
+          <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
             onClick={onExit}
@@ -241,6 +246,11 @@ export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet
         </div>
       )}
 
+      {showInfo ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <GameInfoPanel info={GAME_INFO.dice} onBack={() => setShowInfo(false)} />
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
         <div className="flex flex-col gap-3 p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
@@ -373,6 +383,7 @@ export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
