@@ -55,6 +55,7 @@ Platform for creating and joining free play-money online casinos. Built with Vit
    - The outer modal root's inline `style` sets `width`/`height` as `min(<vw>vw, <px>px)` with a generous px cap (1300px+) — see `Slots.tsx` or `Roulette.tsx`. If the modal needs the `xl` size, check `Modal`'s `max-w-[1400px]` cap in `src/components/ui/modal.tsx` isn't clipping it.
    - The centerpiece's own scale (cell size, wheel diameter, card size, etc.) is a CSS `clamp(minPx, Nvw, maxPx)`, not a fixed px value or discrete breakpoint jump — so it grows continuously with viewport width up to a sensible cap, and floors at a usable minimum on mobile. See `--cell: clamp(64px, 6.5vw, 108px)` in `Slots.tsx`'s reel grid, or the wheel's `md:max-w-[clamp(320px,25vw,520px)]` in `Roulette.tsx` (that file's separate small-viewport/portrait sizing is intentional and shouldn't be folded into the same clamp).
    - Sanity-check at a small viewport (~375px) and a large one (~1920px) — both ends of the clamp should look right, not just the middle.
+8. **Info button**: add a `GAME_INFO` entry for the game in `src/lib/gameInfo.ts` (title, description, and rules bullets sourced from the actual engine behavior — not guessed), then place `<GameInfoButton>` beside `<BackdropToggleButton>` in the game's header. Toggling it swaps the body content for `<GameInfoPanel>` (see `src/components/games/Mines.tsx` for the pattern); the header stays functional and no round state is lost.
 
 ## Test Account
 

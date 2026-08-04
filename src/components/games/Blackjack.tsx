@@ -3,6 +3,9 @@ import { ArrowLeft, Coins, RotateCcw } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { useBlackjack } from "../../hooks/useBlackjack";
 import { formatChips } from "../../lib/utils";
 import { playCardFlick } from "../../lib/sound";
@@ -229,6 +232,7 @@ export function Blackjack({
   const { state, loading, error, start, act, reset } = useBlackjack(casinoId, gameId);
   const [bet, setBet] = useState(0);
   const [tier, setTier] = useState<Tier>("medium");
+  const [showInfo, setShowInfo] = useState(false);
   const prevStateRef = useRef<BlackjackState | null>(null);
 
   // The table's content (dealer cards, divider, player hands, outcome text,
@@ -353,6 +357,11 @@ export function Blackjack({
           <div className="flex items-center gap-2">
             <BackdropToggleButton className={`rounded-full p-2 text-white/75 transition-colors hover:bg-white/10 hover:text-white ${GLASS}`} />
             <MuteButton className={`rounded-full p-2 text-white/75 transition-colors hover:bg-white/10 hover:text-white ${GLASS}`} />
+            <GameInfoButton
+              active={showInfo}
+              onClick={() => setShowInfo((v) => !v)}
+              className={`rounded-full p-2 text-white/75 transition-colors hover:bg-white/10 hover:text-white ${GLASS}`}
+            />
             <div className={`flex items-center gap-2 rounded-full px-4 py-1.5 ${GLASS}`}>
               <Coins className="h-4 w-4 text-violet-300" />
               <span className="font-bold tracking-wide text-white">{formatChips(displayBalance)}</span>
@@ -360,6 +369,12 @@ export function Blackjack({
           </div>
         </header>
 
+        {showInfo ? (
+          <div className="mt-2 min-h-0 flex-1 overflow-hidden rounded-[2rem]">
+            <GameInfoPanel info={GAME_INFO.blackjack} onBack={() => setShowInfo(false)} />
+          </div>
+        ) : (
+        <>
         {/* Title */}
         <div className="mt-2 shrink-0 text-center">
           <h1 className={`text-2xl font-extrabold uppercase tracking-[0.3em] sm:text-3xl ${GRADIENT_TEXT}`}>
@@ -504,6 +519,8 @@ export function Blackjack({
           </section>
         </div>
         </div>
+        </>
+        )}
 
         {error && (
           <div className={`mt-2 shrink-0 rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-2 text-center text-sm text-red-200 ${GLASS}`}>

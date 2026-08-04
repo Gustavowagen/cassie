@@ -4,6 +4,9 @@ import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { useCrash } from "../../hooks/useCrash";
 import { playWinChime, playLoseThud } from "../../lib/sound";
@@ -46,6 +49,7 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
   const [betText, setBetText] = useState(String(minBet));
   const [formError, setFormError] = useState<string | null>(null);
   const [liveMultiplier, setLiveMultiplier] = useState(1);
+  const [showInfo, setShowInfo] = useState(false);
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const betValid = bet >= minBet && bet <= maxBet && bet <= localBalance;
@@ -136,6 +140,7 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
           <MuteButton />
+          <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
             onClick={onExit}
@@ -209,6 +214,11 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
         </div>
       )}
 
+      {showInfo ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <GameInfoPanel info={GAME_INFO.crash} onBack={() => setShowInfo(false)} />
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
         <div className="flex flex-col gap-3 p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
@@ -273,6 +283,7 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,9 @@ import type { CSSProperties } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { useMines } from "../../hooks/useMines";
 import { playTone, playWinChime, playLoseThud } from "../../lib/sound";
@@ -44,6 +47,7 @@ export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBe
   const [minesCount, setMinesCount] = useState(3);
   const [formError, setFormError] = useState<string | null>(null);
   const [winId, setWinId] = useState(0);
+  const [showInfo, setShowInfo] = useState(false);
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const betValid = bet >= minBet && bet <= maxBet && bet <= localBalance;
@@ -125,6 +129,7 @@ export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBe
         </div>
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
+          <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
             onClick={onExit}
@@ -167,6 +172,11 @@ export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBe
         </div>
       )}
 
+      {showInfo ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <GameInfoPanel info={GAME_INFO.mines} onBack={() => setShowInfo(false)} />
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
         <div className="flex flex-col gap-1 p-2 sm:gap-3 sm:p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
@@ -282,6 +292,7 @@ export function Mines({ casinoId, gameId, balance: initialBalance, minBet, maxBe
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

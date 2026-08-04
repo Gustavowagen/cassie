@@ -3,6 +3,9 @@ import { X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
+import { GameInfoButton } from "../ui/GameInfoButton";
+import { GameInfoPanel } from "../ui/GameInfoPanel";
+import { GAME_INFO } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { playWinChime } from "../../lib/sound";
 import { useSlots } from "../../hooks/useSlots";
@@ -131,6 +134,7 @@ export function Slots({
   const [strips, setStrips] = useState<SlotSymbolId[][]>([]);
   const [win, setWin] = useState<AnySlotWin | null>(null);
   const [winId, setWinId] = useState(0);
+  const [showInfo, setShowInfo] = useState(false);
   const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -219,6 +223,7 @@ export function Slots({
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
           <MuteButton />
+          <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
             onClick={onExit}
@@ -230,6 +235,11 @@ export function Slots({
         </div>
       </div>
 
+      {showInfo ? (
+        <div className="flex-1 min-h-0 overflow-auto">
+          <GameInfoPanel info={GAME_INFO.slots} onBack={() => setShowInfo(false)} />
+        </div>
+      ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
         <div className="flex flex-col gap-3 p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
@@ -357,6 +367,7 @@ export function Slots({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
