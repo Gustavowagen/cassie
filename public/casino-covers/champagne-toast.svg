@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="ct-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a0e38"/>
+      <stop offset="100%" stop-color="#10030c"/>
+    </linearGradient>
+    <radialGradient id="ct-glow" cx="50%" cy="38%" r="42%">
+      <stop offset="0%" stop-color="#f7c65a" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#f7c65a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#ct-bg)"/>
+  <circle cx="400" cy="420" r="290" fill="url(#ct-glow)"/>
+
+  <g fill="#ffffff">
+    <circle cx="110" cy="120" r="2.2" opacity="0.7"/>
+    <circle cx="150" cy="190" r="1.6" opacity="0.45"/>
+    <circle cx="680" cy="150" r="2.2" opacity="0.65"/>
+    <circle cx="650" cy="90" r="1.6" opacity="0.4"/>
+    <circle cx="120" cy="640" r="1.8" opacity="0.4"/>
+    <circle cx="700" cy="600" r="2" opacity="0.5"/>
+  </g>
+
+  <!-- confetti -->
+  <g>
+    <g transform="translate(240,300) rotate(30)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#f7c65a"/></g>
+    <g transform="translate(560,280) rotate(-40)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#ff8ac2"/></g>
+    <g transform="translate(300,210) rotate(15)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#fff3cf"/></g>
+    <g transform="translate(505,335) rotate(60)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#f7c65a"/></g>
+    <g transform="translate(330,480) rotate(-20)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#ff8ac2"/></g>
+    <g transform="translate(475,490) rotate(45)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#fff3cf"/></g>
+    <g transform="translate(200,430) rotate(10)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#f7c65a"/></g>
+    <g transform="translate(605,440) rotate(-30)"><rect x="-3" y="-7" width="6" height="14" rx="2" fill="#ff8ac2"/></g>
+    <circle cx="270" cy="360" r="4" fill="#f7c65a" opacity="0.8"/>
+    <circle cx="540" cy="380" r="4" fill="#fff3cf" opacity="0.8"/>
+    <circle cx="420" cy="250" r="3.5" fill="#ff8ac2" opacity="0.75"/>
+  </g>
+
+  <!-- left champagne coupe -->
+  <g transform="translate(378,410) rotate(18)">
+    <path d="M -35 0 L 35 0 L 8 170 L -8 170 Z" fill="rgba(255,255,255,0.10)" stroke="#ffffff" stroke-width="2.5"/>
+    <ellipse cx="0" cy="0" rx="35" ry="9" fill="rgba(255,255,255,0.2)" stroke="#ffffff" stroke-width="2"/>
+    <path d="M -27 42 L 27 42 L 8 170 L -8 170 Z" fill="#f2c96d" opacity="0.8"/>
+    <ellipse cx="0" cy="42" rx="27" ry="6" fill="#ffe6a3" opacity="0.9"/>
+    <g fill="#ffffff">
+      <circle cx="-10" cy="120" r="2.4" opacity="0.75"/>
+      <circle cx="6" cy="92" r="1.8" opacity="0.6"/>
+      <circle cx="-4" cy="62" r="2.2" opacity="0.7"/>
+      <circle cx="11" cy="140" r="1.8" opacity="0.6"/>
+    </g>
+    <rect x="-4" y="170" width="8" height="86" rx="3" fill="rgba(255,255,255,0.16)" stroke="#ffffff" stroke-width="1.5"/>
+    <ellipse cx="0" cy="256" rx="30" ry="8" fill="rgba(255,255,255,0.14)" stroke="#ffffff" stroke-width="2"/>
+  </g>
+
+  <!-- right champagne coupe -->
+  <g transform="translate(422,410) rotate(-18)">
+    <path d="M -35 0 L 35 0 L 8 170 L -8 170 Z" fill="rgba(255,255,255,0.10)" stroke="#ffffff" stroke-width="2.5"/>
+    <ellipse cx="0" cy="0" rx="35" ry="9" fill="rgba(255,255,255,0.2)" stroke="#ffffff" stroke-width="2"/>
+    <path d="M -27 42 L 27 42 L 8 170 L -8 170 Z" fill="#f2c96d" opacity="0.8"/>
+    <ellipse cx="0" cy="42" rx="27" ry="6" fill="#ffe6a3" opacity="0.9"/>
+    <g fill="#ffffff">
+      <circle cx="10" cy="118" r="2.4" opacity="0.75"/>
+      <circle cx="-6" cy="90" r="1.8" opacity="0.6"/>
+      <circle cx="4" cy="64" r="2.2" opacity="0.7"/>
+      <circle cx="-11" cy="138" r="1.8" opacity="0.6"/>
+    </g>
+    <rect x="-4" y="170" width="8" height="86" rx="3" fill="rgba(255,255,255,0.16)" stroke="#ffffff" stroke-width="1.5"/>
+    <ellipse cx="0" cy="256" rx="30" ry="8" fill="rgba(255,255,255,0.14)" stroke="#ffffff" stroke-width="2"/>
+  </g>
+
+  <!-- clink sparkle -->
+  <g stroke="#fff3cf" stroke-width="3" stroke-linecap="round" opacity="0.9">
+    <line x1="400" y1="390" x2="400" y2="403"/>
+    <line x1="400" y1="417" x2="400" y2="430"/>
+    <line x1="380" y1="410" x2="393" y2="410"/>
+    <line x1="407" y1="410" x2="420" y2="410"/>
+    <line x1="386" y1="396" x2="395" y2="405"/>
+    <line x1="405" y1="415" x2="414" y2="424"/>
+    <line x1="414" y1="396" x2="405" y2="405"/>
+    <line x1="395" y1="415" x2="386" y2="424"/>
+  </g>
+</svg>

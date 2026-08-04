@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="hd-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f3258"/>
+      <stop offset="100%" stop-color="#040a16"/>
+    </linearGradient>
+    <radialGradient id="hd-glow" cx="54%" cy="38%" r="46%">
+      <stop offset="0%" stop-color="#5fd4ff" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#5fd4ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="1000" fill="url(#hd-bg)"/>
+  <circle cx="430" cy="380" r="300" fill="url(#hd-glow)"/>
+
+  <g fill="#ffffff">
+    <circle cx="120" cy="150" r="2" opacity="0.6"/>
+    <circle cx="90" cy="230" r="1.6" opacity="0.4"/>
+    <circle cx="150" cy="650" r="2" opacity="0.5"/>
+    <circle cx="690" cy="640" r="1.8" opacity="0.45"/>
+  </g>
+
+  <!-- motion trails -->
+  <g fill="none" stroke="#5fd4ff" stroke-linecap="round">
+    <path d="M 640 190 Q 520 250 445 330" stroke-width="7" opacity="0.5"/>
+    <path d="M 680 230 Q 560 290 475 360" stroke-width="5" opacity="0.32"/>
+    <path d="M 715 270 Q 600 330 505 395" stroke-width="4" opacity="0.18"/>
+  </g>
+
+  <!-- die B: background, small, shows 3 -->
+  <g transform="translate(450,270) rotate(18 50 50)">
+    <rect width="100" height="100" rx="16" fill="#eef3f8" stroke="#0f3258" stroke-width="3"/>
+    <circle cx="22" cy="22" r="9" fill="#101820"/>
+    <circle cx="50" cy="50" r="9" fill="#101820"/>
+    <circle cx="78" cy="78" r="9" fill="#101820"/>
+  </g>
+
+  <!-- die A: foreground, large, shows 5 -->
+  <g transform="translate(300,360) rotate(-12 70 70)">
+    <rect width="140" height="140" rx="22" fill="#ffffff" stroke="#0f3258" stroke-width="4"/>
+    <circle cx="32" cy="32" r="12" fill="#101820"/>
+    <circle cx="108" cy="32" r="12" fill="#101820"/>
+    <circle cx="32" cy="108" r="12" fill="#101820"/>
+    <circle cx="108" cy="108" r="12" fill="#101820"/>
+    <circle cx="70" cy="70" r="12" fill="#101820"/>
+  </g>
+
+  <!-- chip stack -->
+  <g>
+    <ellipse cx="250" cy="800" rx="48" ry="15" fill="#12395e"/>
+    <ellipse cx="250" cy="786" rx="48" ry="15" fill="#164672"/>
+    <ellipse cx="250" cy="772" rx="48" ry="15" fill="#1a5386"/>
+    <circle cx="250" cy="756" r="48" fill="#1e5f99" stroke="#eef3f8" stroke-width="4"/>
+    <circle cx="250" cy="756" r="31" fill="none" stroke="#eef3f8" stroke-width="3" stroke-dasharray="6 8"/>
+    <circle cx="250" cy="756" r="10" fill="#eef3f8"/>
+  </g>
+  <circle cx="170" cy="836" r="30" fill="#c7d3de" stroke="#eef3f8" stroke-width="3"/>
+  <circle cx="170" cy="836" r="18" fill="none" stroke="#0f3258" stroke-width="2" stroke-dasharray="4 5"/>
+</svg>
