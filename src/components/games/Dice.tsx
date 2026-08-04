@@ -194,8 +194,8 @@ export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet
 
   return (
     <div
-      className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
-      style={{ width: "min(98vw, 1000px)", height: "min(90vh, 620px)" }}
+      className="relative bg-card rounded-2xl overflow-hidden flex flex-col mx-auto"
+      style={{ width: "min(98vw, 1100px)", height: "min(90vh, 680px)" }}
     >
       <DiceStyles />
       <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
