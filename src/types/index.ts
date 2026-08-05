@@ -77,6 +77,9 @@ export interface SlotsInstanceSettings {
   // the slots edge function (supabase/functions/slots/engine.ts's
   // HOUSE_EDGE_OPTIONS / DEFAULT_HOUSE_EDGE).
   houseEdge?: 0 | 0.01 | 0.02 | 0.03 | 0.04 | 0.05;
+  // Visual design id from src/lib/slotsDesigns.ts. Missing defaults to
+  // DEFAULT_SLOTS_DESIGN_ID ("default"). Never affects odds/payouts.
+  design?: string;
 }
 
 // Mirror of the edge function's sanitized output (engine.ts BlackjackState).

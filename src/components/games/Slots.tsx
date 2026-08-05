@@ -9,6 +9,7 @@ import { GAME_INFO } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { playWinChime } from "../../lib/sound";
 import { useSlots } from "../../hooks/useSlots";
+import { getSlotsDesign } from "../../lib/slotsDesigns";
 import type { SlotSymbolId, SlotReel, SlotWin, FullBoardSlotWin } from "../../types";
 
 type RewardMode = "single_row" | "full_board";
@@ -107,6 +108,7 @@ interface Props {
   gameId: string;
   rewardMode: RewardMode;
   houseEdge: number;
+  design?: string;
   balance: number;
   minBet: number;
   maxBet: number;
@@ -118,6 +120,7 @@ export function Slots({
   gameId,
   rewardMode,
   houseEdge,
+  design,
   balance: initialBalance,
   minBet,
   maxBet,
@@ -142,6 +145,8 @@ export function Slots({
       if (revealTimeoutRef.current) clearTimeout(revealTimeoutRef.current);
     };
   }, []);
+
+  const activeDesign = useMemo(() => getSlotsDesign(design), [design]);
 
   const busy = loading || spinning;
   const bet = Math.max(0, parseFloat(betText) || 0);
@@ -217,7 +222,7 @@ export function Slots({
       <SlotsStyles />
       <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
         <div>
-          <p className="font-bold text-base">Neon Rush</p>
+          <p className="font-bold text-base">{activeDesign.name}</p>
           <p className="text-xs text-muted-foreground">Balance: {formatChips(localBalance)} chips</p>
         </div>
         <div className="flex items-center gap-3">

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { SLOTS_DESIGNS, DEFAULT_SLOTS_DESIGN_ID, getSlotsDesign } from "../lib/slotsDesigns";
 
 const GLASS = "bg-white/5 backdrop-blur-xl border border-white/10";
 const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
@@ -59,6 +60,10 @@ export function GameSettingsModal({
       ? (initialSettings.houseEdge as HouseEdge)
       : 0.02
   );
+  const [design, setDesign] = useState<string>(
+    typeof initialSettings.design === "string" ? initialSettings.design : DEFAULT_SLOTS_DESIGN_ID
+  );
+  const [view, setView] = useState<"settings" | "design">("settings");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +79,7 @@ export function GameSettingsModal({
     setSaving(true);
     setError(null);
     try {
-      const settings = isSlots ? { ...initialSettings, rewardMode, houseEdge } : initialSettings;
+      const settings = isSlots ? { ...initialSettings, rewardMode, houseEdge, design } : initialSettings;
       await onSave(trimmed, minBet, maxBet, settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save game");
@@ -85,7 +90,18 @@ export function GameSettingsModal({
   return (
     <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} overflow-hidden`}>
       <div className="flex items-start justify-between p-5 border-b border-white/10">
-        <p className="font-semibold text-base">{title}</p>
+        {view === "design" ? (
+          <button
+            type="button"
+            onClick={() => setView("settings")}
+            className="flex items-center gap-1 font-semibold text-base text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Choose a design
+          </button>
+        ) : (
+          <p className="font-semibold text-base">{title}</p>
+        )}
         <button
           type="button"
           onClick={onClose}
@@ -95,6 +111,43 @@ export function GameSettingsModal({
         </button>
       </div>
 
+      {view === "design" ? (
+        <div className="p-5 space-y-2">
+          {SLOTS_DESIGNS.map((d) => {
+            const selected = d.id === design;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => {
+                  setDesign(d.id);
+                  setView("settings");
+                }}
+                className={`w-full flex items-center gap-3 text-left rounded-lg border px-3 py-2.5 transition-colors ${
+                  selected ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"
+                }`}
+              >
+                <div
+                  className="h-12 w-12 shrink-0 rounded-md flex items-center justify-center gap-0.5"
+                  style={{ background: d.preview.gradient, boxShadow: `inset 0 0 0 1px ${d.preview.accent}44` }}
+                >
+                  {d.preview.dotColors.slice(0, 3).map((c, i) => (
+                    <span
+                      key={i}
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: c, boxShadow: `0 0 4px ${c}` }}
+                    />
+                  ))}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{d.name}</p>
+                  <p className="text-xs text-muted-foreground">{d.description}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
       <div className="p-5 space-y-4">
         <div>
           <Label>Front image</Label>
@@ -161,6 +214,38 @@ export function GameSettingsModal({
 
         {isSlots && (
           <div>
+            <Label>Design</Label>
+            <button
+              type="button"
+              onClick={() => setView("design")}
+              className="mt-1.5 w-full flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left transition-colors hover:border-foreground/30"
+            >
+              <div
+                className="h-10 w-10 shrink-0 rounded-md flex items-center justify-center gap-0.5"
+                style={{
+                  background: getSlotsDesign(design).preview.gradient,
+                  boxShadow: `inset 0 0 0 1px ${getSlotsDesign(design).preview.accent}44`,
+                }}
+              >
+                {getSlotsDesign(design).preview.dotColors.slice(0, 3).map((c, i) => (
+                  <span
+                    key={i}
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: c, boxShadow: `0 0 4px ${c}` }}
+                  />
+                ))}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{getSlotsDesign(design).name}</p>
+                <p className="text-xs text-muted-foreground">Tap to change design</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          </div>
+        )}
+
+        {isSlots && (
+          <div>
             <Label>Reward Mode</Label>
             <div className="mt-1.5 grid grid-cols-1 gap-2">
               {REWARD_MODES.map((mode) => (
@@ -218,6 +303,7 @@ export function GameSettingsModal({
           </Button>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { GameSettingsModal } from "../components/GameSettingsModal";
 import { CoverPicker } from "../components/CoverPicker";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 import { GAME_ART } from "../lib/gameArt";
+import { DEFAULT_SLOTS_DESIGN_ID } from "../lib/slotsDesigns";
 
 // Frosted-glass surface + glow, matching the homepage's glassmorphic redesign.
 const GLASS = "bg-white/5 backdrop-blur-xl border border-white/10";
@@ -437,6 +438,7 @@ export function CasinoDashboard() {
               // Mirrors the slots edge function's DEFAULT_HOUSE_EDGE fallback
               // (supabase/functions/slots/engine.ts) for pre-existing rows.
               houseEdge={(activeGame.settings as SlotsInstanceSettings)?.houseEdge ?? 0.02}
+              design={(activeGame.settings as SlotsInstanceSettings)?.design ?? DEFAULT_SLOTS_DESIGN_ID}
               balance={membership?.balance ?? 0}
               minBet={activeGame.min_bet}
               maxBet={activeGame.max_bet}
