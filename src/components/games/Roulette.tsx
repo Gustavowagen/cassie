@@ -689,11 +689,11 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
 
       {/* Main body */}
       {showInfo ? (
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
           <GameInfoPanel info={GAME_INFO.roulette} onBack={() => setShowInfo(false)} />
         </div>
       ) : (
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto overscroll-contain">
         {/* Wheel panel — capped small on mobile (stacked layout) so it never
             crowds out the betting board; unconstrained from md: up, where the
             wheel sits in its own side column instead. */}
