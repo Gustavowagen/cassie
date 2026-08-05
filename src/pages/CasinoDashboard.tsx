@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Copy, Check, Users, BarChart2, X, ChevronRight, Gamepad2, Settings, Trash2, ArrowLeftRight, ArrowLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -314,7 +314,9 @@ export function CasinoDashboard() {
               onSelectMember={setSelectedMember}
             />
           )}
-          {activeTab === "stats" && <StatsTab casinoId={currentCasino.id} />}
+          {activeTab === "stats" && (
+            <StatsTab casinoId={currentCasino.id} casinoGames={casinoGames} gameTypes={gameTypes} />
+          )}
           {activeTab === "trades" && (
             <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn />
           )}
@@ -849,7 +851,16 @@ function ProfitLossChart({ data }: { data: TimeseriesRow[] }) {
   );
 }
 
-function StatsTab({ casinoId }: { casinoId: string }) {
+function StatsTab({
+  casinoId,
+  casinoGames,
+  gameTypes,
+}: {
+  casinoId: string;
+  casinoGames: CasinoGame[];
+  gameTypes: GameType[];
+}) {
+  const [selectedGameTypeId, setSelectedGameTypeId] = useState<string | null>(null);
   const [dateMode, setDateMode] = useState<DateMode>("30d");
   const [fromDate, setFromDate] = useState(daysAgoStr(30));
   const [toDate, setToDate] = useState(todayStr());
@@ -857,8 +868,20 @@ function StatsTab({ casinoId }: { casinoId: string }) {
   const [timeseries, setTimeseries] = useState<TimeseriesRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const gameTabs = useMemo(() => {
+    const seen = new Set<string>();
+    const tabs: { id: string; label: string }[] = [];
+    for (const g of casinoGames) {
+      if (!PLAYABLE_GAME_IDS.has(g.game_type_id) || seen.has(g.game_type_id)) continue;
+      seen.add(g.game_type_id);
+      tabs.push({ id: g.game_type_id, label: gameTypes.find((t) => t.id === g.game_type_id)?.name ?? g.game_type_id });
+    }
+    return tabs;
+  }, [casinoGames, gameTypes]);
+
   useEffect(() => {
     const params: Record<string, string | undefined> = { p_casino_id: casinoId };
+    if (selectedGameTypeId) params.p_game_type_id = selectedGameTypeId;
     if (dateMode === "custom") {
       params.p_from = new Date(fromDate).toISOString();
       params.p_to = new Date(toDate + "T23:59:59").toISOString();
@@ -878,7 +901,7 @@ function StatsTab({ casinoId }: { casinoId: string }) {
       if (statsRes.data) setPlayerPl(Number(statsRes.data.player_profit_loss));
       if (tsRes.data) setTimeseries(tsRes.data as TimeseriesRow[]);
     }).finally(() => setLoading(false));
-  }, [casinoId, dateMode, fromDate, toDate]);
+  }, [casinoId, dateMode, fromDate, toDate, selectedGameTypeId]);
 
   const casinoProfit = playerPl !== null ? -playerPl : null;
 
@@ -891,6 +914,34 @@ function StatsTab({ casinoId }: { casinoId: string }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-1 border-b border-border overflow-x-auto overflow-y-hidden">
+        <button
+          type="button"
+          onClick={() => setSelectedGameTypeId(null)}
+          className={`px-3.5 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+            selectedGameTypeId === null
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All Games
+        </button>
+        {gameTabs.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setSelectedGameTypeId(id)}
+            className={`px-3.5 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+              selectedGameTypeId === id
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {dateModeOptions.map(({ mode, label }) => (
           <button

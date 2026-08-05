@@ -354,7 +354,7 @@ export function Dice({ casinoId, gameId, balance: initialBalance, minBet, maxBet
                   type="button"
                   onClick={swapDirection}
                   disabled={busy}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/40 bg-primary/10 text-base leading-none text-primary transition-colors hover:bg-primary/20 hover:border-primary active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                   aria-label="Swap direction"
                 >
                   ⇄
