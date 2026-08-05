@@ -231,8 +231,8 @@ export function Slots({
 
   return (
     <div
-      className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
-      style={{ width: "min(96vw, 1360px)", height: "min(92dvh, 800px)" }}
+      className="relative bg-card rounded-2xl overflow-hidden flex flex-col h-screen h-[var(--app-vvh,100dvh)] sm:h-[min(92vh,800px)]"
+      style={{ width: "min(96vw, 1360px)" }}
     >
       <SlotsStyles />
       <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">

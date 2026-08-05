@@ -299,7 +299,7 @@ export function Plinko({ casinoId, gameId, balance: initialBalance, minBet, maxB
   }, [handleDrop]);
 
   return (
-    <div className="relative bg-card overflow-hidden flex flex-col w-full h-screen h-[100dvh] rounded-2xl sm:mx-auto sm:w-[min(98vw,1100px)] sm:h-[min(90vh,740px)]">
+    <div className="relative bg-card overflow-hidden flex flex-col w-full h-screen h-[var(--app-vvh,100dvh)] rounded-2xl sm:mx-auto sm:w-[min(98vw,1100px)] sm:h-[min(90vh,740px)]">
       <PlinkoStyles />
       <div className="flex items-center justify-between px-4 py-2 sm:px-5 sm:py-3 border-b border-border shrink-0">
         <div>
