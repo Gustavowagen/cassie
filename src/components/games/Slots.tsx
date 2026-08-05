@@ -241,11 +241,11 @@ export function Slots({
       </div>
 
       {showInfo ? (
-        <div className="flex-1 min-h-0 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
           <GameInfoPanel info={GAME_INFO.slots} onBack={() => setShowInfo(false)} />
         </div>
       ) : (
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto overscroll-contain">
         <div className="flex flex-col gap-3 p-4 md:w-72 shrink-0 border-b md:border-b-0 md:border-r border-border">
           <div>
             <label className="text-xs text-muted-foreground">Bet Amount</label>
