@@ -625,15 +625,14 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
 
   return (
     <div
-      className="relative bg-card rounded-2xl overflow-hidden flex flex-col"
-      style={{
-        width: "min(98vw, 1360px)",
+      className={`relative bg-card rounded-2xl overflow-hidden flex flex-col h-screen h-[var(--app-vvh,100dvh)] ${
         // The portrait board is much taller than the landscape one (12 stacked
         // rows vs. 3) and the wheel renders larger on that layout too, so it
         // gets nearly the full viewport before falling back to the internal
         // (main body) scroll to reach the rest.
-        height: verticalBoard ? "min(99dvh, 1040px)" : "min(92dvh, 860px)",
-      }}
+        verticalBoard ? "sm:h-[min(99vh,1040px)]" : "sm:h-[min(92vh,860px)]"
+      }`}
+      style={{ width: "min(98vw, 1360px)" }}
     >
       <RouletteStyles />
 

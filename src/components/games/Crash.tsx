@@ -234,8 +234,8 @@ export function Crash({ casinoId, gameId, balance: initialBalance, minBet, maxBe
 
   return (
     <div
-      className="relative bg-card overflow-hidden flex flex-col rounded-2xl"
-      style={{ width: "min(98vw, 1300px)", height: "min(90dvh, 760px)" }}
+      className="relative bg-card overflow-hidden flex flex-col rounded-2xl h-screen h-[var(--app-vvh,100dvh)] sm:h-[min(90vh,760px)]"
+      style={{ width: "min(98vw, 1300px)" }}
     >
       <CrashStyles />
       <div className="flex items-center justify-between px-4 py-2 sm:px-5 sm:py-3 border-b border-border shrink-0">
