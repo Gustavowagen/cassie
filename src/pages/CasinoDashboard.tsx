@@ -12,7 +12,7 @@ import { useBalance } from "../hooks/useBalance";
 import { useCasinoStore } from "../stores/casinoStore";
 import { useAuthStore } from "../stores/authStore";
 import { useGames } from "../hooks/useGames";
-import { formatChips, gradientFromColor, avatarGradient, initialsOf } from "../lib/utils";
+import { cn, formatChips, gradientFromColor, avatarGradient, initialsOf } from "../lib/utils";
 import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino, CasinoTheme, SlotsInstanceSettings } from "../types";
 import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
@@ -66,7 +66,6 @@ export function CasinoDashboard() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [selectedMember, setSelectedMember] = useState<CasinoMemberWithProfile | null>(null);
-  const [chipHistoryOpen, setChipHistoryOpen] = useState(true);
 
   const { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame } = useGames();
   const [gameTypes, setGameTypes] = useState<GameType[]>([]);
@@ -177,9 +176,10 @@ export function CasinoDashboard() {
 
   const { theme, name, description, join_code, member_count } = currentCasino;
   const isMember = Boolean(membership);
+  const showTabs = canManageMembers || isMember;
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${showTabs ? "pb-28 md:pb-24" : ""}`}>
       <button
         type="button"
         onClick={() => navigate("/")}
@@ -270,35 +270,9 @@ export function CasinoDashboard() {
         </div>
       )}
 
-      {/* Management tabs — visible to creator and admins */}
-      {canManageMembers && (
+      {/* Tab content — bottom bar (below) drives which tab is active */}
+      {showTabs && (
         <div>
-          <div className="flex gap-1 border-b border-border mb-6 overflow-x-auto overflow-y-hidden">
-            {(
-              [
-                { id: "games", label: "Games", icon: Gamepad2 },
-                { id: "members", label: "Members", icon: Users },
-                { id: "stats", label: "Statistics", icon: BarChart2 },
-                { id: "trades", label: "Trades", icon: ArrowLeftRight },
-                { id: "settings", label: "Settings", icon: Settings },
-              ] as { id: OwnerTab; label: string; icon: React.ElementType }[]
-            ).map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
-                  activeTab === id
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
-          </div>
-
           {activeTab === "games" && (
             <GameOverview
               casinoGames={casinoGames}
@@ -306,7 +280,7 @@ export function CasinoDashboard() {
               canAdmin={canManageMembers}
             />
           )}
-          {activeTab === "members" && (
+          {canManageMembers && activeTab === "members" && (
             <MembersTab
               members={members}
               loading={membersLoading}
@@ -314,13 +288,13 @@ export function CasinoDashboard() {
               onSelectMember={setSelectedMember}
             />
           )}
-          {activeTab === "stats" && (
+          {canManageMembers && activeTab === "stats" && (
             <StatsTab casinoId={currentCasino.id} casinoGames={casinoGames} gameTypes={gameTypes} />
           )}
           {activeTab === "trades" && (
-            <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn />
+            <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn={canManageMembers} />
           )}
-          {activeTab === "settings" && (
+          {canManageMembers && activeTab === "settings" && (
             <SettingsTab
               casinoId={currentCasino.id}
               casino={currentCasino}
@@ -346,33 +320,12 @@ export function CasinoDashboard() {
         </div>
       )}
 
-      {/* Game section — shown for regular members who don't have the tab bar */}
-      {isMember && !canManageMembers && (
-        <>
-          <GameOverview
-            casinoGames={casinoGames}
-            onPlay={handlePlayGame}
-            canAdmin={false}
-          />
-          <div className="rounded-xl border border-border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setChipHistoryOpen((v) => !v)}
-              aria-expanded={chipHistoryOpen}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold"
-            >
-              My Chip History
-              <ChevronRight
-                className={`h-4 w-4 transition-transform ${chipHistoryOpen ? "rotate-90" : ""}`}
-              />
-            </button>
-            {chipHistoryOpen && (
-              <div className="px-4 pb-4">
-                <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn={false} />
-              </div>
-            )}
-          </div>
-        </>
+      {showTabs && (
+        <CasinoBottomNav
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          canManageMembers={canManageMembers}
+        />
       )}
 
       {/* Game modal */}
@@ -478,6 +431,79 @@ export function CasinoDashboard() {
         </Modal>
       )}
     </div>
+  );
+}
+
+const ADMIN_TABS: { id: OwnerTab; label: string; icon: React.ElementType }[] = [
+  { id: "games", label: "Games", icon: Gamepad2 },
+  { id: "members", label: "Members", icon: Users },
+  { id: "stats", label: "Stats", icon: BarChart2 },
+  { id: "trades", label: "Trades", icon: ArrowLeftRight },
+  { id: "settings", label: "Settings", icon: Settings },
+];
+
+const MEMBER_TABS: { id: OwnerTab; label: string; icon: React.ElementType }[] = [
+  { id: "games", label: "Games", icon: Gamepad2 },
+  { id: "trades", label: "Trades", icon: ArrowLeftRight },
+];
+
+// Casino-scoped tab bar, styled to match the homepage's persistent BottomNav
+// (see components/BottomNav.tsx) but driving in-page tab state instead of routes.
+function CasinoBottomNav({
+  activeTab,
+  onChange,
+  canManageMembers,
+}: {
+  activeTab: OwnerTab;
+  onChange: (tab: OwnerTab) => void;
+  canManageMembers: boolean;
+}) {
+  const items = canManageMembers ? ADMIN_TABS : MEMBER_TABS;
+
+  return (
+    <>
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 flex bg-card/90 backdrop-blur-xl border-t border-border pt-2.5 pb-3.5 px-1">
+        {items.map(({ id, label, icon: Icon }) => {
+          const active = activeTab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(id)}
+              className={cn(
+                "flex flex-1 flex-col items-center gap-1 text-[10.5px] font-semibold transition-colors",
+                active ? "text-foreground" : "text-muted-foreground hover:text-foreground/80",
+              )}
+            >
+              <Icon className={cn("h-[21px] w-[21px]", active && "text-primary")} strokeWidth={2} />
+              {label}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="hidden md:flex fixed inset-x-0 bottom-5 z-40 justify-center pointer-events-none">
+        <nav className="pointer-events-auto flex justify-center gap-2 rounded-full border border-border bg-card/90 backdrop-blur-xl py-3 px-5 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+          {items.map(({ id, label, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onChange(id)}
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3.5 text-[10.5px] font-semibold transition-colors",
+                  active ? "text-foreground" : "text-muted-foreground hover:text-foreground/80",
+                )}
+              >
+                <Icon className={cn("h-[21px] w-[21px]", active && "text-primary")} strokeWidth={2} />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+    </>
   );
 }
 
