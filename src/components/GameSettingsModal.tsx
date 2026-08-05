@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { SLOTS_DESIGNS, DEFAULT_SLOTS_DESIGN_ID, getSlotsDesign } from "../lib/slotsDesigns";
 
-const GLASS = "bg-white/5 backdrop-blur-xl border border-white/10";
+const GLASS = "bg-background border border-white/10";
 const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
 
 const REWARD_MODES = [
