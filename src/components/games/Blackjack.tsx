@@ -332,7 +332,7 @@ export function Blackjack({
   };
 
   return (
-    <div className="bj-root relative isolate w-full h-[100vh] sm:h-[92vh] overflow-hidden bg-background text-white">
+    <div className="bj-root relative isolate w-full h-screen h-[100dvh] sm:h-[92vh] sm:h-[92dvh] overflow-hidden bg-background text-white">
       <BlackjackStyles />
 
       {/* Ambient glow — same device as the homepage hero */}
