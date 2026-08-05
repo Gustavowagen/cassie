@@ -1,9 +1,0 @@
-Every casino should have a settings tab together with the members and statistics tab.
-The settings page should start with including available games and admins can create games of the available types.
-When an admin creates a new game he should be able to give the game a custom name.
-An admin should also be able to create up to 5 games of the same game. (For example 5 blackjack games with different names)
-All the games should be given a default image like blackjack currently has.
-The games that an admin should be able to choose from are:
-Blackjack, Slots, Roulette, Dice (more games will be added later)
-
-Also start the implimentation of the Roulette game. It should look somewhat like the image (roulette.png) in the insp folder in this project

@@ -8,6 +8,9 @@ import { SLOTS_DESIGNS, DEFAULT_SLOTS_DESIGN_ID, getSlotsDesign } from "../lib/s
 const GLASS = "bg-background border border-white/10";
 const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
 
+const MIN_BET_FLOOR = 0.01;
+const MAX_BET_CEILING = 10_000_000;
+
 const REWARD_MODES = [
   {
     id: "single_row" as const,
@@ -70,7 +73,12 @@ export function GameSettingsModal({
   const trimmed = name.trim();
   const minBet = parseFloat(minBetText);
   const maxBet = parseFloat(maxBetText);
-  const betRangeValid = isFinite(minBet) && minBet > 0 && isFinite(maxBet) && maxBet >= minBet;
+  const betRangeValid =
+    isFinite(minBet) &&
+    minBet >= MIN_BET_FLOOR &&
+    isFinite(maxBet) &&
+    maxBet <= MAX_BET_CEILING &&
+    maxBet >= minBet;
   const isSlots = gameTypeId === "slots";
   const canSave = trimmed && betRangeValid;
 
@@ -184,7 +192,8 @@ export function GameSettingsModal({
             <Input
               id="game-settings-min-bet"
               type="number"
-              min={0}
+              min={MIN_BET_FLOOR}
+              max={MAX_BET_CEILING}
               step="any"
               value={minBetText}
               onChange={(e) => setMinBetText(e.target.value)}
@@ -197,7 +206,8 @@ export function GameSettingsModal({
             <Input
               id="game-settings-max-bet"
               type="number"
-              min={0}
+              min={MIN_BET_FLOOR}
+              max={MAX_BET_CEILING}
               step="any"
               value={maxBetText}
               onChange={(e) => setMaxBetText(e.target.value)}
@@ -207,7 +217,7 @@ export function GameSettingsModal({
           </div>
           {!betRangeValid && (
             <p className="col-span-2 text-xs text-destructive">
-              Min bet must be positive and max bet must be at least the min bet.
+              Min bet must be at least {MIN_BET_FLOOR}, max bet can't exceed {MAX_BET_CEILING.toLocaleString()}, and max bet must be at least the min bet.
             </p>
           )}
         </div>
