@@ -60,7 +60,7 @@ export function Modal({
         }`}
         onClick={dismissible ? onClose : undefined}
       />
-      <div className={`relative z-10 max-h-screen w-full overflow-hidden sm:max-h-[92vh] sm:rounded-2xl sm:shadow-2xl ${size === "md" ? "max-w-md" : size === "xl" ? "max-w-[1400px]" : "max-w-3xl"}`}>
+      <div className={`relative z-10 max-h-screen max-h-[100dvh] w-full overflow-hidden sm:max-h-[92vh] sm:max-h-[92dvh] sm:rounded-2xl sm:shadow-2xl ${size === "md" ? "max-w-md" : size === "xl" ? "max-w-[1400px]" : "max-w-3xl"}`}>
         <BackdropToggleContext.Provider value={contextValue}>{children}</BackdropToggleContext.Provider>
       </div>
     </div>,

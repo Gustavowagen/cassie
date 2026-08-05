@@ -632,7 +632,7 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
         // rows vs. 3) and the wheel renders larger on that layout too, so it
         // gets nearly the full viewport before falling back to the internal
         // (main body) scroll to reach the rest.
-        height: verticalBoard ? "min(99vh, 1040px)" : "min(92vh, 860px)",
+        height: verticalBoard ? "min(99dvh, 1040px)" : "min(92dvh, 860px)",
       }}
     >
       <RouletteStyles />
