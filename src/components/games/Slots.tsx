@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Percent, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
@@ -138,6 +138,7 @@ export function Slots({
   const [win, setWin] = useState<AnySlotWin | null>(null);
   const [winId, setWinId] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
+  const [showPaytable, setShowPaytable] = useState(true);
   const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -228,6 +229,15 @@ export function Slots({
         <div className="flex items-center gap-3">
           <BackdropToggleButton />
           <MuteButton />
+          <button
+            type="button"
+            onClick={() => setShowPaytable((v) => !v)}
+            aria-label={showPaytable ? "Hide paytable" : "Show paytable"}
+            aria-pressed={showPaytable}
+            className={`inline-flex transition-colors ${showPaytable ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Percent className="h-5 w-5" />
+          </button>
           <GameInfoButton active={showInfo} onClick={() => setShowInfo((v) => !v)} />
           <button
             type="button"
@@ -286,32 +296,34 @@ export function Slots({
 
           {(formError || spinError) && <p className="text-xs text-destructive">{formError ?? spinError}</p>}
 
-          <div className="mt-2 space-y-1.5">
-            <p className="text-xs text-muted-foreground">
-              {rewardMode === "full_board" ? "Paytable (7-8 · 9-10 · 11+)" : "Paytable (3× · 4× · 5×)"}
-            </p>
-            {rewardMode === "full_board"
-              ? scaledFullBoardPay.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2 text-xs">
-                    <span className="sl-sym-mini">
-                      <span className={`sl-sym ${s.cls}`}>{s.label}</span>
-                    </span>
-                    <span className="text-muted-foreground font-mono">
-                      {displayX(s.pay[0])}x · {displayX(s.pay[1])}x · {displayX(s.pay[2])}x
-                    </span>
-                  </div>
-                ))
-              : scaledSingleRowPay.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2 text-xs">
-                    <span className="sl-sym-mini">
-                      <span className={`sl-sym ${s.cls}`}>{s.label}</span>
-                    </span>
-                    <span className="text-muted-foreground font-mono">
-                      {displayX(s.pay[3])}x · {displayX(s.pay[4])}x · {displayX(s.pay[5])}x
-                    </span>
-                  </div>
-                ))}
-          </div>
+          {showPaytable && (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                {rewardMode === "full_board" ? "Paytable (7-8 · 9-10 · 11+)" : "Paytable (3× · 4× · 5×)"}
+              </p>
+              {rewardMode === "full_board"
+                ? scaledFullBoardPay.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2 text-xs">
+                      <span className="sl-sym-mini">
+                        <span className={`sl-sym ${s.cls}`}>{s.label}</span>
+                      </span>
+                      <span className="text-muted-foreground font-mono">
+                        {displayX(s.pay[0])}x · {displayX(s.pay[1])}x · {displayX(s.pay[2])}x
+                      </span>
+                    </div>
+                  ))
+                : scaledSingleRowPay.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2 text-xs">
+                      <span className="sl-sym-mini">
+                        <span className={`sl-sym ${s.cls}`}>{s.label}</span>
+                      </span>
+                      <span className="text-muted-foreground font-mono">
+                        {displayX(s.pay[3])}x · {displayX(s.pay[4])}x · {displayX(s.pay[5])}x
+                      </span>
+                    </div>
+                  ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-1 items-center justify-center p-5 min-w-0">
