@@ -135,6 +135,12 @@ describe("evaluateWin", () => {
 
   it("evaluates the middle row of a 3x6 board at its threshold of 4", () => {
     expect(evaluateWin(reelsForRow(["dot", "dot", "dot", "square", "diamond", "star"], 1, 3), "3x6")).toBeNull();
+    expect(
+      evaluateWin(reelsForRow(["dot", "dot", "dot", "dot", "diamond", "star"], 1, 3), "3x6")
+    ).toEqual({ symbol: "dot", count: 4, positions: [0, 1, 2, 3] });
+    expect(
+      evaluateWin(reelsForRow(["dot", "dot", "dot", "dot", "dot", "star"], 1, 3), "3x6")
+    ).toEqual({ symbol: "dot", count: 5, positions: [0, 1, 2, 3, 4] });
     const allDot = reelsForRow(["dot", "dot", "dot", "dot", "dot", "dot"], 1, 3);
     expect(evaluateWin(allDot, "3x6")).toEqual({
       symbol: "dot",
@@ -226,13 +232,24 @@ describe("single-row RTP", () => {
 
     function enumerate(idx: number, remaining: number, counts: number[]) {
       if (idx === SYMBOL_WEIGHTS.length - 1) {
+        // The last symbol's count isn't free to choose — it's whatever's
+        // left after every other symbol has claimed its share of the `cols`
+        // reels, since every reel holds exactly one symbol.
         counts[idx] = remaining;
+        // coef: the multinomial coefficient cols! / (c0! * c1! * ... * cN!)
+        // — how many distinct orderings of the reels produce this exact
+        // per-symbol count breakdown.
         let coef = factorial(cols);
+        // pw: the probability of any one specific ordering with this count
+        // breakdown — each symbol's weight raised to its own count,
+        // multiplied together (reels are independent draws).
         let pw = 1;
         for (let i = 0; i < SYMBOL_WEIGHTS.length; i++) {
           coef /= factorial(counts[i]);
           pw *= SYMBOL_WEIGHTS[i].weight ** counts[i];
         }
+        // p: total probability of this count breakdown = (# orderings) *
+        // (probability per ordering).
         const p = coef * pw;
 
         const maxCount = Math.max(...counts);
@@ -274,12 +291,21 @@ describe("single-row RTP", () => {
     }
   });
 
-  it("a chosen house edge scales each board size's theoretical RTP to exactly 1 - houseEdge", () => {
+  it("a chosen house edge scales payoutFor's raw payout by (1 - houseEdge) / baselineRtp, for every single-row board size", () => {
+    // Mirrors the 5x3-only version of this test in the payoutFor block
+    // above, but exercises payoutFor (and therefore engine.ts's real
+    // edgeScale) directly for all 4 sizes, rather than re-deriving the
+    // scale factor locally — a purely local `baseline * ((1-e)/baseline)`
+    // check is tautological and never touches production code.
     for (const boardSize of Object.keys(SINGLE_ROW_TABLES) as BoardSize[]) {
-      const { rtp: baseline } = theoreticalSingleRowRtp(boardSize);
+      const cols = BOARD_DIMENSIONS[boardSize].cols;
+      // A max-count win (all reels the same symbol) is always a valid win
+      // at every board size's top tier, regardless of that size's threshold.
+      const win = { symbol: "seven" as const, count: cols, positions: Array.from({ length: cols }, (_, i) => i) };
+      const raw = payoutFor(win, 100, boardSize);
       for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
-        const scale = (1 - houseEdge) / baseline;
-        expect(baseline * scale).toBeCloseTo(1 - houseEdge, 10);
+        const scaled = payoutFor(win, 100, boardSize, houseEdge);
+        expect(scaled).toBe(roundMoney(raw * ((1 - houseEdge) / SINGLE_ROW_TABLES[boardSize]!.baselineRtp)));
       }
     }
   });
