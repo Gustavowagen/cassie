@@ -130,11 +130,9 @@ export function useCasino() {
   async function getCasinoMembers(
     casinoId: string
   ): Promise<CasinoMemberWithProfile[]> {
-    const { data, error } = await supabase
-      .from("casino_members")
-      .select("*, profile:profiles(username, avatar_url)")
-      .eq("casino_id", casinoId)
-      .order("joined_at", { ascending: true });
+    const { data, error } = await supabase.rpc("get_casino_members", {
+      p_casino_id: casinoId,
+    });
     if (error) throw error;
     return (data ?? []) as CasinoMemberWithProfile[];
   }
@@ -157,11 +155,20 @@ export function useCasino() {
     if (error) throw error;
   }
 
-  async function setMemberRole(casinoId: string, targetUserId: string, newRole: "member" | "admin") {
+  async function setMemberRole(casinoId: string, targetUserId: string, newRole: "member" | "admin" | "agent") {
     const { error } = await supabase.rpc("set_member_role", {
       p_casino_id: casinoId,
       p_target_user_id: targetUserId,
       p_new_role: newRole,
+    });
+    if (error) throw error;
+  }
+
+  async function assignMemberAgent(casinoId: string, targetUserId: string, agentUserId: string | null) {
+    const { error } = await supabase.rpc("assign_member_agent", {
+      p_casino_id: casinoId,
+      p_target_user_id: targetUserId,
+      p_agent_user_id: agentUserId,
     });
     if (error) throw error;
   }
@@ -231,6 +238,7 @@ export function useCasino() {
     giveChips,
     removeChips,
     setMemberRole,
+    assignMemberAgent,
     transferOwnership,
     getMemberProfitLoss,
     listChipTransactions,
