@@ -529,9 +529,10 @@ describe("payoutForFullBoard", () => {
 describe("full-board RTP", () => {
   // Exact multinomial-composition enumeration over SYMBOL_WEIGHTS, generic
   // over total cell count — recomputed independently of
-  // evaluateFullBoardWin/payoutForFullBoard. Pays every symbol tied at the
-  // max count (matches the pay-all-ties rule in the engine), including
-  // 3-way ties on 18/24-cell boards.
+  // evaluateFullBoardWin/payoutForFullBoard. Ties are summed generically
+  // (matches the pay-all-ties rule), though under the current tables at
+  // most a 2-way tie is ever reachable — see engine.ts's own corrected
+  // comment on this.
   function factorial(n: number): number {
     let r = 1;
     for (let i = 2; i <= n; i++) r *= i;
@@ -583,12 +584,22 @@ describe("full-board RTP", () => {
     }
   });
 
-  it("a chosen house edge scales each board size's theoretical RTP to exactly 1 - houseEdge", () => {
+  it("a chosen house edge scales payoutForFullBoard's raw payout by (1 - houseEdge) / baselineRtp, for every full-board size", () => {
+    // Mirrors the 5x3-only version of this test in the payoutForFullBoard
+    // block above, but exercises payoutForFullBoard (and therefore
+    // engine.ts's real edgeScale) directly for all 3 sizes, rather than
+    // re-deriving the scale factor locally — a purely local
+    // `baseline * ((1-e)/baseline)` check is tautological (true by algebra
+    // for any baseline) and never touches production code.
     for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
-      const { rtp: baseline } = theoreticalFullBoardRtp(boardSize);
+      const n = BOARD_DIMENSIONS[boardSize].rows * BOARD_DIMENSIONS[boardSize].cols;
+      // A max-count win (every cell the same symbol) is always a valid win
+      // at every board size's top tier, regardless of that size's minCount.
+      const win = { count: n, wins: [{ symbol: "seven" as const, positions: [] }] };
+      const raw = payoutForFullBoard(win, 100, boardSize);
       for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
-        const scale = (1 - houseEdge) / baseline;
-        expect(baseline * scale).toBeCloseTo(1 - houseEdge, 10);
+        const scaled = payoutForFullBoard(win, 100, boardSize, houseEdge);
+        expect(scaled).toBe(roundMoney(raw * ((1 - houseEdge) / FULL_BOARD_TABLES[boardSize]!.baselineRtp)));
       }
     }
   });
