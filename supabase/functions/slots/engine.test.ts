@@ -525,3 +525,85 @@ describe("payoutForFullBoard", () => {
     expect(payoutForFullBoard(win, 100, "5x3", MAX_HOUSE_EDGE)).toBeLessThan(raw);
   });
 });
+
+describe("full-board RTP", () => {
+  // Exact multinomial-composition enumeration over SYMBOL_WEIGHTS, generic
+  // over total cell count — recomputed independently of
+  // evaluateFullBoardWin/payoutForFullBoard. Pays every symbol tied at the
+  // max count (matches the pay-all-ties rule in the engine), including
+  // 3-way ties on 18/24-cell boards.
+  function factorial(n: number): number {
+    let r = 1;
+    for (let i = 2; i <= n; i++) r *= i;
+    return r;
+  }
+
+  function theoreticalFullBoardRtp(boardSize: "5x3" | "3x6" | "4x6") {
+    const config = FULL_BOARD_TABLES[boardSize]!;
+    const n = BOARD_DIMENSIONS[boardSize].rows * BOARD_DIMENSIONS[boardSize].cols;
+    let rtp = 0;
+    let hitFrequency = 0;
+
+    function enumerate(idx: number, remaining: number, counts: number[]) {
+      if (idx === SYMBOL_WEIGHTS.length - 1) {
+        counts[idx] = remaining;
+        let coef = factorial(n);
+        let pw = 1;
+        for (let i = 0; i < SYMBOL_WEIGHTS.length; i++) {
+          coef /= factorial(counts[i]);
+          pw *= SYMBOL_WEIGHTS[i].weight ** counts[i];
+        }
+        const p = coef * pw;
+
+        const maxCount = Math.max(...counts);
+        if (maxCount >= config.minCount) {
+          const tier = config.tierIndex(maxCount);
+          let tiedPay = 0;
+          for (let i = 0; i < counts.length; i++) {
+            if (counts[i] === maxCount) tiedPay += config.symbols[i].pay[tier];
+          }
+          rtp += p * tiedPay;
+          hitFrequency += p;
+        }
+        return;
+      }
+      for (let c = 0; c <= remaining; c++) {
+        counts[idx] = c;
+        enumerate(idx + 1, remaining - c, counts);
+      }
+    }
+    enumerate(0, n, new Array(SYMBOL_WEIGHTS.length).fill(0));
+    return { rtp, hitFrequency };
+  }
+
+  it("matches each board size's pinned baselineRtp", () => {
+    for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
+      const { rtp } = theoreticalFullBoardRtp(boardSize);
+      expect(rtp).toBeCloseTo(FULL_BOARD_TABLES[boardSize]!.baselineRtp, 6);
+    }
+  });
+
+  it("a chosen house edge scales each board size's theoretical RTP to exactly 1 - houseEdge", () => {
+    for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
+      const { rtp: baseline } = theoreticalFullBoardRtp(boardSize);
+      for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
+        const scale = (1 - houseEdge) / baseline;
+        expect(baseline * scale).toBeCloseTo(1 - houseEdge, 10);
+      }
+    }
+  });
+
+  it("hit frequencies land where exact enumeration puts them (documented in the design doc)", () => {
+    const expected: Record<"5x3" | "3x6" | "4x6", [number, number]> = {
+      "5x3": [0.28, 0.36],
+      "3x6": [0.3, 0.39],
+      "4x6": [0.33, 0.42],
+    };
+    for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
+      const { hitFrequency } = theoreticalFullBoardRtp(boardSize);
+      const [lo, hi] = expected[boardSize];
+      expect(hitFrequency).toBeGreaterThan(lo);
+      expect(hitFrequency).toBeLessThan(hi);
+    }
+  });
+});
