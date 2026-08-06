@@ -1,68 +1,67 @@
 export type Rng = () => number;
 export type SymbolId = "dot" | "square" | "diamond" | "star" | "seven";
-export type RunLength = 3 | 4 | 5;
+export type RewardMode = "single_row" | "full_board";
+export type BoardSize = "3x3" | "3x4" | "5x3" | "3x6" | "4x6";
 
-interface SymbolDef {
+// rows x cols for each selectable board size. 5x3 is today's board and
+// stays the default everywhere a casino_games row has no boardSize set.
+export const BOARD_DIMENSIONS: Record<BoardSize, { rows: number; cols: number }> = {
+  "3x3": { rows: 3, cols: 3 },
+  "3x4": { rows: 3, cols: 4 },
+  "5x3": { rows: 3, cols: 5 },
+  "3x6": { rows: 3, cols: 6 },
+  "4x6": { rows: 4, cols: 6 },
+};
+
+export const BOARD_SIZES = Object.keys(BOARD_DIMENSIONS) as BoardSize[];
+export const DEFAULT_BOARD_SIZE: BoardSize = "5x3";
+
+// Single-row mode needs an unambiguous "middle row," which only exists on a
+// 3-row board — so 4x6 (the only 4-row size) never offers it. 3x3/3x4 are
+// locked the other way (single_row only) per product decision, not a
+// mathematical constraint. This table is the authoritative gate — enforced
+// server-side in index.ts's resolveRewardMode, not just in the admin UI.
+export const ALLOWED_REWARD_MODES: Record<BoardSize, RewardMode[]> = {
+  "3x3": ["single_row"],
+  "3x4": ["single_row"],
+  "5x3": ["single_row", "full_board"],
+  "3x6": ["single_row", "full_board"],
+  "4x6": ["full_board"],
+};
+
+interface SymbolWeight {
   id: SymbolId;
   weight: number;
-  pay: Record<RunLength, number>;
 }
 
-// Ordered low tier -> high tier. Rarer symbols pay more, matching the shape
-// shown in the approved Neon Rush design mockup.
-//
-// Wins are "scatter" style: any 3+ of the same symbol on the payline count,
-// regardless of position (see evaluateWin). That means a count of k can land
-// in C(5,k) different arrangements instead of just 1 (left-aligned), so hit
-// frequency for k=3,4 is far higher than a purely positional rule — pay[3]
-// and pay[4] are scaled down accordingly to hold RTP steady (pay[5] needs no
-// adjustment, since all 5 reels matching is the same event either way).
-//
-// The pay[5] tail is deliberately compressed relative to pay[3]/pay[4]:
-// dot's 3-of-a-kind (the single most frequent winning event, ~18% of all
-// spins) pays 1.5x, while seven's 5-of-a-kind (~0.0003% of spins) pays 40x
-// rather than a naive odds-implied multiplier in the hundreds. This lowers
-// volatility — frequent small wins feel more substantial, the rare jackpot
-// less dominant — without changing hit frequency (weights, not pay,
-// determine how often a spin wins) or RTP (still fully renormalized by
-// edgeScale at every house edge setting).
-//
-// For symbol i, P(exactly k matches among 5 reels) = C(5,k) * weight_i^k *
-// (1 - weight_i)^(5-k). Summing that times pay_i[k] over all symbols and
-// counts gives RTP ≈ 0.962 (hit frequency ≈ 41.5% — unchanged, since hit
-// frequency depends only on weight, not pay) — see engine.test.ts, which
-// recomputes this exactly and pins it.
-export const SYMBOLS: SymbolDef[] = [
-  { id: "dot", weight: 0.35, pay: { 3: 1.5, 4: 3, 5: 12 } },
-  { id: "square", weight: 0.25, pay: { 3: 2, 4: 4, 5: 15 } },
-  { id: "diamond", weight: 0.2, pay: { 3: 2.5, 4: 5, 5: 19 } },
-  { id: "star", weight: 0.12, pay: { 3: 3, 4: 6.5, 5: 25 } },
-  { id: "seven", weight: 0.08, pay: { 3: 4, 4: 8.5, 5: 40 } },
+// Symbol draw weights are identical across every board size — only the win
+// thresholds and pay tables (below) vary by size. Rarer symbols pay more at
+// every size, matching the shape shown in the approved Neon Rush design
+// mockup.
+export const SYMBOL_WEIGHTS: SymbolWeight[] = [
+  { id: "dot", weight: 0.35 },
+  { id: "square", weight: 0.25 },
+  { id: "diamond", weight: 0.2 },
+  { id: "star", weight: 0.12 },
+  { id: "seven", weight: 0.08 },
 ];
 
-export const REEL_COUNT = 5;
-
-// Theoretical RTP of the pay tables above (SYMBOLS / FULL_BOARD_SYMBOLS) with
-// no house-edge scaling applied — exact values, recomputed independently by
-// engine.test.ts's "RTP" / "full board RTP" describe blocks (the full-board
-// figure includes the pay-both-ties rule). A chosen house edge scales
-// payouts by (1 - houseEdge) / baseline, so the resulting theoretical RTP
-// equals 1 - houseEdge exactly, regardless of which baseline it started from.
-export const BASELINE_RTP_SINGLE_ROW = 0.9619252895;
-export const BASELINE_RTP_FULL_BOARD = 0.984280455592317;
-
 // The only house-edge values an admin can pick (a fixed menu, not free
-// entry) — 0%, 1%, 2%, ..., 5%.
+// entry) — 0%, 1%, 2%, ..., 5%. Applies uniformly across every board size.
 export const HOUSE_EDGE_OPTIONS = [0, 0.01, 0.02, 0.03, 0.04, 0.05] as const;
 export const MIN_HOUSE_EDGE = HOUSE_EDGE_OPTIONS[0];
 export const MAX_HOUSE_EDGE = HOUSE_EDGE_OPTIONS[HOUSE_EDGE_OPTIONS.length - 1];
 export const DEFAULT_HOUSE_EDGE = 0.02;
 
 // houseEdge only ever scales *how much* a win pays (see payoutFor /
-// payoutForFullBoard below) — it never touches SYMBOLS' weights or
+// payoutForFullBoard below) — it never touches SYMBOL_WEIGHTS or
 // evaluateWin/evaluateFullBoardWin, which decide *whether* a spin wins.
-// That keeps hit frequency identical at every edge setting; only the
-// pay-table "x" multipliers move.
+// That keeps hit frequency identical at every edge setting for a given
+// board size; only the pay-table "x" multipliers move. Each board size's
+// own BASELINE_RTP constant (set in its table below to that table's exact
+// computed RTP) keeps this formula self-consistent per size: whichever
+// house edge the admin picks becomes the exact realized long-run RTP,
+// regardless of the raw table's own baseline.
 function edgeScale(baselineRtp: number, houseEdge: number): number {
   return (1 - houseEdge) / baselineRtp;
 }
@@ -71,32 +70,33 @@ export function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 10000) / 10000;
 }
 
-// Weighted pick over SYMBOLS via cumulative distribution. The final entry is
-// returned as a fallback for the r === sum-of-weights edge (float rounding),
-// never as a silent bias — weights are authored to sum to exactly 1.
+// Weighted pick over SYMBOL_WEIGHTS via cumulative distribution. The final
+// entry is returned as a fallback for the r === sum-of-weights edge (float
+// rounding), never as a silent bias — weights are authored to sum to
+// exactly 1.
 export function pickSymbol(rng: Rng): SymbolId {
   const r = rng();
   let cum = 0;
-  for (const s of SYMBOLS) {
+  for (const s of SYMBOL_WEIGHTS) {
     cum += s.weight;
     if (r < cum) return s.id;
   }
-  return SYMBOLS[SYMBOLS.length - 1].id;
+  return SYMBOL_WEIGHTS[SYMBOL_WEIGHTS.length - 1].id;
 }
 
-export interface Reel {
-  top: SymbolId;
-  mid: SymbolId;
-  bottom: SymbolId;
-}
+// One reel = one column, top-to-bottom; length always equals the board's
+// row count (3 for every size except 4x6).
+export type Reel = SymbolId[];
 
-// Every visible cell is an independent weighted draw (15 rng() calls per
-// spin). Only `mid` across all reels — the payline — feeds into the payout;
-// top/bottom are cosmetic and never affect the outcome.
-export function spin(rng: Rng): Reel[] {
+// Every visible cell is an independent weighted draw (rows*cols rng() calls
+// per spin).
+export function spin(rng: Rng, boardSize: BoardSize): Reel[] {
+  const { rows, cols } = BOARD_DIMENSIONS[boardSize];
   const reels: Reel[] = [];
-  for (let i = 0; i < REEL_COUNT; i++) {
-    reels.push({ top: pickSymbol(rng), mid: pickSymbol(rng), bottom: pickSymbol(rng) });
+  for (let c = 0; c < cols; c++) {
+    const reel: Reel = [];
+    for (let r = 0; r < rows; r++) reel.push(pickSymbol(rng));
+    reels.push(reel);
   }
   return reels;
 }
