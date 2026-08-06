@@ -433,17 +433,41 @@ describe("evaluateFullBoardWin", () => {
     expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot" })]);
   });
 
-  it("a 3-way tie is structurally possible on a 24-cell board (impossible on 15)", () => {
-    // Sanity check on the data itself: 3 symbols can each reach the 4x6
-    // threshold (10) within 24 cells (3*10=30>24 is false... check the
-    // actual inequality that matters: can three symbols each reach >=10
-    // simultaneously within 24 cells? 3*10=30>24, so NO, three-way ties at
-    // the *threshold* aren't guaranteed possible either — but wins() must
-    // still handle whatever ties DO occur generically. This test just
-    // documents that the code path (iterating SYMBOL_WEIGHTS and pushing
-    // every symbol matching maxCount) has no length cap, unlike the old
-    // 5x3-only version's "never longer than 2" comment.
-    expect(FULL_BOARD_TABLES["4x6"].minCount).toBe(10);
+  it("collects every tied symbol generically (no hardcoded 2-entry cap) via a synthetic 3-way tie", () => {
+    // No real board/table combo can reach a 3-way tie today: a k-way tie
+    // needs k * minCount <= totalCells, and for every current table
+    // 3 * minCount exceeds totalCells (5x3: 21>15, 3x6: 24>18, 4x6:
+    // 30>24 — see the comment above evaluateFullBoardWin). To still
+    // exercise the real tie-collection loop (not a reimplementation of
+    // it), this temporarily installs a throwaway config on "3x3" — a
+    // BoardSize with no real full-board table (3x3 is single_row-only,
+    // see ALLOWED_REWARD_MODES) — whose 9 cells fit a 3-way tie at 3
+    // cells each (3*3=9).
+    expect(FULL_BOARD_TABLES["3x3"]).toBeUndefined();
+    FULL_BOARD_TABLES["3x3"] = {
+      minCount: 3,
+      tierIndex: () => 0,
+      symbols: [
+        { id: "dot", pay: [1] },
+        { id: "square", pay: [1] },
+        { id: "diamond", pay: [1] },
+      ],
+      baselineRtp: 1,
+    };
+    try {
+      // prettier-ignore
+      const reels = fullBoardReels([
+        "dot","square","diamond",
+        "dot","square","diamond",
+        "dot","square","diamond",
+      ], "3x3");
+      const win = evaluateFullBoardWin(reels, "3x3");
+      expect(win?.count).toBe(3);
+      expect(win?.wins.map((w) => w.symbol).sort()).toEqual(["diamond", "dot", "square"]);
+      expect(win?.wins.every((w) => w.positions.length === 3)).toBe(true);
+    } finally {
+      delete FULL_BOARD_TABLES["3x3"];
+    }
   });
 });
 
@@ -490,7 +514,7 @@ describe("payoutForFullBoard", () => {
     const raw = payoutForFullBoard(win, 100, "5x3");
     const scaled = payoutForFullBoard(win, 100, "5x3", DEFAULT_HOUSE_EDGE);
     expect(scaled).toBe(
-      roundMoney(raw * ((1 - DEFAULT_HOUSE_EDGE) / FULL_BOARD_TABLES["5x3"].baselineRtp))
+      roundMoney(raw * ((1 - DEFAULT_HOUSE_EDGE) / FULL_BOARD_TABLES["5x3"]!.baselineRtp))
     );
   });
 

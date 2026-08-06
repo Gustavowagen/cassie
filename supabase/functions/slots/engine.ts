@@ -234,10 +234,13 @@ export function payoutFor(win: Win | null, bet: number, boardSize: BoardSize, ho
 // original 5x3 derivation at
 // docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md.
 //
-// Every symbol tied for the max count pays (not just the rarest). On a
-// 15-cell board (5x3) at most a 2-way tie is possible (3*7=21>15); an
-// 18-cell (3x6) or 24-cell (4x6) board can also produce a 3-way tie —
-// `wins` handles any length generically, no special-casing needed.
+// Every symbol tied for the max count pays (not just the rarest). A k-way
+// winning tie requires k * minCount <= totalCells; checking each current
+// table shows only a 2-way tie is reachable at any board size (5x3:
+// 3*7=21>15; 3x6: 3*8=24>18; 4x6: 3*10=30>24 — a 3-way tie is impossible
+// under all 3 current tables). `wins` is nonetheless written to handle any
+// tie length generically (no hardcoded 2-entry cap), so it stays correct
+// if a future table's minCount ever makes a 3-way tie reachable.
 export interface FullBoardPosition {
   reel: number;
   row: number; // 0-based row index
@@ -249,9 +252,9 @@ export interface FullBoardTieWin {
 }
 
 // `wins` holds every symbol that reached the max count — normally length
-// 1, occasionally 2 or (on 18/24-cell boards) 3 when symbols tie. All of
-// them share `count`/tier, since a tie is only possible between symbols at
-// the exact same count.
+// 1, occasionally 2 when symbols tie (see the tie-reachability comment
+// above evaluateFullBoardWin). All of them share `count`/tier, since a tie
+// is only possible between symbols at the exact same count.
 export interface FullBoardWin {
   count: number;
   wins: FullBoardTieWin[];
@@ -269,10 +272,12 @@ interface FullBoardConfig {
   baselineRtp: number;
 }
 
-// Full-board mode is available on every board size, keyed by all of
-// BoardSize's 3 cell-count-distinct board shapes (3x3 and 3x4 never reach
-// full_board per ALLOWED_REWARD_MODES, so they have no entry here).
-export const FULL_BOARD_TABLES: Record<"5x3" | "3x6" | "4x6", FullBoardConfig> = {
+// Full-board mode is only ever evaluated on 5x3/3x6/4x6 (3x3 and 3x4 never
+// reach full_board per ALLOWED_REWARD_MODES), so this mirrors
+// SINGLE_ROW_TABLES's shape: a Partial keyed by BoardSize, with no entry
+// for the sizes that don't support the mode, and both callers below
+// guarding against a missing config rather than trusting a TS cast.
+export const FULL_BOARD_TABLES: Partial<Record<BoardSize, FullBoardConfig>> = {
   "5x3": {
     minCount: 7,
     tierIndex: (count) => (count >= 11 ? 2 : count >= 9 ? 1 : 0),
@@ -311,14 +316,11 @@ export const FULL_BOARD_TABLES: Record<"5x3" | "3x6" | "4x6", FullBoardConfig> =
   },
 };
 
-function fullBoardConfigFor(boardSize: BoardSize): FullBoardConfig {
-  return FULL_BOARD_TABLES[boardSize as "5x3" | "3x6" | "4x6"];
-}
-
 // Counts every cell (not just the payline) per symbol, then finds the
 // highest count. Every symbol that reaches that count wins.
 export function evaluateFullBoardWin(reels: Reel[], boardSize: BoardSize): FullBoardWin | null {
-  const config = fullBoardConfigFor(boardSize);
+  const config = FULL_BOARD_TABLES[boardSize];
+  if (!config) return null;
   const cellsBySymbol = new Map<SymbolId, FullBoardPosition[]>();
   reels.forEach((reel, reelIndex) => {
     reel.forEach((symbol, row) => {
@@ -351,7 +353,8 @@ export function payoutForFullBoard(
   houseEdge?: number
 ): number {
   if (!win) return 0;
-  const config = fullBoardConfigFor(boardSize);
+  const config = FULL_BOARD_TABLES[boardSize];
+  if (!config) return 0;
   const tier = config.tierIndex(win.count);
   const total = win.wins.reduce((sum, w) => {
     const symbol = config.symbols.find((s) => s.id === w.symbol)!;
