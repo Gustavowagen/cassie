@@ -121,7 +121,24 @@ today's 5x3 design (2*3=6>5):
 | 3x3 | 3 | 2 | 2-match / — / 3-match | 60.0% | 0.904966500000 |
 | 3x4 | 4 | 3 | 3-match / — / 4-match | 21.3% | 0.992062930000 |
 | 5x3 (unchanged) | 5 | 3 | 3 / 4 / 5-match | 41.5% | 0.9619252895 |
-| 3x6 | 6 | 3 | 3-match / 4-5-match / 6-match | 63.0% | 0.961146984006 |
+| 3x6 | 6 | 4 | 4-match / 5-match / 6-match | 17.5% | 0.972812236308 |
+
+**Correction (found during implementation, Task 3):** the original draft of
+this table used threshold 3 for 3x6, which does *not* satisfy
+`2*threshold > cols` (`6 > 6` is false) — two symbols can legitimately tie
+at exactly 3 each. The originally-published `BASELINE_RTP` for that
+version (0.961146984006) was computed as if ties paid both symbols in
+full, but `evaluateWin`/`Win` (a single-winner interface, matching every
+other single-row config) has no such tie-handling and was never going to
+get any — the number and the code disagreed about behavior, not just about
+a digit. Fixed by raising the threshold to 4 (`2*4=8>6`, no ties possible,
+consistent with every other single-row config) and resolving a fresh pay
+table at that threshold; hit frequency drops from the originally-claimed
+63.0% to the actually-achievable 17.5% as a result — lower than the other
+sizes, but no lower than what 3x3/3x4's own combinatorics already forced
+elsewhere in this table, and it preserves the single-winner invariant
+uniformly across every single-row board size rather than special-casing
+one of them.
 
 3x3 and 3x4 only reach 2 win tiers (their max possible match count is too
 low for 3), so their WIN banner only ever shows the WIN or MEGA WIN
@@ -138,11 +155,16 @@ per tier):
 3x4: dot [2.5, 18.5]     square [3, 24.5]     diamond [4, 30.5]
      star [4.5, 36.5]    seven [6, 48.5]
 
-3x6: dot [1, 2, 7.5]     square [1, 2.5, 10]  diamond [1.5, 3, 12.5]
-     star [2, 3.5, 15]   seven [2.5, 5, 20]
+3x6: dot [4, 8, 31]      square [5, 10.5, 41.5]  diamond [6.5, 13, 52]
+     star [8, 15.5, 62]  seven [10.5, 20.5, 83]
 ```
 
-5x3's existing table (`SYMBOLS`) is unchanged.
+5x3's existing table (`SYMBOLS`) is unchanged. Note 3x3's tier-0 pay has
+two ties (square and diamond both pay 1x, from independently rounding two
+close-but-distinct solved values to the nearest 0.5) — an accepted rounding
+artifact of that board's very coarse probability space (only 3 columns),
+not a bug; "rarer pays strictly more" is treated as a general design
+tendency here, not an invariant every table must satisfy exactly.
 
 **Full-board** (win = N+ of one symbol anywhere on the board; ties pay all
 tied symbols):

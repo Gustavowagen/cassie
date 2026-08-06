@@ -10,6 +10,8 @@
 
 **Design doc:** `docs/superpowers/specs/2026-08-06-slots-board-size-design.md`
 
+**Amendment (found during Task 3 execution):** 3x6 single-row's originally-planned threshold (3) does not satisfy the tie-avoidance invariant `2*threshold > cols` (`6 > 6` is false) — ties are possible, and the originally-published `baselineRtp`/pay table for that config assumed a "pay both tied symbols" rule that was never implemented for single-row mode (only full-board mode pays ties). Task 2's already-committed `SINGLE_ROW_TABLES["3x6"]` entry needs to be corrected as part of Task 3: threshold raised to 4 (`2*4=8>6`, no ties possible), new tiers (4-match / 5-match / 6-match), new pay table, new `baselineRtp = 0.972812236308`. See the design doc's "Correction" note in its Single-row section for full detail and the corrected pay table. Task 2's own text below is left as originally written (for historical record of what was reviewed and approved at the time); Task 3's steps below have been updated in place to include this fix.
+
 ---
 
 ## File Structure
