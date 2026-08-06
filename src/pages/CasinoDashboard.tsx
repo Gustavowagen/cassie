@@ -1136,22 +1136,28 @@ function MemberPopup({
   casinoId,
   casinoOwnerId,
   isCreator,
+  canManage,
+  agents,
   onClose,
   onGiveChips,
   onRemoveChips,
   onRoleChange,
   onTransferOwnership,
+  onAssignAgent,
   getMemberProfitLoss,
 }: {
   member: CasinoMemberWithProfile;
   casinoId: string;
   casinoOwnerId: string;
   isCreator: boolean;
+  canManage: boolean;
+  agents: CasinoMemberWithProfile[];
   onClose: () => void;
   onGiveChips: (userId: string, amount: number) => Promise<void>;
   onRemoveChips: (userId: string, amount: number) => Promise<void>;
-  onRoleChange: (userId: string, newRole: "member" | "admin") => Promise<void>;
+  onRoleChange: (userId: string, newRole: "member" | "admin" | "agent") => Promise<void>;
   onTransferOwnership: (userId: string) => Promise<void>;
+  onAssignAgent: (userId: string, agentUserId: string | null) => Promise<void>;
   getMemberProfitLoss: (casinoId: string, userId: string, from?: Date, to?: Date) => Promise<number>;
 }) {
   const [profitLoss, setProfitLoss] = useState<number | null>(null);
@@ -1170,9 +1176,26 @@ function MemberPopup({
   const [confirmingTransfer, setConfirmingTransfer] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
+  const [assigningAgent, setAssigningAgent] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   const role = displayRole(member, casinoOwnerId);
   const isCreatorMember = member.user_id === casinoOwnerId;
+  const currentAgent = agents.find((a) => a.user_id === member.agent_id);
+
+  async function handleAssignAgent(agentUserId: string | null) {
+    setAssigning(true);
+    setAssignError(null);
+    try {
+      await onAssignAgent(member.user_id, agentUserId);
+      setAssigningAgent(false);
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "Failed to assign agent");
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   useEffect(() => {
     let from: Date | undefined;
@@ -1224,7 +1247,7 @@ function MemberPopup({
     }
   }
 
-  async function handleRoleChange(newRole: "member" | "admin") {
+  async function handleRoleChange(newRole: "member" | "admin" | "agent") {
     setChangingRole(true);
     setRoleError(null);
     try {
@@ -1363,7 +1386,7 @@ function MemberPopup({
           <div>
             <p className="text-xs text-muted-foreground mb-2">Role</p>
             <div className="flex gap-2">
-              {(["member", "admin"] as const).map((r) => (
+              {(["member", "admin", "agent"] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -1373,6 +1396,8 @@ function MemberPopup({
                     member.role === r
                       ? r === "admin"
                         ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 cursor-default"
+                        : r === "agent"
+                        ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 cursor-default"
                         : "bg-white/10 text-foreground cursor-default"
                       : "bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground disabled:opacity-50"
                   }`}
@@ -1392,34 +1417,58 @@ function MemberPopup({
           </div>
         )}
 
-        <div>
-          <p className="text-xs text-muted-foreground mb-2">Give or remove chips</p>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min={1}
-              placeholder="Amount"
-              value={chipAmount}
-              onChange={(e) => setChipAmount(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleGive()}
-              className="w-32 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <Button size="sm" onClick={handleGive} disabled={giving || removing} className={CTA_GRADIENT}>
-              {giving ? "Sending…" : "Give"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleRemove}
-              disabled={giving || removing}
-              className="text-destructive border-destructive/40 hover:bg-destructive/10"
-            >
-              {removing ? "Removing…" : "Remove"}
-            </Button>
+        {canManage && !isCreatorMember && member.role !== "agent" && (
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Agent</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {currentAgent ? (
+                <>
+                  <span className="text-sm font-medium">
+                    Reports to {currentAgent.profile?.username ?? "Unknown"}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => setAssigningAgent(true)}>
+                    Change
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setAssigningAgent(true)}>
+                  Assign agent
+                </Button>
+              )}
+            </div>
           </div>
-          {giveError && <p className="text-xs text-destructive mt-1">{giveError}</p>}
-          {removeError && <p className="text-xs text-destructive mt-1">{removeError}</p>}
-        </div>
+        )}
+
+        {canManage && (
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Give or remove chips</p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={1}
+                placeholder="Amount"
+                value={chipAmount}
+                onChange={(e) => setChipAmount(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleGive()}
+                className="w-32 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <Button size="sm" onClick={handleGive} disabled={giving || removing} className={CTA_GRADIENT}>
+                {giving ? "Sending…" : "Give"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRemove}
+                disabled={giving || removing}
+                className="text-destructive border-destructive/40 hover:bg-destructive/10"
+              >
+                {removing ? "Removing…" : "Remove"}
+              </Button>
+            </div>
+            {giveError && <p className="text-xs text-destructive mt-1">{giveError}</p>}
+            {removeError && <p className="text-xs text-destructive mt-1">{removeError}</p>}
+          </div>
+        )}
       </div>
     </div>
 
@@ -1445,6 +1494,55 @@ function MemberPopup({
             </Button>
             <Button size="sm" onClick={handleConfirmTransfer} disabled={transferring}>
               {transferring ? "Transferring…" : "Yes, transfer ownership"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )}
+
+    {assigningAgent && (
+      <Modal onClose={() => (assigning ? undefined : setAssigningAgent(false))} size="md">
+        <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} p-5 space-y-4`}>
+          <div>
+            <p className="font-semibold text-base">Assign agent</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Choose which agent {username} reports to.
+            </p>
+          </div>
+          {assignError && <p className="text-xs text-destructive">{assignError}</p>}
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {agents.length === 0 && (
+              <p className="text-sm text-muted-foreground">No agents in this casino yet.</p>
+            )}
+            {agents.map((a) => (
+              <button
+                key={a.user_id}
+                type="button"
+                disabled={assigning}
+                onClick={() => handleAssignAgent(a.user_id)}
+                className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+                  member.agent_id === a.user_id
+                    ? "bg-primary/15 text-primary"
+                    : "bg-white/5 hover:bg-white/10"
+                }`}
+              >
+                {a.profile?.username ?? "Unknown"}
+              </button>
+            ))}
+            {member.agent_id && (
+              <button
+                type="button"
+                disabled={assigning}
+                onClick={() => handleAssignAgent(null)}
+                className="w-full rounded-lg px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                Unassign
+              </button>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => setAssigningAgent(false)} disabled={assigning}>
+              Cancel
             </Button>
           </div>
         </div>
