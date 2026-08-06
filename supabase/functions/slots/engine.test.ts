@@ -547,18 +547,38 @@ describe("full-board RTP", () => {
 
     function enumerate(idx: number, remaining: number, counts: number[]) {
       if (idx === SYMBOL_WEIGHTS.length - 1) {
+        // The last symbol's count isn't free to choose — it's whatever's
+        // left after every other symbol has claimed its share of the `n`
+        // cells, since every cell holds exactly one symbol.
         counts[idx] = remaining;
+        // coef: the multinomial coefficient n! / (c0! * c1! * ... * cN!) —
+        // how many distinct cell layouts produce this exact per-symbol
+        // count breakdown.
         let coef = factorial(n);
+        // pw: the probability of any one specific layout with this count
+        // breakdown — each symbol's weight raised to its own count,
+        // multiplied together (cells are independent draws).
         let pw = 1;
         for (let i = 0; i < SYMBOL_WEIGHTS.length; i++) {
           coef /= factorial(counts[i]);
           pw *= SYMBOL_WEIGHTS[i].weight ** counts[i];
         }
+        // p: total probability of this count breakdown = (# layouts) *
+        // (probability per layout).
         const p = coef * pw;
 
         const maxCount = Math.max(...counts);
         if (maxCount >= config.minCount) {
           const tier = config.tierIndex(maxCount);
+          // Unlike single-row mode (single winner, no same-row tie
+          // possible at any current threshold), full-board mode pays
+          // every symbol tied for maxCount — sum each tied symbol's pay
+          // at this tier, mirroring evaluateFullBoardWin/
+          // payoutForFullBoard's pay-all-ties rule. A k-way tie is only
+          // reachable when k * minCount <= n; under the current tables
+          // that caps out at a 2-way tie (verified by the "matches each
+          // board size's pinned baselineRtp" test above), but this loop
+          // stays correct for any tie width.
           let tiedPay = 0;
           for (let i = 0; i < counts.length; i++) {
             if (counts[i] === maxCount) tiedPay += config.symbols[i].pay[tier];
