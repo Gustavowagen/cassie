@@ -153,6 +153,10 @@ describe("payoutFor", () => {
     expect(payoutFor({ symbol: "seven", count: 5, positions: [0, 1, 2, 3, 4] }, 2, "5x3")).toBe(80);
   });
 
+  it("pays the 5x3 table's middle tier (count 4) between the 3-of-a-kind and 5-of-a-kind tiers", () => {
+    expect(payoutFor({ symbol: "star", count: 4, positions: [0, 1, 2, 3] }, 10, "5x3")).toBe(65);
+  });
+
   it("rounds to 4 decimal places", () => {
     expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 0.10005, "5x3")).toBe(0.1501);
   });
