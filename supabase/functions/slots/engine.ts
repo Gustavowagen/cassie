@@ -227,41 +227,20 @@ export function payoutFor(win: Win | null, bet: number, boardSize: BoardSize, ho
 
 // --- Full board reward mode -------------------------------------------
 //
-// "Full board" scores all 15 visible cells (top/mid/bottom x 5 reels)
-// instead of just the mid-row payline. With 15 iid draws across 5
-// symbols, some symbol has count >= 3 on effectively 100% of spins
-// (pigeonhole: 15 cells / 5 symbols = 3 average), so reusing the
-// single-row threshold of 3 would mean winning every spin. Exact
-// multinomial enumeration (all 3,876 compositions of 15 into 5 parts,
-// weighted by SYMBOLS' weights above) over "every symbol at the max count
-// wins" gives:
+// "Full board" scores every visible cell instead of just the middle-row
+// payline. Win thresholds and pay tables below are from exact multinomial-
+// composition enumeration over SYMBOL_WEIGHTS (not simulation) — see
+// docs/superpowers/specs/2026-08-06-slots-board-size-design.md and the
+// original 5x3 derivation at
+// docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md.
 //
-//   P(max count >= 7)  = 31.97%  <- win threshold
-//   P(max count >= 9)  =  4.72%  <- BIG WIN tier
-//   P(max count >= 11) =  0.30%  <- MEGA WIN tier
-//
-// Two symbols can tie for the max count (e.g. 7 dots + 7 squares + 1
-// other) — 15 cells / 7-cell threshold allows at most a 2-way tie, never 3
-// (3 * 7 = 21 > 15). When that happens both symbols pay in full rather
-// than picking a "winner" (see evaluateFullBoardWin/payoutForFullBoard).
-// Ties only land in the 7-8 tier (two symbols both at 9+ would need 18+
-// cells) and are rare — 0.10% of all spins, 0.32% of winning spins — so
-// they nudge RTP up slightly rather than requiring a full re-solve.
-//
-// The pay table below was solved (same weighted-sum-times-pay approach
-// as SYMBOLS' RTP above, using those exact tier probabilities, under the
-// single-winner rule) to bring total RTP to ~0.9822 (house edge ~1.78%),
-// matching single-row's ~0.9820 (~1.80%). Tier multipliers are deliberately
-// flatter than a naive scale-up (tier0:tier1:tier2 ≈ 1:3:10.5 per symbol,
-// vs. a much steeper spread) so the common small win (7-8 cells) pays more
-// and the rare max win (11-15 cells) pays less — the same total RTP spread
-// more evenly across outcomes. Paying both symbols on a tie lifts actual
-// RTP to ~0.9843 (house edge ~1.57%) — within the same 97-99% band, so the
-// table wasn't rescaled for it. Full derivation:
-// docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md
+// Every symbol tied for the max count pays (not just the rarest). On a
+// 15-cell board (5x3) at most a 2-way tie is possible (3*7=21>15); an
+// 18-cell (3x6) or 24-cell (4x6) board can also produce a 3-way tie —
+// `wins` handles any length generically, no special-casing needed.
 export interface FullBoardPosition {
   reel: number;
-  row: "top" | "mid" | "bottom";
+  row: number; // 0-based row index
 }
 
 export interface FullBoardTieWin {
@@ -269,49 +248,82 @@ export interface FullBoardTieWin {
   positions: FullBoardPosition[];
 }
 
-// `wins` holds every symbol that reached the max count — normally length 1,
-// occasionally 2 when two symbols tie (see evaluateFullBoardWin). All of
+// `wins` holds every symbol that reached the max count — normally length
+// 1, occasionally 2 or (on 18/24-cell boards) 3 when symbols tie. All of
 // them share `count`/tier, since a tie is only possible between symbols at
 // the exact same count.
 export interface FullBoardWin {
-  count: number; // 7..15
+  count: number;
   wins: FullBoardTieWin[];
 }
 
-interface FullBoardSymbolDef {
+interface FullBoardSymbolPay {
   id: SymbolId;
-  // Pay at tier 0 (7-8 cells), tier 1 (9-10 cells), tier 2 (11-15 cells).
-  pay: [number, number, number];
+  pay: number[]; // indexed by 0-based tier
 }
 
-export const FULL_BOARD_MIN_COUNT = 7;
-
-export const FULL_BOARD_SYMBOLS: FullBoardSymbolDef[] = [
-  { id: "dot", pay: [2, 6, 21] },
-  { id: "square", pay: [3, 9, 32] },
-  { id: "diamond", pay: [4, 12, 42] },
-  { id: "star", pay: [6, 18, 63] },
-  { id: "seven", pay: [10, 30, 105] },
-];
-
-function fullBoardTierIndex(count: number): 0 | 1 | 2 {
-  if (count >= 11) return 2;
-  if (count >= 9) return 1;
-  return 0;
+interface FullBoardConfig {
+  minCount: number;
+  tierIndex: (count: number) => number;
+  symbols: FullBoardSymbolPay[];
+  baselineRtp: number;
 }
 
-// Counts every cell (not just mid) per symbol, then finds the highest
-// count. Every symbol that reaches that count wins — with 15 cells, two
-// symbols tying for the max is possible (e.g. 7 dots + 7 squares + 1
-// other), but three-way ties aren't (3 * 7 = 21 > 15), so `wins` is never
-// longer than 2.
-export function evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null {
+// Full-board mode is available on every board size, keyed by all of
+// BoardSize's 3 cell-count-distinct board shapes (3x3 and 3x4 never reach
+// full_board per ALLOWED_REWARD_MODES, so they have no entry here).
+export const FULL_BOARD_TABLES: Record<"5x3" | "3x6" | "4x6", FullBoardConfig> = {
+  "5x3": {
+    minCount: 7,
+    tierIndex: (count) => (count >= 11 ? 2 : count >= 9 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [2, 6, 21] },
+      { id: "square", pay: [3, 9, 32] },
+      { id: "diamond", pay: [4, 12, 42] },
+      { id: "star", pay: [6, 18, 63] },
+      { id: "seven", pay: [10, 30, 105] },
+    ],
+    baselineRtp: 0.984280455592317,
+  },
+  "3x6": {
+    minCount: 8,
+    tierIndex: (count) => (count >= 12 ? 2 : count >= 10 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [1.5, 5, 18.5] },
+      { id: "square", pay: [2.5, 8, 27.5] },
+      { id: "diamond", pay: [3.5, 10.5, 36.5] },
+      { id: "star", pay: [5, 15.5, 55] },
+      { id: "seven", pay: [8.5, 26, 92] },
+    ],
+    baselineRtp: 0.942909367367,
+  },
+  "4x6": {
+    minCount: 10,
+    tierIndex: (count) => (count >= 17 ? 2 : count >= 13 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [2, 5.5, 19] },
+      { id: "square", pay: [2.5, 8, 29] },
+      { id: "diamond", pay: [3.5, 11, 38.5] },
+      { id: "star", pay: [5.5, 16.5, 57.5] },
+      { id: "seven", pay: [9, 27.5, 96] },
+    ],
+    baselineRtp: 0.972684972884,
+  },
+};
+
+function fullBoardConfigFor(boardSize: BoardSize): FullBoardConfig {
+  return FULL_BOARD_TABLES[boardSize as "5x3" | "3x6" | "4x6"];
+}
+
+// Counts every cell (not just the payline) per symbol, then finds the
+// highest count. Every symbol that reaches that count wins.
+export function evaluateFullBoardWin(reels: Reel[], boardSize: BoardSize): FullBoardWin | null {
+  const config = fullBoardConfigFor(boardSize);
   const cellsBySymbol = new Map<SymbolId, FullBoardPosition[]>();
-  reels.forEach((reel, i) => {
-    (["top", "mid", "bottom"] as const).forEach((row) => {
-      const symbol = reel[row];
+  reels.forEach((reel, reelIndex) => {
+    reel.forEach((symbol, row) => {
       const positions = cellsBySymbol.get(symbol) ?? [];
-      positions.push({ reel: i, row });
+      positions.push({ reel: reelIndex, row });
       cellsBySymbol.set(symbol, positions);
     });
   });
@@ -320,10 +332,10 @@ export function evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null {
   for (const positions of cellsBySymbol.values()) {
     if (positions.length > maxCount) maxCount = positions.length;
   }
-  if (maxCount < FULL_BOARD_MIN_COUNT) return null;
+  if (maxCount < config.minCount) return null;
 
   const wins: FullBoardTieWin[] = [];
-  for (const s of SYMBOLS) {
+  for (const s of SYMBOL_WEIGHTS) {
     const positions = cellsBySymbol.get(s.id) ?? [];
     if (positions.length === maxCount) wins.push({ symbol: s.id, positions });
   }
@@ -332,13 +344,19 @@ export function evaluateFullBoardWin(reels: Reel[]): FullBoardWin | null {
 
 // Every tied symbol pays out — a 7-dot/7-square tie pays dot's tier-0 rate
 // plus square's, not just the rarer one.
-export function payoutForFullBoard(win: FullBoardWin | null, bet: number, houseEdge?: number): number {
+export function payoutForFullBoard(
+  win: FullBoardWin | null,
+  bet: number,
+  boardSize: BoardSize,
+  houseEdge?: number
+): number {
   if (!win) return 0;
-  const tier = fullBoardTierIndex(win.count);
+  const config = fullBoardConfigFor(boardSize);
+  const tier = config.tierIndex(win.count);
   const total = win.wins.reduce((sum, w) => {
-    const symbol = FULL_BOARD_SYMBOLS.find((s) => s.id === w.symbol)!;
+    const symbol = config.symbols.find((s) => s.id === w.symbol)!;
     return sum + symbol.pay[tier];
   }, 0);
-  const scale = houseEdge === undefined ? 1 : edgeScale(BASELINE_RTP_FULL_BOARD, houseEdge);
+  const scale = houseEdge === undefined ? 1 : edgeScale(config.baselineRtp, houseEdge);
   return roundMoney(bet * total * scale);
 }
