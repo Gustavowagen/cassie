@@ -28,7 +28,8 @@ export interface CasinoMemberWithProfile {
   casino_id: string;
   user_id: string;
   balance: number;
-  role: "member" | "admin";
+  role: "member" | "admin" | "agent";
+  agent_id: string | null;
   joined_at: string;
   last_played_at: string | null;
   profile: { username: string | null; avatar_url: string | null } | null;
@@ -45,7 +46,8 @@ export interface CasinoMember {
   casino_id: string;
   user_id: string;
   balance: number;
-  role: "member" | "admin";
+  role: "member" | "admin" | "agent";
+  agent_id: string | null;
   joined_at: string;
   last_played_at: string | null;
 }
