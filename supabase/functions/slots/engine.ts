@@ -103,26 +103,109 @@ export function spin(rng: Rng, boardSize: BoardSize): Reel[] {
 
 export interface Win {
   symbol: SymbolId;
-  count: RunLength;
+  count: number;
   // Reel indices (0-based) holding the winning symbol — not necessarily
   // contiguous or left-aligned, since matches are scatter-style.
   positions: number[];
 }
 
-// Scatter rule: 3+ of the same symbol anywhere on the payline wins, not just
-// a left-aligned consecutive run. At most one symbol can reach a count of 3+
-// per spin (two symbols both doing so would need 6+ of the 5 reels), so
-// there's no tie to break.
-export function evaluateWin(reels: Reel[]): Win | null {
+interface SingleRowSymbolPay {
+  id: SymbolId;
+  pay: number[]; // indexed by 0-based tier
+}
+
+interface SingleRowConfig {
+  // Minimum same-row match count to win at all (tier 0).
+  threshold: number;
+  // Maps a raw match count (>= threshold) to a 0-based pay-tier index.
+  tierIndex: (count: number) => number;
+  symbols: SingleRowSymbolPay[];
+  // This table's own exact RTP at scale=1 — see edgeScale's comment above.
+  baselineRtp: number;
+}
+
+// Single-row mode is only ever evaluated on a 3-row board (see
+// ALLOWED_REWARD_MODES), so it's keyed by a subset of BoardSize; 4x6 has no
+// entry. Every threshold below was chosen so at most one symbol can reach
+// it per spin (2 * threshold > cols), avoiding same-row ties — the same
+// property the original 5x3 table already relied on. Pay tables and
+// BASELINE_RTP figures are from exact multinomial-composition enumeration;
+// see docs/superpowers/specs/2026-08-06-slots-board-size-design.md.
+export const SINGLE_ROW_TABLES: Partial<Record<BoardSize, SingleRowConfig>> = {
+  "3x3": {
+    threshold: 2,
+    tierIndex: (count) => (count >= 3 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [0.5, 5.5] },
+      { id: "square", pay: [1, 7.5] },
+      { id: "diamond", pay: [1, 9.5] },
+      { id: "star", pay: [1.5, 11.5] },
+      { id: "seven", pay: [2, 15] },
+    ],
+    baselineRtp: 0.9049665,
+  },
+  "3x4": {
+    threshold: 3,
+    tierIndex: (count) => (count >= 4 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [2.5, 18.5] },
+      { id: "square", pay: [3, 24.5] },
+      { id: "diamond", pay: [4, 30.5] },
+      { id: "star", pay: [4.5, 36.5] },
+      { id: "seven", pay: [6, 48.5] },
+    ],
+    baselineRtp: 0.99206293,
+  },
+  "5x3": {
+    threshold: 3,
+    tierIndex: (count) => (count >= 5 ? 2 : count === 4 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [1.5, 3, 12] },
+      { id: "square", pay: [2, 4, 15] },
+      { id: "diamond", pay: [2.5, 5, 19] },
+      { id: "star", pay: [3, 6.5, 25] },
+      { id: "seven", pay: [4, 8.5, 40] },
+    ],
+    baselineRtp: 0.9619252895,
+  },
+  "3x6": {
+    threshold: 3,
+    tierIndex: (count) => (count >= 6 ? 2 : count >= 4 ? 1 : 0),
+    symbols: [
+      { id: "dot", pay: [1, 2, 7.5] },
+      { id: "square", pay: [1, 2.5, 10] },
+      { id: "diamond", pay: [1.5, 3, 12.5] },
+      { id: "star", pay: [2, 3.5, 15] },
+      { id: "seven", pay: [2.5, 5, 20] },
+    ],
+    baselineRtp: 0.961146984006,
+  },
+};
+
+// The payline is always the middle row of a 3-row board — single-row mode
+// is never called with a 4-row boardSize (see ALLOWED_REWARD_MODES).
+function paylineRow(boardSize: BoardSize): number {
+  return Math.floor(BOARD_DIMENSIONS[boardSize].rows / 2);
+}
+
+// Scatter rule: threshold+ of the same symbol anywhere on the payline wins,
+// not just a left-aligned consecutive run. Each board size's threshold was
+// chosen so at most one symbol can reach it per spin, so there's no tie to
+// break.
+export function evaluateWin(reels: Reel[], boardSize: BoardSize): Win | null {
+  const row = paylineRow(boardSize);
+  const config = SINGLE_ROW_TABLES[boardSize];
+  if (!config) return null;
   const positionsBySymbol = new Map<SymbolId, number[]>();
   reels.forEach((reel, i) => {
-    const positions = positionsBySymbol.get(reel.mid) ?? [];
+    const symbol = reel[row];
+    const positions = positionsBySymbol.get(symbol) ?? [];
     positions.push(i);
-    positionsBySymbol.set(reel.mid, positions);
+    positionsBySymbol.set(symbol, positions);
   });
   for (const [symbol, positions] of positionsBySymbol) {
-    if (positions.length >= 3) {
-      return { symbol, count: positions.length as RunLength, positions };
+    if (positions.length >= config.threshold) {
+      return { symbol, count: positions.length, positions };
     }
   }
   return null;
@@ -132,11 +215,14 @@ export function evaluateWin(reels: Reel[]): Win | null {
 // callers that care about a configurable edge (the slots edge function)
 // always pass one; engine.test.ts's pinned-payout assertions rely on the
 // unscaled default.
-export function payoutFor(win: Win | null, bet: number, houseEdge?: number): number {
+export function payoutFor(win: Win | null, bet: number, boardSize: BoardSize, houseEdge?: number): number {
   if (!win) return 0;
-  const symbol = SYMBOLS.find((s) => s.id === win.symbol)!;
-  const scale = houseEdge === undefined ? 1 : edgeScale(BASELINE_RTP_SINGLE_ROW, houseEdge);
-  return roundMoney(bet * symbol.pay[win.count] * scale);
+  const config = SINGLE_ROW_TABLES[boardSize];
+  if (!config) return 0;
+  const symbol = config.symbols.find((s) => s.id === win.symbol)!;
+  const tier = config.tierIndex(win.count);
+  const scale = houseEdge === undefined ? 1 : edgeScale(config.baselineRtp, houseEdge);
+  return roundMoney(bet * symbol.pay[tier] * scale);
 }
 
 // --- Full board reward mode -------------------------------------------

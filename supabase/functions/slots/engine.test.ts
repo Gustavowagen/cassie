@@ -6,6 +6,12 @@ import {
   roundMoney,
   BOARD_DIMENSIONS,
   ALLOWED_REWARD_MODES,
+  evaluateWin,
+  payoutFor,
+  SINGLE_ROW_TABLES,
+  MIN_HOUSE_EDGE,
+  MAX_HOUSE_EDGE,
+  DEFAULT_HOUSE_EDGE,
   type Reel,
   type SymbolId,
   type BoardSize,
@@ -14,6 +20,14 @@ import {
 function queue(values: number[]) {
   let i = 0;
   return () => values[Math.min(i++, values.length - 1)];
+}
+
+function reelsForRow(mids: SymbolId[], row: number, rows: number): Reel[] {
+  return mids.map((mid) => {
+    const reel: Reel = [];
+    for (let r = 0; r < rows; r++) reel.push(r === row ? mid : "dot");
+    return reel;
+  });
 }
 
 describe("BOARD_DIMENSIONS", () => {
@@ -78,5 +92,100 @@ describe("spin", () => {
     const reels = spin(rng, "4x6");
     expect(reels).toHaveLength(6);
     reels.forEach((reel) => expect(reel).toEqual(["dot", "dot", "dot", "dot"]));
+  });
+});
+
+describe("evaluateWin", () => {
+  it("returns null when no symbol reaches the 5x3 board's threshold of 3", () => {
+    expect(evaluateWin(reelsForRow(["dot", "dot", "square", "square", "diamond"], 1, 3), "5x3")).toBeNull();
+    expect(evaluateWin(reelsForRow(["dot", "square", "dot", "diamond", "star"], 1, 3), "5x3")).toBeNull();
+  });
+
+  it("matches anywhere on the middle row (scatter), not just a contiguous run from reel 0", () => {
+    expect(evaluateWin(reelsForRow(["square", "dot", "dot", "dot", "dot"], 1, 3), "5x3")).toEqual({
+      symbol: "dot",
+      count: 4,
+      positions: [1, 2, 3, 4],
+    });
+  });
+
+  it("detects a 5x3 5-in-a-row", () => {
+    expect(
+      evaluateWin(reelsForRow(["diamond", "diamond", "diamond", "diamond", "diamond"], 1, 3), "5x3")
+    ).toEqual({ symbol: "diamond", count: 5, positions: [0, 1, 2, 3, 4] });
+  });
+
+  it("evaluates the middle row of a 3x3 board (row index 1) at its threshold of 2", () => {
+    expect(evaluateWin(reelsForRow(["dot", "square", "diamond"], 1, 3), "3x3")).toBeNull();
+    expect(evaluateWin(reelsForRow(["dot", "dot", "diamond"], 1, 3), "3x3")).toEqual({
+      symbol: "dot",
+      count: 2,
+      positions: [0, 1],
+    });
+  });
+
+  it("evaluates the middle row of a 3x4 board at its threshold of 3", () => {
+    expect(evaluateWin(reelsForRow(["dot", "dot", "square", "diamond"], 1, 3), "3x4")).toBeNull();
+    expect(evaluateWin(reelsForRow(["dot", "dot", "dot", "diamond"], 1, 3), "3x4")).toEqual({
+      symbol: "dot",
+      count: 3,
+      positions: [0, 1, 2],
+    });
+  });
+
+  it("evaluates the middle row of a 3x6 board up to a 6-of-a-kind", () => {
+    const allDot = reelsForRow(["dot", "dot", "dot", "dot", "dot", "dot"], 1, 3);
+    expect(evaluateWin(allDot, "3x6")).toEqual({
+      symbol: "dot",
+      count: 6,
+      positions: [0, 1, 2, 3, 4, 5],
+    });
+  });
+});
+
+describe("payoutFor", () => {
+  it("returns 0 for no win", () => {
+    expect(payoutFor(null, 10, "5x3")).toBe(0);
+  });
+
+  it("multiplies bet by the 5x3 symbol's pay table at the matched count (unchanged from before)", () => {
+    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 10, "5x3")).toBe(15);
+    expect(payoutFor({ symbol: "seven", count: 5, positions: [0, 1, 2, 3, 4] }, 2, "5x3")).toBe(80);
+  });
+
+  it("rounds to 4 decimal places", () => {
+    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 0.10005, "5x3")).toBe(0.1501);
+  });
+
+  it("pays the 3x3 table at its own tiers", () => {
+    // dot tier0 (count 2) = 0.5x, tier1 (count 3) = 5.5x
+    expect(payoutFor({ symbol: "dot", count: 2, positions: [0, 1] }, 10, "3x3")).toBe(5);
+    expect(payoutFor({ symbol: "dot", count: 3, positions: [0, 1, 2] }, 10, "3x3")).toBe(55);
+  });
+
+  it("pays the 3x4 table at its own tiers", () => {
+    expect(payoutFor({ symbol: "seven", count: 3, positions: [0, 1, 2] }, 10, "3x4")).toBe(60);
+    expect(payoutFor({ symbol: "seven", count: 4, positions: [0, 1, 2, 3] }, 10, "3x4")).toBe(485);
+  });
+
+  it("pays the 3x6 table across its 3 tiers (count 3 / 4-5 / 6)", () => {
+    expect(payoutFor({ symbol: "star", count: 3, positions: [0, 1, 2] }, 10, "3x6")).toBe(20);
+    expect(payoutFor({ symbol: "star", count: 4, positions: [0, 1, 2, 3] }, 10, "3x6")).toBe(35);
+    expect(payoutFor({ symbol: "star", count: 5, positions: [0, 1, 2, 3, 4] }, 10, "3x6")).toBe(35);
+    expect(payoutFor({ symbol: "star", count: 6, positions: [0, 1, 2, 3, 4, 5] }, 10, "3x6")).toBe(150);
+  });
+
+  it("scales the raw payout by (1 - houseEdge) / that board size's BASELINE_RTP when houseEdge is given", () => {
+    const win = { symbol: "seven" as const, count: 5, positions: [0, 1, 2, 3, 4] };
+    const raw = payoutFor(win, 100, "5x3");
+    const scaled = payoutFor(win, 100, "5x3", DEFAULT_HOUSE_EDGE);
+    expect(scaled).toBe(roundMoney(raw * ((1 - DEFAULT_HOUSE_EDGE) / SINGLE_ROW_TABLES["5x3"]!.baselineRtp)));
+  });
+
+  it("a lower house edge pays more, a higher house edge pays less, than the unscaled default", () => {
+    const win = { symbol: "seven" as const, count: 5, positions: [0, 1, 2, 3, 4] };
+    const raw = payoutFor(win, 100, "5x3");
+    expect(payoutFor(win, 100, "5x3", MIN_HOUSE_EDGE)).toBeGreaterThan(raw);
+    expect(payoutFor(win, 100, "5x3", MAX_HOUSE_EDGE)).toBeLessThan(raw);
   });
 });
