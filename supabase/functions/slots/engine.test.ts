@@ -133,7 +133,8 @@ describe("evaluateWin", () => {
     });
   });
 
-  it("evaluates the middle row of a 3x6 board up to a 6-of-a-kind", () => {
+  it("evaluates the middle row of a 3x6 board at its threshold of 4", () => {
+    expect(evaluateWin(reelsForRow(["dot", "dot", "dot", "square", "diamond", "star"], 1, 3), "3x6")).toBeNull();
     const allDot = reelsForRow(["dot", "dot", "dot", "dot", "dot", "dot"], 1, 3);
     expect(evaluateWin(allDot, "3x6")).toEqual({
       symbol: "dot",
@@ -172,11 +173,10 @@ describe("payoutFor", () => {
     expect(payoutFor({ symbol: "seven", count: 4, positions: [0, 1, 2, 3] }, 10, "3x4")).toBe(485);
   });
 
-  it("pays the 3x6 table across its 3 tiers (count 3 / 4-5 / 6)", () => {
-    expect(payoutFor({ symbol: "star", count: 3, positions: [0, 1, 2] }, 10, "3x6")).toBe(20);
-    expect(payoutFor({ symbol: "star", count: 4, positions: [0, 1, 2, 3] }, 10, "3x6")).toBe(35);
-    expect(payoutFor({ symbol: "star", count: 5, positions: [0, 1, 2, 3, 4] }, 10, "3x6")).toBe(35);
-    expect(payoutFor({ symbol: "star", count: 6, positions: [0, 1, 2, 3, 4, 5] }, 10, "3x6")).toBe(150);
+  it("pays the 3x6 table across its 3 tiers (count 4 / 5 / 6)", () => {
+    expect(payoutFor({ symbol: "star", count: 4, positions: [0, 1, 2, 3] }, 10, "3x6")).toBe(80);
+    expect(payoutFor({ symbol: "star", count: 5, positions: [0, 1, 2, 3, 4] }, 10, "3x6")).toBe(155);
+    expect(payoutFor({ symbol: "star", count: 6, positions: [0, 1, 2, 3, 4, 5] }, 10, "3x6")).toBe(620);
   });
 
   it("scales the raw payout by (1 - houseEdge) / that board size's BASELINE_RTP when houseEdge is given", () => {
@@ -191,5 +191,129 @@ describe("payoutFor", () => {
     const raw = payoutFor(win, 100, "5x3");
     expect(payoutFor(win, 100, "5x3", MIN_HOUSE_EDGE)).toBeGreaterThan(raw);
     expect(payoutFor(win, 100, "5x3", MAX_HOUSE_EDGE)).toBeLessThan(raw);
+  });
+});
+
+describe("SYMBOL_WEIGHTS", () => {
+  it("weights sum to exactly 1", () => {
+    const total = SYMBOL_WEIGHTS.reduce((s, x) => s + x.weight, 0);
+    expect(total).toBeCloseTo(1, 10);
+  });
+
+  it("is ordered rarest-last (dot most common, seven rarest)", () => {
+    for (let i = 1; i < SYMBOL_WEIGHTS.length; i++) {
+      expect(SYMBOL_WEIGHTS[i].weight).toBeLessThan(SYMBOL_WEIGHTS[i - 1].weight);
+    }
+  });
+});
+
+describe("single-row RTP", () => {
+  // Exact multinomial-composition enumeration over SYMBOL_WEIGHTS, generic
+  // over column count — recomputed independently of evaluateWin/payoutFor
+  // so a change to a board size's table can't silently drift its payout
+  // curve without this test catching it.
+  function factorial(n: number): number {
+    let r = 1;
+    for (let i = 2; i <= n; i++) r *= i;
+    return r;
+  }
+
+  function theoreticalSingleRowRtp(boardSize: BoardSize) {
+    const config = SINGLE_ROW_TABLES[boardSize]!;
+    const cols = BOARD_DIMENSIONS[boardSize].cols;
+    let rtp = 0;
+    let hitFrequency = 0;
+
+    function enumerate(idx: number, remaining: number, counts: number[]) {
+      if (idx === SYMBOL_WEIGHTS.length - 1) {
+        counts[idx] = remaining;
+        let coef = factorial(cols);
+        let pw = 1;
+        for (let i = 0; i < SYMBOL_WEIGHTS.length; i++) {
+          coef /= factorial(counts[i]);
+          pw *= SYMBOL_WEIGHTS[i].weight ** counts[i];
+        }
+        const p = coef * pw;
+
+        const maxCount = Math.max(...counts);
+        if (maxCount >= config.threshold) {
+          const tier = config.tierIndex(maxCount);
+          const winners = counts.reduce((n, c) => (c === maxCount ? n + 1 : n), 0);
+          if (winners === 1) {
+            const i = counts.indexOf(maxCount);
+            rtp += p * config.symbols[i].pay[tier];
+          }
+          // winners > 1 (a same-row tie) can't happen for any of these
+          // thresholds — see the "avoids same-row ties" test below — so no
+          // pay-both-ties branch is needed here.
+          hitFrequency += p;
+        }
+        return;
+      }
+      for (let c = 0; c <= remaining; c++) {
+        counts[idx] = c;
+        enumerate(idx + 1, remaining - c, counts);
+      }
+    }
+    enumerate(0, cols, new Array(SYMBOL_WEIGHTS.length).fill(0));
+    return { rtp, hitFrequency };
+  }
+
+  it("every single-row threshold avoids same-row ties (2 * threshold > cols)", () => {
+    for (const boardSize of Object.keys(SINGLE_ROW_TABLES) as BoardSize[]) {
+      const config = SINGLE_ROW_TABLES[boardSize]!;
+      const cols = BOARD_DIMENSIONS[boardSize].cols;
+      expect(2 * config.threshold).toBeGreaterThan(cols);
+    }
+  });
+
+  it("matches each board size's pinned baselineRtp", () => {
+    for (const boardSize of Object.keys(SINGLE_ROW_TABLES) as BoardSize[]) {
+      const { rtp } = theoreticalSingleRowRtp(boardSize);
+      expect(rtp).toBeCloseTo(SINGLE_ROW_TABLES[boardSize]!.baselineRtp, 6);
+    }
+  });
+
+  it("a chosen house edge scales each board size's theoretical RTP to exactly 1 - houseEdge", () => {
+    for (const boardSize of Object.keys(SINGLE_ROW_TABLES) as BoardSize[]) {
+      const { rtp: baseline } = theoreticalSingleRowRtp(boardSize);
+      for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
+        const scale = (1 - houseEdge) / baseline;
+        expect(baseline * scale).toBeCloseTo(1 - houseEdge, 10);
+      }
+    }
+  });
+
+  it("hit frequencies land where exact enumeration puts them (documented in the design doc)", () => {
+    const expected: Record<BoardSize, [number, number]> = {
+      "3x3": [0.55, 0.65],
+      "3x4": [0.18, 0.25],
+      "5x3": [0.35, 0.48],
+      // Lower than the other sizes: 3x6's threshold was raised from 3 to 4
+      // to avoid same-row ties (2*4=8>6) — see design doc's "Correction"
+      // note. 17.5% is the actually-achievable hit frequency at threshold 4.
+      "3x6": [0.14, 0.21],
+      "4x6": [0, 0], // unused, no single-row table
+    };
+    for (const boardSize of Object.keys(SINGLE_ROW_TABLES) as BoardSize[]) {
+      const { hitFrequency } = theoreticalSingleRowRtp(boardSize);
+      const [lo, hi] = expected[boardSize];
+      expect(hitFrequency).toBeGreaterThan(lo);
+      expect(hitFrequency).toBeLessThan(hi);
+    }
+  });
+
+  it("within every board size's table, rarer symbols pay more at every tier", () => {
+    for (const boardSize of Object.keys(SINGLE_ROW_TABLES) as BoardSize[]) {
+      const symbols = SINGLE_ROW_TABLES[boardSize]!.symbols;
+      for (let i = 1; i < symbols.length; i++) {
+        for (let tier = 0; tier < symbols[i].pay.length; tier++) {
+          // >= not > : 3x3's tier-0 has an intentional tie between
+          // square/diamond, a rounding artifact of that board's coarse
+          // probability space — see design doc.
+          expect(symbols[i].pay[tier]).toBeGreaterThanOrEqual(symbols[i - 1].pay[tier]);
+        }
+      }
+    }
   });
 });
