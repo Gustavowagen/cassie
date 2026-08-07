@@ -228,96 +228,96 @@ export function payoutFor(win: Win | null, bet: number, boardSize: BoardSize, ho
 // --- Full board reward mode -------------------------------------------
 //
 // "Full board" scores every visible cell instead of just the middle-row
-// payline. Win thresholds and pay tables below are from exact multinomial-
-// composition enumeration over SYMBOL_WEIGHTS (not simulation) — see
-// docs/superpowers/specs/2026-08-06-slots-board-size-design.md and the
-// original 5x3 derivation at
-// docs/superpowers/specs/2026-08-01-slots-full-board-reward-design.md.
+// payline. Unlike single-row mode (one shared threshold, one winner),
+// every symbol has its own threshold and is evaluated independently: a
+// symbol wins whenever its own cell count reaches its own threshold,
+// regardless of what any other symbol's count is. More than one symbol
+// can independently qualify in the same spin — when that happens, every
+// qualifying symbol pays, at its own tier; there is no single "winner" and
+// no tie-break rule needed, since qualification isn't relative to any
+// other symbol's count.
 //
-// Every symbol tied for the max count pays (not just the rarest). A k-way
-// winning tie requires k * minCount <= totalCells; checking each current
-// table shows only a 2-way tie is reachable at any board size (5x3:
-// 3*7=21>15; 3x6: 3*8=24>18; 4x6: 3*10=30>24 — a 3-way tie is impossible
-// under all 3 current tables). `wins` is nonetheless written to handle any
-// tie length generically (no hardcoded 2-entry cap), so it stays correct
-// if a future table's minCount ever makes a 3-way tie reachable.
+// Thresholds and pay tables below are from exact binomial/multinomial
+// enumeration (not simulation) — see
+// docs/superpowers/specs/2026-08-07-slots-full-board-per-symbol-thresholds-design.md
+// for the full derivation (thresholds chosen so each symbol requires no
+// more matches than the next-more-common symbol, while each symbol's own
+// win probability is strictly less than every more-common symbol's).
 export interface FullBoardPosition {
   reel: number;
   row: number; // 0-based row index
 }
 
+// `wins` holds every symbol that independently reached its own threshold
+// this spin — normally length 0-1, occasionally more when multiple
+// symbols each clear their own (different) threshold at once. Each entry
+// carries its own `count`, since different symbols can win at different
+// counts in the same spin — there is no single board-wide count anymore.
 export interface FullBoardTieWin {
   symbol: SymbolId;
+  count: number;
   positions: FullBoardPosition[];
 }
 
-// `wins` holds every symbol that reached the max count — normally length
-// 1, occasionally 2 when symbols tie (see the tie-reachability comment
-// above evaluateFullBoardWin). All of them share `count`/tier, since a tie
-// is only possible between symbols at the exact same count.
 export interface FullBoardWin {
-  count: number;
   wins: FullBoardTieWin[];
 }
 
-interface FullBoardSymbolPay {
+interface FullBoardSymbolConfig {
   id: SymbolId;
+  threshold: number;
+  tierIndex: (count: number) => number;
   pay: number[]; // indexed by 0-based tier
 }
 
 interface FullBoardConfig {
-  minCount: number;
-  tierIndex: (count: number) => number;
-  symbols: FullBoardSymbolPay[];
+  symbols: FullBoardSymbolConfig[];
   baselineRtp: number;
 }
 
 // Full-board mode is only ever evaluated on 5x3/3x6/4x6 (3x3 and 3x4 never
-// reach full_board per ALLOWED_REWARD_MODES), so this mirrors
-// SINGLE_ROW_TABLES's shape: a Partial keyed by BoardSize, with no entry
-// for the sizes that don't support the mode, and both callers below
-// guarding against a missing config rather than trusting a TS cast.
+// reach full_board per ALLOWED_REWARD_MODES), so this is a Partial keyed
+// by BoardSize, with no entry for the sizes that don't support the mode —
+// both callers below guard against a missing config rather than trusting
+// a TS cast.
 export const FULL_BOARD_TABLES: Partial<Record<BoardSize, FullBoardConfig>> = {
   "5x3": {
-    minCount: 7,
-    tierIndex: (count) => (count >= 11 ? 2 : count >= 9 ? 1 : 0),
+    baselineRtp: 0.953370178231,
     symbols: [
-      { id: "dot", pay: [2, 6, 21] },
-      { id: "square", pay: [3, 9, 32] },
-      { id: "diamond", pay: [4, 12, 42] },
-      { id: "star", pay: [6, 18, 63] },
-      { id: "seven", pay: [10, 30, 105] },
+      { id: "dot", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [0.5, 1.5, 4.5] },
+      { id: "square", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [2.5, 8, 28] },
+      { id: "diamond", threshold: 7, tierIndex: (c) => (c >= 9 ? 2 : c === 8 ? 1 : 0), pay: [6, 17.5, 61.5] },
+      { id: "star", threshold: 6, tierIndex: (c) => (c >= 8 ? 2 : c === 7 ? 1 : 0), pay: [22, 66.5, 233.5] },
+      { id: "seven", threshold: 5, tierIndex: (c) => (c >= 7 ? 2 : c === 6 ? 1 : 0), pay: [27.5, 82.5, 288] },
     ],
-    baselineRtp: 0.984280455592317,
   },
   "3x6": {
-    minCount: 8,
-    tierIndex: (count) => (count >= 12 ? 2 : count >= 10 ? 1 : 0),
+    baselineRtp: 0.990009227769,
     symbols: [
-      { id: "dot", pay: [1.5, 5, 18.5] },
-      { id: "square", pay: [2.5, 8, 27.5] },
-      { id: "diamond", pay: [3.5, 10.5, 36.5] },
-      { id: "star", pay: [5, 15.5, 55] },
-      { id: "seven", pay: [8.5, 26, 92] },
+      { id: "dot", threshold: 9, tierIndex: (c) => (c >= 12 ? 2 : c === 11 ? 1 : 0), pay: [1, 2.5, 9] },
+      { id: "square", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [1, 2.5, 9] },
+      { id: "diamond", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [3, 8.5, 30] },
+      { id: "star", threshold: 6, tierIndex: (c) => (c >= 8 ? 2 : c === 7 ? 1 : 0), pay: [7, 21.5, 74.5] },
+      { id: "seven", threshold: 5, tierIndex: (c) => (c >= 7 ? 2 : c === 6 ? 1 : 0), pay: [10.5, 31.5, 110.5] },
     ],
-    baselineRtp: 0.942909367367,
   },
   "4x6": {
-    minCount: 10,
-    tierIndex: (count) => (count >= 17 ? 2 : count >= 13 ? 1 : 0),
+    baselineRtp: 0.924315378511,
     symbols: [
-      { id: "dot", pay: [2, 5.5, 19] },
-      { id: "square", pay: [2.5, 8, 29] },
-      { id: "diamond", pay: [3.5, 11, 38.5] },
-      { id: "star", pay: [5.5, 16.5, 57.5] },
-      { id: "seven", pay: [9, 27.5, 96] },
+      { id: "dot", threshold: 11, tierIndex: (c) => (c >= 15 ? 2 : c >= 13 ? 1 : 0), pay: [0.5, 2, 6.5] },
+      { id: "square", threshold: 9, tierIndex: (c) => (c >= 13 ? 2 : c >= 11 ? 1 : 0), pay: [1, 3, 11] },
+      { id: "diamond", threshold: 9, tierIndex: (c) => (c >= 12 ? 2 : c === 11 ? 1 : 0), pay: [3.5, 11, 39] },
+      { id: "star", threshold: 7, tierIndex: (c) => (c >= 9 ? 2 : c === 8 ? 1 : 0), pay: [5, 14.5, 50.5] },
+      { id: "seven", threshold: 6, tierIndex: (c) => (c >= 8 ? 2 : c === 7 ? 1 : 0), pay: [11, 33, 116.5] },
     ],
-    baselineRtp: 0.972684972884,
   },
 };
 
-// Counts every cell (not just the payline) per symbol, then finds the
-// highest count. Every symbol that reaches that count wins.
+// Counts every cell (not just the payline) per symbol, then checks each
+// symbol independently against its own threshold — no "max count" concept
+// anymore. Every symbol whose count reaches its own threshold is collected
+// into `wins`, generically (no hardcoded cap on how many can qualify at
+// once).
 export function evaluateFullBoardWin(reels: Reel[], boardSize: BoardSize): FullBoardWin | null {
   const config = FULL_BOARD_TABLES[boardSize];
   if (!config) return null;
@@ -330,36 +330,12 @@ export function evaluateFullBoardWin(reels: Reel[], boardSize: BoardSize): FullB
     });
   });
 
-  let maxCount = 0;
-  for (const positions of cellsBySymbol.values()) {
-    if (positions.length > maxCount) maxCount = positions.length;
-  }
-  if (maxCount < config.minCount) return null;
-
   const wins: FullBoardTieWin[] = [];
-  for (const s of SYMBOL_WEIGHTS) {
+  for (const s of config.symbols) {
     const positions = cellsBySymbol.get(s.id) ?? [];
-    if (positions.length === maxCount) wins.push({ symbol: s.id, positions });
+    if (positions.length >= s.threshold) {
+      wins.push({ symbol: s.id, count: positions.length, positions });
+    }
   }
-  return { count: maxCount, wins };
-}
-
-// Every tied symbol pays out — a 7-dot/7-square tie pays dot's tier-0 rate
-// plus square's, not just the rarer one.
-export function payoutForFullBoard(
-  win: FullBoardWin | null,
-  bet: number,
-  boardSize: BoardSize,
-  houseEdge?: number
-): number {
-  if (!win) return 0;
-  const config = FULL_BOARD_TABLES[boardSize];
-  if (!config) return 0;
-  const tier = config.tierIndex(win.count);
-  const total = win.wins.reduce((sum, w) => {
-    const symbol = config.symbols.find((s) => s.id === w.symbol)!;
-    return sum + symbol.pay[tier];
-  }, 0);
-  const scale = houseEdge === undefined ? 1 : edgeScale(config.baselineRtp, houseEdge);
-  return roundMoney(bet * total * scale);
+  return wins.length > 0 ? { wins } : null;
 }

@@ -361,43 +361,59 @@ function fullBoardReels(cellSymbols: SymbolId[], boardSize: BoardSize): Reel[] {
 }
 
 describe("evaluateFullBoardWin", () => {
-  it("returns null when the max count across all 15 cells (5x3) is below 7", () => {
+  it("returns null when no symbol reaches its own threshold (5x3)", () => {
+    // dot=6 (below its threshold of 7), square=5 (below 7), diamond=2
+    // (below 7), star=1 (below 6), seven=1 (below 5) — nobody qualifies.
     // prettier-ignore
     const reels = fullBoardReels([
-      "dot","dot","dot","diamond","star",
-      "dot","dot","square","star","seven",
-      "square","square","diamond","seven","square",
+      "dot","dot","dot","dot","dot",
+      "dot","square","square","square","square",
+      "square","diamond","diamond","star","seven",
     ], "5x3");
     expect(evaluateFullBoardWin(reels, "5x3")).toBeNull();
   });
 
-  it("counts matches across all rows, not just the middle, at the 5x3 7-cell threshold", () => {
-    // prettier-ignore
-    const reels = fullBoardReels([
-      "dot","dot","dot","dot","star",
-      "dot","dot","dot","square","seven",
-      "square","square","diamond","diamond","square",
-    ], "5x3");
-    const win = evaluateFullBoardWin(reels, "5x3");
-    expect(win?.count).toBe(7);
-    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot" })]);
-  });
-
-  it("both symbols win when they tie for the max count (5x3)", () => {
-    // dot and square both land exactly 7 times (verified by direct count,
-    // not just by construction — the task-provided version of this fixture
-    // actually produced dot:6/square:7, not a tie; this replacement layout
-    // was checked cell-by-cell to land at 7/7/1).
+  it("a symbol wins alone at exactly its own threshold, with no other symbol also qualifying (5x3 dot at 7)", () => {
+    // dot=7 (at its threshold), square=6 (below its threshold of 7),
+    // diamond=2 (below its threshold of 7) — only dot qualifies.
     // prettier-ignore
     const reels = fullBoardReels([
       "dot","dot","dot","dot","dot",
       "dot","dot","square","square","square",
-      "square","square","square","square","diamond",
+      "square","square","square","diamond","diamond",
     ], "5x3");
     const win = evaluateFullBoardWin(reels, "5x3");
-    expect(win?.count).toBe(7);
-    expect(win?.wins.map((w) => w.symbol).sort()).toEqual(["dot", "square"]);
-    expect(win?.wins.every((w) => w.positions.length === 7)).toBe(true);
+    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot", count: 7 })]);
+    expect(win?.wins[0].positions).toHaveLength(7);
+  });
+
+  it("two different symbols independently clear their own (different) thresholds in the same spin, and both are collected (5x3 dot=7, seven=5)", () => {
+    // dot=7 (at its threshold of 7), seven=5 (at its threshold of 5),
+    // square=3 (below its threshold of 7) fills the remaining cells.
+    // prettier-ignore
+    const reels = fullBoardReels([
+      "dot","dot","dot","dot","dot",
+      "dot","dot","seven","seven","seven",
+      "seven","seven","square","square","square",
+    ], "5x3");
+    const win = evaluateFullBoardWin(reels, "5x3");
+    expect(win?.wins.map((w) => w.symbol).sort()).toEqual(["dot", "seven"]);
+    expect(win?.wins.find((w) => w.symbol === "dot")?.count).toBe(7);
+    expect(win?.wins.find((w) => w.symbol === "seven")?.count).toBe(5);
+  });
+
+  it("collects any number of simultaneously qualifying symbols generically, not just one (3x6: diamond=7, star=6, seven=5 all independently win)", () => {
+    // prettier-ignore
+    const reels = fullBoardReels([
+      "diamond","diamond","diamond","diamond","diamond","diamond",
+      "diamond","star","star","star","star","star",
+      "star","seven","seven","seven","seven","seven",
+    ], "3x6");
+    const win = evaluateFullBoardWin(reels, "3x6");
+    expect(win?.wins.map((w) => w.symbol).sort()).toEqual(["diamond", "seven", "star"]);
+    expect(win?.wins.find((w) => w.symbol === "diamond")?.count).toBe(7);
+    expect(win?.wins.find((w) => w.symbol === "star")?.count).toBe(6);
+    expect(win?.wins.find((w) => w.symbol === "seven")?.count).toBe(5);
   });
 
   it("positions use a numeric row index, not a top/mid/bottom label", () => {
@@ -405,69 +421,54 @@ describe("evaluateFullBoardWin", () => {
     const win = evaluateFullBoardWin(reels, "5x3");
     const rows = win!.wins[0].positions.map((p) => p.row).sort();
     expect(rows).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+    expect(win!.wins[0].count).toBe(15);
   });
 
-  it("returns null below the 3x6 board's 8-cell threshold", () => {
-    const reels = fullBoardReels(
-      ["dot", "dot", "dot", "dot", "dot", "dot", "dot", "square", "square", "diamond", "diamond", "star", "star", "seven", "seven", "seven", "square", "diamond"],
-      "3x6"
-    );
+  it("returns null below the 3x6 board's per-symbol thresholds", () => {
+    // dot=8 (below its threshold of 9), square=6 (below 7), diamond=2
+    // (below 7), star=1 (below 6), seven=1 (below 5).
+    // prettier-ignore
+    const reels = fullBoardReels([
+      "dot","dot","dot","dot","dot","dot",
+      "dot","dot","square","square","square","square",
+      "square","square","diamond","diamond","star","seven",
+    ], "3x6");
     expect(evaluateFullBoardWin(reels, "3x6")).toBeNull();
   });
 
-  it("wins at the 3x6 board's 8-cell threshold", () => {
-    const cells = new Array(18).fill("square");
-    cells[0] = "dot";
-    cells[1] = "dot";
-    const reels = fullBoardReels(cells, "3x6");
+  it("wins at the 3x6 board's dot threshold (9)", () => {
+    // dot=9 (at its threshold), square=6 (below its threshold of 7),
+    // diamond=3 (below its threshold of 7) fill the remaining 9 cells.
+    // prettier-ignore
+    const reels = fullBoardReels([
+      "dot","dot","dot","dot","dot","dot",
+      "dot","dot","dot","square","square","square",
+      "square","square","square","diamond","diamond","diamond",
+    ], "3x6");
     const win = evaluateFullBoardWin(reels, "3x6");
-    expect(win?.count).toBe(16);
-    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "square" })]);
+    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot", count: 9 })]);
   });
 
-  it("wins at the 4x6 board's 10-cell threshold (24 cells)", () => {
-    const cells = new Array(24).fill("dot");
+  it("wins at the 4x6 board's dot threshold (11)", () => {
+    // dot=11 (at its threshold), square=8 (below its threshold of 9),
+    // diamond=5 (below its threshold of 9) fill the remaining 13 cells.
+    const cells = [
+      ...new Array(11).fill("dot"),
+      ...new Array(8).fill("square"),
+      ...new Array(5).fill("diamond"),
+    ];
     const reels = fullBoardReels(cells, "4x6");
     const win = evaluateFullBoardWin(reels, "4x6");
-    expect(win?.count).toBe(24);
-    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot" })]);
+    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "dot", count: 11 })]);
   });
 
-  it("collects every tied symbol generically (no hardcoded 2-entry cap) via a synthetic 3-way tie", () => {
-    // No real board/table combo can reach a 3-way tie today: a k-way tie
-    // needs k * minCount <= totalCells, and for every current table
-    // 3 * minCount exceeds totalCells (5x3: 21>15, 3x6: 24>18, 4x6:
-    // 30>24 — see the comment above evaluateFullBoardWin). To still
-    // exercise the real tie-collection loop (not a reimplementation of
-    // it), this temporarily installs a throwaway config on "3x3" — a
-    // BoardSize with no real full-board table (3x3 is single_row-only,
-    // see ALLOWED_REWARD_MODES) — whose 9 cells fit a 3-way tie at 3
-    // cells each (3*3=9).
-    expect(FULL_BOARD_TABLES["3x3"]).toBeUndefined();
-    FULL_BOARD_TABLES["3x3"] = {
-      minCount: 3,
-      tierIndex: () => 0,
-      symbols: [
-        { id: "dot", pay: [1] },
-        { id: "square", pay: [1] },
-        { id: "diamond", pay: [1] },
-      ],
-      baselineRtp: 1,
-    };
-    try {
-      // prettier-ignore
-      const reels = fullBoardReels([
-        "dot","square","diamond",
-        "dot","square","diamond",
-        "dot","square","diamond",
-      ], "3x3");
-      const win = evaluateFullBoardWin(reels, "3x3");
-      expect(win?.count).toBe(3);
-      expect(win?.wins.map((w) => w.symbol).sort()).toEqual(["diamond", "dot", "square"]);
-      expect(win?.wins.every((w) => w.positions.length === 3)).toBe(true);
-    } finally {
-      delete FULL_BOARD_TABLES["3x3"];
-    }
+  it("the rarest symbol (seven) wins alone at its own threshold of 5, distinct from dot's threshold of 7 (5x3)", () => {
+    // seven=5 (at its threshold), dot=6 (below its threshold of 7),
+    // square=4 (below its threshold of 7) fill the remaining 10 cells.
+    const cells = [...new Array(5).fill("seven"), ...new Array(6).fill("dot"), ...new Array(4).fill("square")];
+    const reels = fullBoardReels(cells, "5x3");
+    const win = evaluateFullBoardWin(reels, "5x3");
+    expect(win?.wins).toEqual([expect.objectContaining({ symbol: "seven", count: 5 })]);
   });
 });
 
