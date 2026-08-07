@@ -20,7 +20,7 @@ const REWARD_MODES = [
   {
     id: "full_board" as const,
     label: "Full board reward",
-    description: "Win by matching symbols anywhere across all 3 rows.",
+    description: "Win by matching symbols anywhere on the board.",
   },
 ];
 
