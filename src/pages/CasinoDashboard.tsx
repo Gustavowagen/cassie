@@ -390,6 +390,7 @@ export function CasinoDashboard() {
                   ? "full_board"
                   : "single_row"
               }
+              boardSize={(activeGame.settings as SlotsInstanceSettings)?.boardSize ?? "5x3"}
               // Mirrors the slots edge function's DEFAULT_HOUSE_EDGE fallback
               // (supabase/functions/slots/engine.ts) for pre-existing rows.
               houseEdge={(activeGame.settings as SlotsInstanceSettings)?.houseEdge ?? 0.02}
