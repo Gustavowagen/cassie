@@ -461,6 +461,7 @@ export function CasinoDashboard() {
             isCreator={isOwner}
             canManage={canManageMembers}
             agents={members.filter((m) => m.role === "agent")}
+            allMembers={members}
             onClose={() => setSelectedMember(null)}
             onGiveChips={handleGiveChips}
             onRemoveChips={handleRemoveChips}
@@ -1160,6 +1161,7 @@ function MemberPopup({
   isCreator,
   canManage,
   agents,
+  allMembers,
   onClose,
   onGiveChips,
   onRemoveChips,
@@ -1174,6 +1176,7 @@ function MemberPopup({
   isCreator: boolean;
   canManage: boolean;
   agents: CasinoMemberWithProfile[];
+  allMembers: CasinoMemberWithProfile[];
   onClose: () => void;
   onGiveChips: (userId: string, amount: number) => Promise<void>;
   onRemoveChips: (userId: string, amount: number) => Promise<void>;
@@ -1201,10 +1204,12 @@ function MemberPopup({
   const [assigningAgent, setAssigningAgent] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
+  const [viewingDownline, setViewingDownline] = useState(false);
 
   const role = displayRole(member, casinoOwnerId);
   const isCreatorMember = member.user_id === casinoOwnerId;
   const currentAgent = agents.find((a) => a.user_id === member.agent_id);
+  const downline = allMembers.filter((m) => m.agent_id === member.user_id);
 
   async function handleAssignAgent(agentUserId: string | null) {
     setAssigning(true);
@@ -1461,6 +1466,20 @@ function MemberPopup({
           </div>
         )}
 
+        {canManage && member.role === "agent" && (
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Downline</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium">
+                {downline.length} member{downline.length === 1 ? "" : "s"}
+              </span>
+              <Button size="sm" variant="outline" onClick={() => setViewingDownline(true)}>
+                View downline
+              </Button>
+            </div>
+          </div>
+        )}
+
         {canManage && (
           <div>
             <p className="text-xs text-muted-foreground mb-2">Give or remove chips</p>
@@ -1565,6 +1584,51 @@ function MemberPopup({
           <div className="flex justify-end">
             <Button size="sm" variant="outline" onClick={() => setAssigningAgent(false)} disabled={assigning}>
               Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )}
+
+    {viewingDownline && (
+      <Modal onClose={() => setViewingDownline(false)} size="md">
+        <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} p-5 space-y-4`}>
+          <div>
+            <p className="font-semibold text-base">{username}'s downline</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {downline.length} member{downline.length === 1 ? "" : "s"} reporting to this agent.
+            </p>
+          </div>
+          <div className="space-y-1.5 max-h-80 overflow-y-auto">
+            {downline.length === 0 && (
+              <p className="text-sm text-muted-foreground">No members assigned to this agent yet.</p>
+            )}
+            {downline.map((m) => {
+              const dUsername = m.profile?.username ?? "Unknown";
+              return (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-white/5 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="h-7 w-7 rounded-full flex items-center justify-center text-[0.65rem] font-bold text-white shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]"
+                      style={{ background: avatarGradient(dUsername) }}
+                    >
+                      {initialsOf(dUsername)}
+                    </div>
+                    <span className="text-sm font-medium truncate">{dUsername}</span>
+                  </div>
+                  <span className="text-sm font-mono tabular-nums text-muted-foreground shrink-0">
+                    {formatChips(m.balance)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => setViewingDownline(false)}>
+              Close
             </Button>
           </div>
         </div>
