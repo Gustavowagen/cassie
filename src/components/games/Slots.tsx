@@ -100,48 +100,56 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
   },
 };
 
-// Mirrors supabase/functions/slots/engine.ts's FULL_BOARD_TABLES.
-const FULL_BOARD_PAYTABLES: Record<"5x3" | "3x6" | "4x6", ClientPaytable> = {
+interface FullBoardSymbolPaytable {
+  id: SlotSymbolId;
+  threshold: number;
+  tierIndex: (count: number) => number;
+  pay: number[];
+  // Precomputed count-range text per tier (e.g. "7-8 · 9 · 10+") — kept as
+  // a plain string here rather than derived from tierIndex at render time,
+  // since deriving exact range boundaries back out of a tierIndex function
+  // is more error-prone than stating them once alongside the thresholds
+  // they were designed from (see the design doc's per-symbol tables).
+  rangeLabel: string;
+}
+
+interface FullBoardClientPaytable {
+  baselineRtp: number;
+  symbols: FullBoardSymbolPaytable[];
+}
+
+// Mirrors supabase/functions/slots/engine.ts's FULL_BOARD_TABLES. Every
+// symbol has its own threshold/tiers now (not one shared minCount) — see
+// docs/superpowers/specs/2026-08-07-slots-full-board-per-symbol-thresholds-design.md.
+const FULL_BOARD_PAYTABLES: Record<"5x3" | "3x6" | "4x6", FullBoardClientPaytable> = {
   "5x3": {
-    baselineRtp: 0.984280455592317,
-    tierCount: 3,
-    tierIndex: (count) => (count >= 11 ? 2 : count >= 9 ? 1 : 0),
-    minCount: 7,
-    label: "Paytable (7-8 · 9-10 · 11+)",
+    baselineRtp: 0.953370178231,
     symbols: [
-      { id: "dot", pay: [2, 6, 21] },
-      { id: "square", pay: [3, 9, 32] },
-      { id: "diamond", pay: [4, 12, 42] },
-      { id: "star", pay: [6, 18, 63] },
-      { id: "seven", pay: [10, 30, 105] },
+      { id: "dot", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [0.5, 1.5, 4.5], rangeLabel: "7-8 · 9 · 10+" },
+      { id: "square", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [2.5, 8, 28], rangeLabel: "7-8 · 9 · 10+" },
+      { id: "diamond", threshold: 7, tierIndex: (c) => (c >= 9 ? 2 : c === 8 ? 1 : 0), pay: [6, 17.5, 61.5], rangeLabel: "7 · 8 · 9+" },
+      { id: "star", threshold: 6, tierIndex: (c) => (c >= 8 ? 2 : c === 7 ? 1 : 0), pay: [22, 66.5, 233.5], rangeLabel: "6 · 7 · 8+" },
+      { id: "seven", threshold: 5, tierIndex: (c) => (c >= 7 ? 2 : c === 6 ? 1 : 0), pay: [27.5, 82.5, 288], rangeLabel: "5 · 6 · 7+" },
     ],
   },
   "3x6": {
-    baselineRtp: 0.942909367367,
-    tierCount: 3,
-    tierIndex: (count) => (count >= 12 ? 2 : count >= 10 ? 1 : 0),
-    minCount: 8,
-    label: "Paytable (8-9 · 10-11 · 12+)",
+    baselineRtp: 0.990009227769,
     symbols: [
-      { id: "dot", pay: [1.5, 5, 18.5] },
-      { id: "square", pay: [2.5, 8, 27.5] },
-      { id: "diamond", pay: [3.5, 10.5, 36.5] },
-      { id: "star", pay: [5, 15.5, 55] },
-      { id: "seven", pay: [8.5, 26, 92] },
+      { id: "dot", threshold: 9, tierIndex: (c) => (c >= 12 ? 2 : c === 11 ? 1 : 0), pay: [1, 2.5, 9], rangeLabel: "9-10 · 11 · 12+" },
+      { id: "square", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [1, 2.5, 9], rangeLabel: "7-8 · 9 · 10+" },
+      { id: "diamond", threshold: 7, tierIndex: (c) => (c >= 10 ? 2 : c === 9 ? 1 : 0), pay: [3, 8.5, 30], rangeLabel: "7-8 · 9 · 10+" },
+      { id: "star", threshold: 6, tierIndex: (c) => (c >= 8 ? 2 : c === 7 ? 1 : 0), pay: [7, 21.5, 74.5], rangeLabel: "6 · 7 · 8+" },
+      { id: "seven", threshold: 5, tierIndex: (c) => (c >= 7 ? 2 : c === 6 ? 1 : 0), pay: [10.5, 31.5, 110.5], rangeLabel: "5 · 6 · 7+" },
     ],
   },
   "4x6": {
-    baselineRtp: 0.972684972884,
-    tierCount: 3,
-    tierIndex: (count) => (count >= 17 ? 2 : count >= 13 ? 1 : 0),
-    minCount: 10,
-    label: "Paytable (10-12 · 13-16 · 17+)",
+    baselineRtp: 0.924315378511,
     symbols: [
-      { id: "dot", pay: [2, 5.5, 19] },
-      { id: "square", pay: [2.5, 8, 29] },
-      { id: "diamond", pay: [3.5, 11, 38.5] },
-      { id: "star", pay: [5.5, 16.5, 57.5] },
-      { id: "seven", pay: [9, 27.5, 96] },
+      { id: "dot", threshold: 11, tierIndex: (c) => (c >= 15 ? 2 : c >= 13 ? 1 : 0), pay: [0.5, 2, 6.5], rangeLabel: "11-12 · 13-14 · 15+" },
+      { id: "square", threshold: 9, tierIndex: (c) => (c >= 13 ? 2 : c >= 11 ? 1 : 0), pay: [1, 3, 11], rangeLabel: "9-10 · 11-12 · 13+" },
+      { id: "diamond", threshold: 9, tierIndex: (c) => (c >= 12 ? 2 : c === 11 ? 1 : 0), pay: [3.5, 11, 39], rangeLabel: "9-10 · 11 · 12+" },
+      { id: "star", threshold: 7, tierIndex: (c) => (c >= 9 ? 2 : c === 8 ? 1 : 0), pay: [5, 14.5, 50.5], rangeLabel: "7 · 8 · 9+" },
+      { id: "seven", threshold: 6, tierIndex: (c) => (c >= 8 ? 2 : c === 7 ? 1 : 0), pay: [11, 33, 116.5], rangeLabel: "6 · 7 · 8+" },
     ],
   },
 };
@@ -156,28 +164,51 @@ function displayX(n: number): string {
 // Maps a win's raw count to the shared 3/4/5 CSS win-tier hooks
 // (sl-win-tier-3/4/5). 2-tier boards (3x3, 3x4) skip the middle "BIG WIN"
 // tier — their tier 0 maps to WIN (3), tier 1 straight to MEGA WIN (5).
-// Only ever called with a (boardSize, rewardMode) pair the server actually
-// allows (ALLOWED_REWARD_MODES), so the lookups below should always find a
-// table — FULL_BOARD_PAYTABLES simply has no 3x3/3x4 entry because
-// full_board is never reachable on those sizes. Falling back to the 5x3
-// table (valid for both reward modes) rather than asserting non-null means
-// a future prop-shape violation (e.g. a stale rewardMode mid re-render)
-// degrades to a wrong-but-harmless tier instead of an uncaught render-time
-// crash — this codebase has no error boundary, so that would white-screen
-// the whole app, not just this modal. The fallback never affects the
+// Full-board mode has no single shared tierIndex anymore — every
+// qualifying symbol in `win.wins` is checked against its own symbol's
+// tierIndex, and the banner shows whichever tier is highest across all of
+// them (the payout amount itself is the sum of every qualifier's own-tier
+// payout, computed server-side in payoutForFullBoard — this function only
+// decides the banner's visual tier). Only ever called with a
+// (boardSize, rewardMode) pair the server actually allows
+// (ALLOWED_REWARD_MODES), so the lookups below should always find a table
+// — FULL_BOARD_PAYTABLES simply has no 3x3/3x4 entry because full_board is
+// never reachable on those sizes. Falling back to the 5x3 table (valid for
+// both reward modes) rather than asserting non-null means a future
+// prop-shape violation (e.g. a stale rewardMode mid re-render) degrades to
+// a wrong-but-harmless tier instead of an uncaught render-time crash —
+// this codebase has no error boundary, so that would white-screen the
+// whole app, not just this modal. The fallback never affects the
 // correct-path result.
-function winTier(boardSize: SlotBoardSize, rewardMode: RewardMode, count: number): 3 | 4 | 5 {
-  const table =
-    rewardMode === "full_board"
-      ? (FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"])
-      : (SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!);
-  const tier = table.tierIndex(count);
+function winTier(boardSize: SlotBoardSize, rewardMode: RewardMode, win: AnySlotWin): 3 | 4 | 5 {
+  if (rewardMode === "full_board") {
+    const table = FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"];
+    const { wins } = win as FullBoardSlotWin;
+    let maxTier = 0;
+    for (const w of wins) {
+      const symbolConfig = table.symbols.find((s) => s.id === w.symbol);
+      if (!symbolConfig) continue;
+      const t = symbolConfig.tierIndex(w.count);
+      if (t > maxTier) maxTier = t;
+    }
+    return maxTier >= 2 ? 5 : maxTier === 1 ? 4 : 3;
+  }
+  const table = SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!;
+  const tier = table.tierIndex((win as SlotWin).count);
   if (table.tierCount === 2) return tier >= 1 ? 5 : 3;
   return tier >= 2 ? 5 : tier === 1 ? 4 : 3;
 }
 
+const SYMBOL_DISPLAY_NAMES: Record<SlotSymbolId, string> = {
+  dot: "Dot",
+  square: "Square",
+  diamond: "Diamond",
+  star: "Star",
+  seven: "Seven",
+};
+
 // Builds the info panel's title/description/rules from this instance's
-// actual boardSize/rewardMode, reusing the same minCount/tierIndex data
+// actual boardSize/rewardMode, reusing the same threshold/tierIndex data
 // the paytable and winTier already read — no separate, hand-copied set of
 // numbers to drift out of sync (see gameInfo.ts's generic "slots" fallback,
 // which this replaces for the always-known-instance case).
@@ -187,10 +218,10 @@ function buildSlotsInfo(boardSize: SlotBoardSize, rewardMode: RewardMode): GameI
     const table = FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"];
     return {
       title: "Slots",
-      description: `A ${cols}-reel, ${rows}-row slot machine. Wins are counted across the whole board.`,
-      rules: [
-        `${table.minCount}+ matching cells anywhere across all ${rows * cols} visible cells wins, with higher counts paying more.`,
-      ],
+      description: `A ${cols}-reel, ${rows}-row slot machine. Wins are counted across the whole board — rarer symbols need fewer matching cells to win than common ones, though common symbols still win more often overall.`,
+      rules: table.symbols.map(
+        (s) => `${SYMBOL_DISPLAY_NAMES[s.id]}: ${s.threshold}+ matching cells anywhere wins, with higher counts paying more.`
+      ),
     };
   }
   const table = SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!;
@@ -345,7 +376,7 @@ export function Slots({
   // sizes, so every consumer below must guard it rather than assume it
   // exists just because rewardMode happens to be checked elsewhere.
   const activeFullBoardTable = FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] as
-    | ClientPaytable
+    | FullBoardClientPaytable
     | undefined;
 
   // Scaled to the game's actual configured house edge, so the displayed "x"
@@ -365,7 +396,7 @@ export function Slots({
     return activeFullBoardTable.symbols.map((s) => ({ ...s, pay: s.pay.map((x) => x * scale) }));
   }, [activeFullBoardTable, houseEdge]);
 
-  const tier = win ? winTier(boardSize, rewardMode, win.count) : null;
+  const tier = win ? winTier(boardSize, rewardMode, win) : null;
   const winMessage = tier === 5 ? "MEGA WIN" : tier === 4 ? "BIG WIN" : tier === 3 ? "WIN" : "";
 
   // Full-board wins light up cells on any row; build a lookup once per win
