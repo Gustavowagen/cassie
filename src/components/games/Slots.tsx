@@ -1,60 +1,151 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Eye, EyeOff, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { GameInfoButton } from "../ui/GameInfoButton";
 import { GameInfoPanel } from "../ui/GameInfoPanel";
-import { GAME_INFO } from "../../lib/gameInfo";
+import type { GameInfoEntry } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { playWinChime } from "../../lib/sound";
 import { useSlots } from "../../hooks/useSlots";
 import { getSlotsDesign, type SlotsDesign } from "../../lib/slotsDesigns";
-import type { SlotSymbolId, SlotReel, SlotWin, FullBoardSlotWin } from "../../types";
+import type { SlotSymbolId, SlotReel, SlotWin, FullBoardSlotWin, SlotBoardSize } from "../../types";
 
 type RewardMode = "single_row" | "full_board";
 type AnySlotWin = (SlotWin | FullBoardSlotWin) & { amount: number };
 
-// Mirrors supabase/functions/slots/engine.ts's SYMBOLS — kept as a local,
-// dependency-free copy (same pattern as Dice/Roulette) purely for the
-// paytable's payout numbers. Icon art comes from the selected SlotsDesign
-// (src/lib/slotsDesigns.ts) instead — payouts never vary by design. The
-// server never trusts anything from here; it recomputes the real outcome
-// and payout itself.
-interface ClientSymbol {
-  id: SlotSymbolId;
-  pay: { 3: number; 4: number; 5: number };
-}
-const CLIENT_SYMBOLS: ClientSymbol[] = [
-  { id: "dot", pay: { 3: 1.5, 4: 3, 5: 12 } },
-  { id: "square", pay: { 3: 2, 4: 4, 5: 15 } },
-  { id: "diamond", pay: { 3: 2.5, 4: 5, 5: 19 } },
-  { id: "star", pay: { 3: 3, 4: 6.5, 5: 25 } },
-  { id: "seven", pay: { 3: 4, 4: 8.5, 5: 40 } },
-];
+const BOARD_DIMENSIONS: Record<SlotBoardSize, { rows: number; cols: number }> = {
+  "3x3": { rows: 3, cols: 3 },
+  "3x4": { rows: 3, cols: 4 },
+  "5x3": { rows: 3, cols: 5 },
+  "3x6": { rows: 3, cols: 6 },
+  "4x6": { rows: 4, cols: 6 },
+};
 
-// Mirrors supabase/functions/slots/engine.ts's FULL_BOARD_SYMBOLS — pay at
-// tier 0 (7-8 cells), tier 1 (9-10 cells), tier 2 (11-15 cells).
-interface ClientFullBoardSymbol {
-  id: SlotSymbolId;
-  pay: [number, number, number];
+interface ClientPaytable {
+  symbols: { id: SlotSymbolId; pay: number[] }[];
+  baselineRtp: number;
+  tierIndex: (count: number) => number;
+  tierCount: 2 | 3;
+  label: string;
+  // Minimum match count to win at all — the single-row payline threshold,
+  // or the full-board minCount. Kept here (not re-derived elsewhere) so
+  // the info panel can state the real number instead of a hardcoded one.
+  minCount: number;
 }
-const CLIENT_FULL_BOARD_SYMBOLS: ClientFullBoardSymbol[] = [
-  { id: "dot", pay: [2, 6, 21] },
-  { id: "square", pay: [3, 9, 32] },
-  { id: "diamond", pay: [4, 12, 42] },
-  { id: "star", pay: [6, 18, 63] },
-  { id: "seven", pay: [10, 30, 105] },
-];
 
-// Mirrors supabase/functions/slots/engine.ts's BASELINE_RTP_SINGLE_ROW /
-// BASELINE_RTP_FULL_BOARD and edgeScale — same dependency-free-copy pattern
-// as CLIENT_SYMBOLS above. Scaling the displayed "x" by the same formula the
-// server uses to scale actual payouts is what keeps this paytable truthful
-// for whatever house edge the admin picked; it never changes hit frequency,
-// only these displayed multipliers.
-const BASELINE_RTP_SINGLE_ROW = 0.9619252895;
-const BASELINE_RTP_FULL_BOARD = 0.984280455592317;
+// Mirrors supabase/functions/slots/engine.ts's SINGLE_ROW_TABLES — kept as
+// a local, dependency-free copy (same pattern as Dice/Roulette) purely for
+// the paytable's payout numbers. The server never trusts anything from
+// here; it recomputes the real outcome and payout itself. No entry for
+// 4x6 — single-row is never offered there (see ALLOWED_REWARD_MODES).
+const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
+  "3x3": {
+    baselineRtp: 0.9049665,
+    tierCount: 2,
+    tierIndex: (count) => (count >= 3 ? 1 : 0),
+    minCount: 2,
+    label: "Paytable (2× · 3×)",
+    symbols: [
+      { id: "dot", pay: [0.5, 5.5] },
+      { id: "square", pay: [1, 7.5] },
+      { id: "diamond", pay: [1, 9.5] },
+      { id: "star", pay: [1.5, 11.5] },
+      { id: "seven", pay: [2, 15] },
+    ],
+  },
+  "3x4": {
+    baselineRtp: 0.99206293,
+    tierCount: 2,
+    tierIndex: (count) => (count >= 4 ? 1 : 0),
+    minCount: 3,
+    label: "Paytable (3× · 4×)",
+    symbols: [
+      { id: "dot", pay: [2.5, 18.5] },
+      { id: "square", pay: [3, 24.5] },
+      { id: "diamond", pay: [4, 30.5] },
+      { id: "star", pay: [4.5, 36.5] },
+      { id: "seven", pay: [6, 48.5] },
+    ],
+  },
+  "5x3": {
+    baselineRtp: 0.9619252895,
+    tierCount: 3,
+    tierIndex: (count) => (count >= 5 ? 2 : count === 4 ? 1 : 0),
+    minCount: 3,
+    label: "Paytable (3× · 4× · 5×)",
+    symbols: [
+      { id: "dot", pay: [1.5, 3, 12] },
+      { id: "square", pay: [2, 4, 15] },
+      { id: "diamond", pay: [2.5, 5, 19] },
+      { id: "star", pay: [3, 6.5, 25] },
+      { id: "seven", pay: [4, 8.5, 40] },
+    ],
+  },
+  "3x6": {
+    baselineRtp: 0.972812236308,
+    tierCount: 3,
+    tierIndex: (count) => (count >= 6 ? 2 : count === 5 ? 1 : 0),
+    minCount: 4,
+    label: "Paytable (4× · 5× · 6×)",
+    symbols: [
+      { id: "dot", pay: [4, 8, 31] },
+      { id: "square", pay: [5, 10.5, 41.5] },
+      { id: "diamond", pay: [6.5, 13, 52] },
+      { id: "star", pay: [8, 15.5, 62] },
+      { id: "seven", pay: [10.5, 20.5, 83] },
+    ],
+  },
+};
+
+// Mirrors supabase/functions/slots/engine.ts's FULL_BOARD_TABLES.
+const FULL_BOARD_PAYTABLES: Record<"5x3" | "3x6" | "4x6", ClientPaytable> = {
+  "5x3": {
+    baselineRtp: 0.984280455592317,
+    tierCount: 3,
+    tierIndex: (count) => (count >= 11 ? 2 : count >= 9 ? 1 : 0),
+    minCount: 7,
+    label: "Paytable (7-8 · 9-10 · 11+)",
+    symbols: [
+      { id: "dot", pay: [2, 6, 21] },
+      { id: "square", pay: [3, 9, 32] },
+      { id: "diamond", pay: [4, 12, 42] },
+      { id: "star", pay: [6, 18, 63] },
+      { id: "seven", pay: [10, 30, 105] },
+    ],
+  },
+  "3x6": {
+    baselineRtp: 0.942909367367,
+    tierCount: 3,
+    tierIndex: (count) => (count >= 12 ? 2 : count >= 10 ? 1 : 0),
+    minCount: 8,
+    label: "Paytable (8-9 · 10-11 · 12+)",
+    symbols: [
+      { id: "dot", pay: [1.5, 5, 18.5] },
+      { id: "square", pay: [2.5, 8, 27.5] },
+      { id: "diamond", pay: [3.5, 10.5, 36.5] },
+      { id: "star", pay: [5, 15.5, 55] },
+      { id: "seven", pay: [8.5, 26, 92] },
+    ],
+  },
+  "4x6": {
+    baselineRtp: 0.972684972884,
+    tierCount: 3,
+    tierIndex: (count) => (count >= 17 ? 2 : count >= 13 ? 1 : 0),
+    minCount: 10,
+    label: "Paytable (10-12 · 13-16 · 17+)",
+    symbols: [
+      { id: "dot", pay: [2, 5.5, 19] },
+      { id: "square", pay: [2.5, 8, 29] },
+      { id: "diamond", pay: [3.5, 11, 38.5] },
+      { id: "star", pay: [5.5, 16.5, 57.5] },
+      { id: "seven", pay: [9, 27.5, 96] },
+    ],
+  },
+};
+
 function edgeScale(baselineRtp: number, houseEdge: number): number {
   return (1 - houseEdge) / baselineRtp;
 }
@@ -62,20 +153,57 @@ function displayX(n: number): string {
   return (Math.round(n * 100) / 100).toString();
 }
 
-// Maps a win's raw count to the existing 3/4/5 CSS win-tier hooks
-// (sl-win-tier-3/4/5), so full-board reuses the same banner/shake styling
-// as single-row without any new CSS.
-function winTier(rewardMode: RewardMode, count: number): 3 | 4 | 5 {
+// Maps a win's raw count to the shared 3/4/5 CSS win-tier hooks
+// (sl-win-tier-3/4/5). 2-tier boards (3x3, 3x4) skip the middle "BIG WIN"
+// tier — their tier 0 maps to WIN (3), tier 1 straight to MEGA WIN (5).
+// Only ever called with a (boardSize, rewardMode) pair the server actually
+// allows (ALLOWED_REWARD_MODES), so the lookups below should always find a
+// table — FULL_BOARD_PAYTABLES simply has no 3x3/3x4 entry because
+// full_board is never reachable on those sizes. Falling back to the 5x3
+// table (valid for both reward modes) rather than asserting non-null means
+// a future prop-shape violation (e.g. a stale rewardMode mid re-render)
+// degrades to a wrong-but-harmless tier instead of an uncaught render-time
+// crash — this codebase has no error boundary, so that would white-screen
+// the whole app, not just this modal. The fallback never affects the
+// correct-path result.
+function winTier(boardSize: SlotBoardSize, rewardMode: RewardMode, count: number): 3 | 4 | 5 {
+  const table =
+    rewardMode === "full_board"
+      ? (FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"])
+      : (SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!);
+  const tier = table.tierIndex(count);
+  if (table.tierCount === 2) return tier >= 1 ? 5 : 3;
+  return tier >= 2 ? 5 : tier === 1 ? 4 : 3;
+}
+
+// Builds the info panel's title/description/rules from this instance's
+// actual boardSize/rewardMode, reusing the same minCount/tierIndex data
+// the paytable and winTier already read — no separate, hand-copied set of
+// numbers to drift out of sync (see gameInfo.ts's generic "slots" fallback,
+// which this replaces for the always-known-instance case).
+function buildSlotsInfo(boardSize: SlotBoardSize, rewardMode: RewardMode): GameInfoEntry {
+  const { rows, cols } = BOARD_DIMENSIONS[boardSize];
   if (rewardMode === "full_board") {
-    if (count >= 11) return 5;
-    if (count >= 9) return 4;
-    return 3;
+    const table = FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"];
+    return {
+      title: "Slots",
+      description: `A ${cols}-reel, ${rows}-row slot machine. Wins are counted across the whole board.`,
+      rules: [
+        `${table.minCount}+ matching cells anywhere across all ${rows * cols} visible cells wins, with higher counts paying more.`,
+      ],
+    };
   }
-  return count >= 5 ? 5 : count === 4 ? 4 : 3;
+  const table = SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!;
+  return {
+    title: "Slots",
+    description: `A ${cols}-reel, ${rows}-row slot machine. Wins are counted on the middle row only.`,
+    rules: [`${table.minCount}+ matching symbols anywhere on the middle row wins, with higher counts paying more.`],
+  };
 }
 
 function randomSymbolId(): SlotSymbolId {
-  return CLIENT_SYMBOLS[Math.floor(Math.random() * CLIENT_SYMBOLS.length)].id;
+  const ids: SlotSymbolId[] = ["dot", "square", "diamond", "star", "seven"];
+  return ids[Math.floor(Math.random() * ids.length)];
 }
 
 // Reel-drop timing: each reel starts REEL_STAGGER_MS after the previous one
@@ -84,20 +212,25 @@ function randomSymbolId(): SlotSymbolId {
 // balance credit for any payout) isn't revealed until this has fully played.
 const REEL_STAGGER_MS = 140;
 const REEL_DROP_MS = 950;
-const REVEAL_MS = 4 * REEL_STAGGER_MS + REEL_DROP_MS + 140; // last reel's delay + duration + buffer
+const MAX_COLS = 6; // the widest board (3x6, 4x6)
+const REVEAL_MS = (MAX_COLS - 1) * REEL_STAGGER_MS + REEL_DROP_MS + 140; // last reel's delay + duration + buffer
 
 const PARTICLE_SLOTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const FILLER_COUNT = 15;
 
 function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 10000) / 10000;
 }
 
-// 18-cell strip: 15 cosmetic filler symbols (never part of the real outcome,
-// just motion-blur padding) followed by the server's actual top/mid/bottom —
-// the CSS drop animation lands exactly on those last 3 cells.
+// Strip = FILLER_COUNT cosmetic filler symbols (never part of the real
+// outcome, just motion-blur padding) followed by the server's actual
+// column, top-to-bottom. The CSS drop animation always shifts up by
+// exactly FILLER_COUNT cell-heights regardless of row count, which lands
+// the strip's last `rows` cells in the reel's `rows`-cell-tall viewport —
+// see SlotsStyles' slReelDrop keyframes.
 function buildStrip(reel: SlotReel): SlotSymbolId[] {
-  const filler = Array.from({ length: 15 }, () => randomSymbolId());
-  return [...filler, reel.top, reel.mid, reel.bottom];
+  const filler = Array.from({ length: FILLER_COUNT }, () => randomSymbolId());
+  return [...filler, ...reel];
 }
 
 // Renders one symbol using the active design's icon spec — a themed shape
@@ -121,6 +254,7 @@ interface Props {
   casinoId: string;
   gameId: string;
   rewardMode: RewardMode;
+  boardSize: SlotBoardSize;
   houseEdge: number;
   design?: string;
   balance: number;
@@ -133,6 +267,7 @@ export function Slots({
   casinoId,
   gameId,
   rewardMode,
+  boardSize,
   houseEdge,
   design,
   balance: initialBalance,
@@ -145,8 +280,10 @@ export function Slots({
   const [betText, setBetText] = useState(String(minBet));
   const [formError, setFormError] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const { rows, cols } = BOARD_DIMENSIONS[boardSize];
+  const paylineRow = Math.floor(rows / 2);
   const [reels, setReels] = useState<SlotReel[]>(() =>
-    Array.from({ length: 5 }, () => ({ top: randomSymbolId(), mid: randomSymbolId(), bottom: randomSymbolId() }))
+    Array.from({ length: cols }, () => Array.from({ length: rows }, randomSymbolId))
   );
   const [strips, setStrips] = useState<SlotSymbolId[][]>([]);
   const [win, setWin] = useState<AnySlotWin | null>(null);
@@ -162,6 +299,7 @@ export function Slots({
   }, []);
 
   const activeDesign = useMemo(() => getSlotsDesign(design), [design]);
+  const slotsInfo = useMemo(() => buildSlotsInfo(boardSize, rewardMode), [boardSize, rewardMode]);
 
   const busy = loading || spinning;
   const bet = Math.max(0, parseFloat(betText) || 0);
@@ -201,24 +339,33 @@ export function Slots({
     }
   }
 
+  const activeSingleRowTable = SINGLE_ROW_PAYTABLES[boardSize];
+  // 3x3/3x4 have no full-board table (full_board is never reachable there
+  // per ALLOWED_REWARD_MODES) — this lookup is `undefined` for those two
+  // sizes, so every consumer below must guard it rather than assume it
+  // exists just because rewardMode happens to be checked elsewhere.
+  const activeFullBoardTable = FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] as
+    | ClientPaytable
+    | undefined;
+
   // Scaled to the game's actual configured house edge, so the displayed "x"
   // always matches what the server (supabase/functions/slots/index.ts) pays.
+  // Both memos run on every render regardless of the current rewardMode
+  // (hooks can't be conditional), so each must independently no-op when its
+  // own table doesn't apply to this boardSize instead of assuming the other
+  // one guards it.
   const scaledSingleRowPay = useMemo(() => {
-    const scale = edgeScale(BASELINE_RTP_SINGLE_ROW, houseEdge);
-    return CLIENT_SYMBOLS.map((s) => ({
-      ...s,
-      pay: { 3: s.pay[3] * scale, 4: s.pay[4] * scale, 5: s.pay[5] * scale },
-    }));
-  }, [houseEdge]);
+    if (!activeSingleRowTable) return [];
+    const scale = edgeScale(activeSingleRowTable.baselineRtp, houseEdge);
+    return activeSingleRowTable.symbols.map((s) => ({ ...s, pay: s.pay.map((x) => x * scale) }));
+  }, [activeSingleRowTable, houseEdge]);
   const scaledFullBoardPay = useMemo(() => {
-    const scale = edgeScale(BASELINE_RTP_FULL_BOARD, houseEdge);
-    return CLIENT_FULL_BOARD_SYMBOLS.map((s) => ({
-      ...s,
-      pay: [s.pay[0] * scale, s.pay[1] * scale, s.pay[2] * scale] as [number, number, number],
-    }));
-  }, [houseEdge]);
+    if (!activeFullBoardTable) return [];
+    const scale = edgeScale(activeFullBoardTable.baselineRtp, houseEdge);
+    return activeFullBoardTable.symbols.map((s) => ({ ...s, pay: s.pay.map((x) => x * scale) }));
+  }, [activeFullBoardTable, houseEdge]);
 
-  const tier = win ? winTier(rewardMode, win.count) : null;
+  const tier = win ? winTier(boardSize, rewardMode, win.count) : null;
   const winMessage = tier === 5 ? "MEGA WIN" : tier === 4 ? "BIG WIN" : tier === 3 ? "WIN" : "";
 
   // Full-board wins light up cells on any row; build a lookup once per win
@@ -257,7 +404,7 @@ export function Slots({
 
       {showInfo ? (
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
-          <GameInfoPanel info={GAME_INFO.slots} onBack={() => setShowInfo(false)} />
+          <GameInfoPanel info={slotsInfo} onBack={() => setShowInfo(false)} />
         </div>
       ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto overscroll-contain">
@@ -304,7 +451,7 @@ export function Slots({
           <div className="mt-2 space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                {rewardMode === "full_board" ? "Paytable (7-8 · 9-10 · 11+)" : "Paytable (3× · 4× · 5×)"}
+                {rewardMode === "full_board" ? activeFullBoardTable?.label : activeSingleRowTable?.label}
               </p>
               <button
                 type="button"
@@ -317,42 +464,38 @@ export function Slots({
               </button>
             </div>
             {showPaytable &&
-              (rewardMode === "full_board"
-                ? scaledFullBoardPay.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 text-xs">
-                      <span className="sl-sym-mini">
-                        <SlotSymbol design={activeDesign} id={s.id} />
-                      </span>
-                      <span className="text-muted-foreground font-mono">
-                        {displayX(s.pay[0])}x · {displayX(s.pay[1])}x · {displayX(s.pay[2])}x
-                      </span>
-                    </div>
-                  ))
-                : scaledSingleRowPay.map((s) => (
-                    <div key={s.id} className="flex items-center gap-2 text-xs">
-                      <span className="sl-sym-mini">
-                        <SlotSymbol design={activeDesign} id={s.id} />
-                      </span>
-                      <span className="text-muted-foreground font-mono">
-                        {displayX(s.pay[3])}x · {displayX(s.pay[4])}x · {displayX(s.pay[5])}x
-                      </span>
-                    </div>
-                  )))}
+              (rewardMode === "full_board" ? scaledFullBoardPay : scaledSingleRowPay).map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-xs">
+                  <span className="sl-sym-mini">
+                    <SlotSymbol design={activeDesign} id={s.id} />
+                  </span>
+                  <span className="text-muted-foreground font-mono">
+                    {s.pay.map((x) => `${displayX(x)}x`).join(" · ")}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
 
         <div className="flex flex-1 items-center justify-center p-5 min-w-0">
-          <div className={`sl-reels-wrap ${activeDesign.themeClass}`}>
-            <div className="sl-payline-arrow sl-left" />
-            <div className="sl-payline-arrow sl-right" />
+          <div
+            className={`sl-reels-wrap ${activeDesign.themeClass}`}
+            style={{ "--rows": rows, "--cols": cols } as CSSProperties}
+          >
+            {rewardMode === "single_row" && (
+              <>
+                <div
+                  className="sl-payline-arrow sl-left"
+                  style={{ top: `calc(14px + ${paylineRow + 0.5} * var(--cell))` }}
+                />
+                <div
+                  className="sl-payline-arrow sl-right"
+                  style={{ top: `calc(14px + ${paylineRow + 0.5} * var(--cell))` }}
+                />
+              </>
+            )}
             <div className="sl-reels">
               {reels.map((reel, i) => {
-                const isLitTop = rewardMode === "full_board" && Boolean(fullBoardLit?.has(`${i}:top`));
-                const isLitMid =
-                  rewardMode === "full_board"
-                    ? Boolean(fullBoardLit?.has(`${i}:mid`))
-                    : Boolean(win && (win as SlotWin).positions.includes(i));
-                const isLitBottom = rewardMode === "full_board" && Boolean(fullBoardLit?.has(`${i}:bottom`));
                 const strip = strips[i];
                 return (
                   <div className="sl-reel" key={i}>
@@ -366,15 +509,20 @@ export function Slots({
                       </div>
                     ) : (
                       <div className="sl-reel-static">
-                        <div className={`sl-cell ${isLitTop ? "sl-lit" : ""}`}>
-                          <SlotSymbol design={activeDesign} id={reel.top} />
-                        </div>
-                        <div className={`sl-cell sl-mid ${isLitMid ? "sl-lit" : ""}`}>
-                          <SlotSymbol design={activeDesign} id={reel.mid} />
-                        </div>
-                        <div className={`sl-cell ${isLitBottom ? "sl-lit" : ""}`}>
-                          <SlotSymbol design={activeDesign} id={reel.bottom} />
-                        </div>
+                        {reel.map((symbol, row) => {
+                          const isLit =
+                            rewardMode === "full_board"
+                              ? Boolean(fullBoardLit?.has(`${i}:${row}`))
+                              : row === paylineRow && Boolean(win && (win as SlotWin).positions.includes(i));
+                          return (
+                            <div
+                              className={`sl-cell ${row === paylineRow ? "sl-mid" : ""} ${isLit ? "sl-lit" : ""}`}
+                              key={row}
+                            >
+                              <SlotSymbol design={activeDesign} id={symbol} />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -405,6 +553,12 @@ export function Slots({
 }
 
 function SlotsStyles() {
+  const nthChildRules = Array.from(
+    { length: MAX_COLS },
+    (_, i) =>
+      `.sl-reel:nth-child(${i + 1}) .sl-reel-strip.sl-spin { animation-delay: ${i * REEL_STAGGER_MS}ms; }`
+  ).join("\n      ");
+
   return (
     <style>{`
       .sl-reels-wrap {
@@ -416,8 +570,8 @@ function SlotsStyles() {
         padding: 14px;
         border-radius: 16px;
       }
-      .sl-reels { display: grid; grid-template-columns: repeat(5, var(--cell)); gap: 8px; }
-      .sl-reel { width: var(--cell); height: calc(3 * var(--cell)); overflow: hidden; border-radius: 10px; position: relative; background: rgba(0,0,0,0.25); }
+      .sl-reels { display: grid; grid-template-columns: repeat(var(--cols), var(--cell)); gap: 8px; }
+      .sl-reel { width: var(--cell); height: calc(var(--rows) * var(--cell)); overflow: hidden; border-radius: 10px; position: relative; background: rgba(0,0,0,0.25); }
       .sl-reel-static, .sl-reel-strip { display: flex; flex-direction: column; }
       .sl-cell { width: var(--cell); height: var(--cell); display: flex; align-items: center; justify-content: center; flex: none; }
       .sl-cell.sl-mid { position: relative; }
@@ -434,16 +588,12 @@ function SlotsStyles() {
       @keyframes slReelDrop {
         0% { transform: translateY(0); filter: blur(6px); }
         70% { filter: blur(4px); }
-        100% { transform: translateY(calc(-15 * var(--cell))); filter: blur(0); }
+        100% { transform: translateY(calc(-${FILLER_COUNT} * var(--cell))); filter: blur(0); }
       }
       .sl-reel-strip.sl-spin { animation: slReelDrop ${REEL_DROP_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-      .sl-reel:nth-child(1) .sl-reel-strip.sl-spin { animation-delay: 0ms; }
-      .sl-reel:nth-child(2) .sl-reel-strip.sl-spin { animation-delay: ${REEL_STAGGER_MS}ms; }
-      .sl-reel:nth-child(3) .sl-reel-strip.sl-spin { animation-delay: ${REEL_STAGGER_MS * 2}ms; }
-      .sl-reel:nth-child(4) .sl-reel-strip.sl-spin { animation-delay: ${REEL_STAGGER_MS * 3}ms; }
-      .sl-reel:nth-child(5) .sl-reel-strip.sl-spin { animation-delay: ${REEL_STAGGER_MS * 4}ms; }
+      ${nthChildRules}
 
-      .sl-payline-arrow { position: absolute; top: calc(14px + 1.5 * var(--cell)); width: 0; height: 0; transform: translateY(-50%); z-index: 1; }
+      .sl-payline-arrow { position: absolute; width: 0; height: 0; transform: translateY(-50%); z-index: 1; }
       .sl-payline-arrow.sl-left { left: 2px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left-width: 8px; border-left-style: solid; }
       .sl-payline-arrow.sl-right { right: 2px; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right-width: 8px; border-right-style: solid; }
 

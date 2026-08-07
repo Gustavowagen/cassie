@@ -82,6 +82,11 @@ export interface SlotsInstanceSettings {
   // Visual design id from src/lib/slotsDesigns.ts. Missing defaults to
   // DEFAULT_SLOTS_DESIGN_ID ("default"). Never affects odds/payouts.
   design?: string;
+  // Missing defaults to "5x3" (today's board), both here and server-side
+  // in supabase/functions/slots/engine.ts's DEFAULT_BOARD_SIZE. Gates
+  // which rewardMode values are allowed — see engine.ts's
+  // ALLOWED_REWARD_MODES, enforced authoritatively server-side.
+  boardSize?: SlotBoardSize;
 }
 
 // Mirror of the edge function's sanitized output (engine.ts BlackjackState).
@@ -138,29 +143,28 @@ export interface ChipTransaction {
 
 export type SlotSymbolId = "dot" | "square" | "diamond" | "star" | "seven";
 
-export interface SlotReel {
-  top: SlotSymbolId;
-  mid: SlotSymbolId;
-  bottom: SlotSymbolId;
-}
+export type SlotBoardSize = "3x3" | "3x4" | "5x3" | "3x6" | "4x6";
+
+// One reel = one column, top-to-bottom; length always equals the board's
+// row count (3 for every size except 4x6, which has 4).
+export type SlotReel = SlotSymbolId[];
 
 export interface SlotWin {
   symbol: SlotSymbolId;
-  count: 3 | 4 | 5;
+  count: number;
   // Reel indices (0-based) holding the winning symbol — not necessarily
   // contiguous or left-aligned, since matches are scatter-style.
   positions: number[];
 }
 
-// Full-board mode win: count spans all 3 rows (7-15), so positions need a
-// row alongside the reel index — kept as a separate type from SlotWin
-// rather than unifying, so single-row's shape stays untouched. `wins` holds
-// every symbol that reached the max count — normally length 1, occasionally
-// 2 when two symbols tie (e.g. 7 dots + 7 squares); both pay and both light
-// up when that happens.
+// Full-board mode win: count spans every row, so positions need a row
+// index alongside the reel index — kept as a separate type from SlotWin
+// rather than unifying, so single-row's shape stays untouched. `wins`
+// holds every symbol that reached the max count — normally length 1,
+// occasionally more when symbols tie (both/all pay and light up).
 export interface FullBoardSlotWin {
   count: number;
-  wins: { symbol: SlotSymbolId; positions: { reel: number; row: "top" | "mid" | "bottom" }[] }[];
+  wins: { symbol: SlotSymbolId; positions: { reel: number; row: number }[] }[];
 }
 
 // Mirror of the edge function's response (supabase/functions/slots/engine.ts).
@@ -168,6 +172,7 @@ export interface SlotsResult {
   reels: SlotReel[];
   win: SlotWin | FullBoardSlotWin | null;
   rewardMode: "single_row" | "full_board";
+  boardSize: SlotBoardSize;
   bet: number;
   payout: number;
   balance: number;
