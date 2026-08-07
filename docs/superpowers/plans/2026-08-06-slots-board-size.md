@@ -1389,16 +1389,19 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
     ],
   },
   "3x6": {
-    baselineRtp: 0.961146984006,
+    // Corrected values (see the "Amendment" note near the top of this
+    // plan and the design doc's "Correction" note) — threshold 4, not the
+    // originally-drafted 3, to avoid same-row ties.
+    baselineRtp: 0.972812236308,
     tierCount: 3,
-    tierIndex: (count) => (count >= 6 ? 2 : count >= 4 ? 1 : 0),
-    label: "Paytable (3× · 4-5× · 6×)",
+    tierIndex: (count) => (count >= 6 ? 2 : count === 5 ? 1 : 0),
+    label: "Paytable (4× · 5× · 6×)",
     symbols: [
-      { id: "dot", pay: [1, 2, 7.5] },
-      { id: "square", pay: [1, 2.5, 10] },
-      { id: "diamond", pay: [1.5, 3, 12.5] },
-      { id: "star", pay: [2, 3.5, 15] },
-      { id: "seven", pay: [2.5, 5, 20] },
+      { id: "dot", pay: [4, 8, 31] },
+      { id: "square", pay: [5, 10.5, 41.5] },
+      { id: "diamond", pay: [6.5, 13, 52] },
+      { id: "star", pay: [8, 15.5, 62] },
+      { id: "seven", pay: [10.5, 20.5, 83] },
     ],
   },
 };
