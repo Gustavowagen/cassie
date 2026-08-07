@@ -6,7 +6,7 @@ import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
 import { GameInfoButton } from "../ui/GameInfoButton";
 import { GameInfoPanel } from "../ui/GameInfoPanel";
-import { GAME_INFO } from "../../lib/gameInfo";
+import type { GameInfoEntry } from "../../lib/gameInfo";
 import { formatChips } from "../../lib/utils";
 import { playWinChime } from "../../lib/sound";
 import { useSlots } from "../../hooks/useSlots";
@@ -30,6 +30,10 @@ interface ClientPaytable {
   tierIndex: (count: number) => number;
   tierCount: 2 | 3;
   label: string;
+  // Minimum match count to win at all — the single-row payline threshold,
+  // or the full-board minCount. Kept here (not re-derived elsewhere) so
+  // the info panel can state the real number instead of a hardcoded one.
+  minCount: number;
 }
 
 // Mirrors supabase/functions/slots/engine.ts's SINGLE_ROW_TABLES — kept as
@@ -42,6 +46,7 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
     baselineRtp: 0.9049665,
     tierCount: 2,
     tierIndex: (count) => (count >= 3 ? 1 : 0),
+    minCount: 2,
     label: "Paytable (2× · 3×)",
     symbols: [
       { id: "dot", pay: [0.5, 5.5] },
@@ -55,6 +60,7 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
     baselineRtp: 0.99206293,
     tierCount: 2,
     tierIndex: (count) => (count >= 4 ? 1 : 0),
+    minCount: 3,
     label: "Paytable (3× · 4×)",
     symbols: [
       { id: "dot", pay: [2.5, 18.5] },
@@ -68,6 +74,7 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
     baselineRtp: 0.9619252895,
     tierCount: 3,
     tierIndex: (count) => (count >= 5 ? 2 : count === 4 ? 1 : 0),
+    minCount: 3,
     label: "Paytable (3× · 4× · 5×)",
     symbols: [
       { id: "dot", pay: [1.5, 3, 12] },
@@ -81,6 +88,7 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
     baselineRtp: 0.972812236308,
     tierCount: 3,
     tierIndex: (count) => (count >= 6 ? 2 : count === 5 ? 1 : 0),
+    minCount: 4,
     label: "Paytable (4× · 5× · 6×)",
     symbols: [
       { id: "dot", pay: [4, 8, 31] },
@@ -98,6 +106,7 @@ const FULL_BOARD_PAYTABLES: Record<"5x3" | "3x6" | "4x6", ClientPaytable> = {
     baselineRtp: 0.984280455592317,
     tierCount: 3,
     tierIndex: (count) => (count >= 11 ? 2 : count >= 9 ? 1 : 0),
+    minCount: 7,
     label: "Paytable (7-8 · 9-10 · 11+)",
     symbols: [
       { id: "dot", pay: [2, 6, 21] },
@@ -111,6 +120,7 @@ const FULL_BOARD_PAYTABLES: Record<"5x3" | "3x6" | "4x6", ClientPaytable> = {
     baselineRtp: 0.942909367367,
     tierCount: 3,
     tierIndex: (count) => (count >= 12 ? 2 : count >= 10 ? 1 : 0),
+    minCount: 8,
     label: "Paytable (8-9 · 10-11 · 12+)",
     symbols: [
       { id: "dot", pay: [1.5, 5, 18.5] },
@@ -124,6 +134,7 @@ const FULL_BOARD_PAYTABLES: Record<"5x3" | "3x6" | "4x6", ClientPaytable> = {
     baselineRtp: 0.972684972884,
     tierCount: 3,
     tierIndex: (count) => (count >= 17 ? 2 : count >= 13 ? 1 : 0),
+    minCount: 10,
     label: "Paytable (10-12 · 13-16 · 17+)",
     symbols: [
       { id: "dot", pay: [2, 5.5, 19] },
@@ -163,6 +174,31 @@ function winTier(boardSize: SlotBoardSize, rewardMode: RewardMode, count: number
   const tier = table.tierIndex(count);
   if (table.tierCount === 2) return tier >= 1 ? 5 : 3;
   return tier >= 2 ? 5 : tier === 1 ? 4 : 3;
+}
+
+// Builds the info panel's title/description/rules from this instance's
+// actual boardSize/rewardMode, reusing the same minCount/tierIndex data
+// the paytable and winTier already read — no separate, hand-copied set of
+// numbers to drift out of sync (see gameInfo.ts's generic "slots" fallback,
+// which this replaces for the always-known-instance case).
+function buildSlotsInfo(boardSize: SlotBoardSize, rewardMode: RewardMode): GameInfoEntry {
+  const { rows, cols } = BOARD_DIMENSIONS[boardSize];
+  if (rewardMode === "full_board") {
+    const table = FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"];
+    return {
+      title: "Slots",
+      description: `A ${cols}-reel, ${rows}-row slot machine. Wins are counted across the whole board.`,
+      rules: [
+        `${table.minCount}+ matching cells anywhere across all ${rows * cols} visible cells wins, with higher counts paying more.`,
+      ],
+    };
+  }
+  const table = SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!;
+  return {
+    title: "Slots",
+    description: `A ${cols}-reel, ${rows}-row slot machine. Wins are counted on the middle row only.`,
+    rules: [`${table.minCount}+ matching symbols anywhere on the middle row wins, with higher counts paying more.`],
+  };
 }
 
 function randomSymbolId(): SlotSymbolId {
@@ -263,6 +299,7 @@ export function Slots({
   }, []);
 
   const activeDesign = useMemo(() => getSlotsDesign(design), [design]);
+  const slotsInfo = useMemo(() => buildSlotsInfo(boardSize, rewardMode), [boardSize, rewardMode]);
 
   const busy = loading || spinning;
   const bet = Math.max(0, parseFloat(betText) || 0);
@@ -367,7 +404,7 @@ export function Slots({
 
       {showInfo ? (
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
-          <GameInfoPanel info={GAME_INFO.slots} onBack={() => setShowInfo(false)} />
+          <GameInfoPanel info={slotsInfo} onBack={() => setShowInfo(false)} />
         </div>
       ) : (
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-auto overscroll-contain">

@@ -39,6 +39,30 @@ const CTA_GRADIENT = "bg-gradient-to-r from-primary to-indigo-400 hover:opacity-
 const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko", "crash"]);
 const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines", "plinko", "crash"];
 
+// Mirrors supabase/functions/slots/engine.ts's ALLOWED_REWARD_MODES /
+// GameSettingsModal.tsx's copy of the same table. GameSettingsModal always
+// saves a self-consistent (boardSize, rewardMode) pair, so this only
+// matters for a settings row edited outside that modal (e.g. directly via
+// the DB by the casino's own owner) — resolving through the gate here
+// keeps what's passed into <Slots> consistent with what the server will
+// actually resolve, rather than trusting a possibly-stale rewardMode on
+// its own.
+const SLOTS_ALLOWED_REWARD_MODES: Record<
+  "3x3" | "3x4" | "5x3" | "3x6" | "4x6",
+  ("single_row" | "full_board")[]
+> = {
+  "3x3": ["single_row"],
+  "3x4": ["single_row"],
+  "5x3": ["single_row", "full_board"],
+  "3x6": ["single_row", "full_board"],
+  "4x6": ["full_board"],
+};
+
+function resolveSlotsRewardMode(settings: SlotsInstanceSettings | undefined, boardSize: keyof typeof SLOTS_ALLOWED_REWARD_MODES) {
+  const allowed = SLOTS_ALLOWED_REWARD_MODES[boardSize];
+  return settings?.rewardMode === "full_board" && allowed.includes("full_board") ? "full_board" : allowed[0];
+}
+
 type OwnerTab = "games" | "members" | "stats" | "trades" | "settings";
 
 function displayRole(member: CasinoMemberWithProfile, casinoOwnerId: string): "creator" | "admin" | "member" {
@@ -385,11 +409,10 @@ export function CasinoDashboard() {
             <Slots
               casinoId={currentCasino.id}
               gameId={activeGame.id}
-              rewardMode={
-                (activeGame.settings as SlotsInstanceSettings)?.rewardMode === "full_board"
-                  ? "full_board"
-                  : "single_row"
-              }
+              rewardMode={resolveSlotsRewardMode(
+                activeGame.settings as SlotsInstanceSettings,
+                (activeGame.settings as SlotsInstanceSettings)?.boardSize ?? "5x3"
+              )}
               boardSize={(activeGame.settings as SlotsInstanceSettings)?.boardSize ?? "5x3"}
               // Mirrors the slots edge function's DEFAULT_HOUSE_EDGE fallback
               // (supabase/functions/slots/engine.ts) for pre-existing rows.

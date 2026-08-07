@@ -55,14 +55,15 @@ export const GAME_INFO: Record<
       "Choose how many mines (1-24) are hidden on a 5x5 grid. Each safe tile you reveal raises your multiplier; hitting a mine ends the round with a total loss.",
     rules: ["Cash out any time after revealing at least one safe tile."],
   },
+  // Generic fallback only — Slots.tsx builds an instance-specific
+  // GameInfoEntry instead (board size and win rule vary per casino
+  // configuration, so a single static description can't state exact
+  // reel/row counts or thresholds without being wrong for most instances).
   slots: {
     title: "Slots",
     description:
-      "A 5-reel, 5-symbol slot machine. Depending on how this casino has it configured, wins are counted one of two ways.",
-    rules: [
-      "Single-row mode: 3 or more matching symbols anywhere on the middle row.",
-      "Full-board mode: 7 or more matching cells anywhere across all 15 visible cells, with higher counts paying more.",
-    ],
+      "A slot machine whose board size and win rule are configured per casino. Wins are counted either along the middle row or across the whole board, depending on setup.",
+    rules: ["Open a specific slot machine's info panel for its exact board size, win rule, and thresholds."],
   },
   crash: {
     title: "Crash",
