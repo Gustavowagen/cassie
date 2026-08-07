@@ -83,14 +83,14 @@ function resolveHouseEdge(settings: unknown): number {
   return DEFAULT_HOUSE_EDGE;
 }
 
-type DescribableWin = { symbol: string; count: number } | { count: number; wins: { symbol: string }[] };
+type DescribableWin = { symbol: string; count: number } | { wins: { symbol: string; count: number }[] };
 
 function describeSpin(rewardMode: RewardMode, win: DescribableWin | null): string {
   if (!win) return "Slots: no win";
   if (rewardMode === "full_board") {
-    const { count, wins } = win as { count: number; wins: { symbol: string }[] };
-    const symbols = wins.map((w) => w.symbol).join("+");
-    return `Slots: ${count}x ${symbols} (full board)`;
+    const { wins } = win as { wins: { symbol: string; count: number }[] };
+    const parts = wins.map((w) => `${w.count}x ${w.symbol}`).join("+");
+    return `Slots: ${parts} (full board)`;
   }
   const { symbol, count } = win as { symbol: string; count: number };
   return `Slots: ${count}x ${symbol} (row)`;
