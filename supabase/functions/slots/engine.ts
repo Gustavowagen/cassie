@@ -339,3 +339,24 @@ export function evaluateFullBoardWin(reels: Reel[], boardSize: BoardSize): FullB
   }
   return wins.length > 0 ? { wins } : null;
 }
+
+// Every qualifying symbol pays its own-tier rate — a dot win and a
+// separately-qualifying seven win both pay in full and sum together, since
+// each symbol's win is independent of every other symbol's count.
+export function payoutForFullBoard(
+  win: FullBoardWin | null,
+  bet: number,
+  boardSize: BoardSize,
+  houseEdge?: number
+): number {
+  if (!win) return 0;
+  const config = FULL_BOARD_TABLES[boardSize];
+  if (!config) return 0;
+  const scale = houseEdge === undefined ? 1 : edgeScale(config.baselineRtp, houseEdge);
+  const total = win.wins.reduce((sum, w) => {
+    const symbol = config.symbols.find((s) => s.id === w.symbol)!;
+    const tier = symbol.tierIndex(w.count);
+    return sum + symbol.pay[tier];
+  }, 0);
+  return roundMoney(bet * total * scale);
+}

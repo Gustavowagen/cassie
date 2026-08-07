@@ -477,41 +477,37 @@ describe("payoutForFullBoard", () => {
     expect(payoutForFullBoard(null, 10, "5x3")).toBe(0);
   });
 
-  it("pays the 5x3 table's tier-0 rate for 7-8 matches (unchanged from before)", () => {
-    expect(payoutForFullBoard({ count: 7, wins: [{ symbol: "dot", positions: [] }] }, 10, "5x3")).toBe(20);
-    expect(payoutForFullBoard({ count: 8, wins: [{ symbol: "dot", positions: [] }] }, 10, "5x3")).toBe(20);
+  it("pays the 5x3 dot table across its 3 tiers (7-8 / 9 / 10-15)", () => {
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 7, positions: [] }] }, 10, "5x3")).toBe(5);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 8, positions: [] }] }, 10, "5x3")).toBe(5);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 9, positions: [] }] }, 10, "5x3")).toBe(15);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 15, positions: [] }] }, 10, "5x3")).toBe(45);
   });
 
-  it("pays the 5x3 table's tier-2 rate for 11+ matches", () => {
-    expect(payoutForFullBoard({ count: 11, wins: [{ symbol: "seven", positions: [] }] }, 2, "5x3")).toBe(210);
-    expect(payoutForFullBoard({ count: 15, wins: [{ symbol: "seven", positions: [] }] }, 2, "5x3")).toBe(210);
-  });
-
-  it("pays every tied symbol's rate when two symbols share the max count (5x3)", () => {
+  it("sums two different symbols' own-tier payouts when both independently qualify in the same spin", () => {
     const win = {
-      count: 7,
       wins: [
-        { symbol: "dot" as const, positions: [] },
-        { symbol: "square" as const, positions: [] },
+        { symbol: "dot" as const, count: 7, positions: [] }, // tier 0 = 0.5x
+        { symbol: "seven" as const, count: 5, positions: [] }, // tier 0 = 27.5x
       ],
     };
-    expect(payoutForFullBoard(win, 10, "5x3")).toBe(50);
+    expect(payoutForFullBoard(win, 10, "5x3")).toBe(280);
   });
 
-  it("pays the 3x6 table across its 3 tiers (8-9 / 10-11 / 12-18)", () => {
-    expect(payoutForFullBoard({ count: 8, wins: [{ symbol: "dot", positions: [] }] }, 10, "3x6")).toBe(15);
-    expect(payoutForFullBoard({ count: 10, wins: [{ symbol: "dot", positions: [] }] }, 10, "3x6")).toBe(50);
-    expect(payoutForFullBoard({ count: 18, wins: [{ symbol: "dot", positions: [] }] }, 10, "3x6")).toBe(185);
+  it("pays the 3x6 dot table across its 3 tiers (9-10 / 11 / 12-18)", () => {
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 9, positions: [] }] }, 10, "3x6")).toBe(10);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 11, positions: [] }] }, 10, "3x6")).toBe(25);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 18, positions: [] }] }, 10, "3x6")).toBe(90);
   });
 
-  it("pays the 4x6 table across its 3 tiers (10-12 / 13-16 / 17-24)", () => {
-    expect(payoutForFullBoard({ count: 10, wins: [{ symbol: "dot", positions: [] }] }, 10, "4x6")).toBe(20);
-    expect(payoutForFullBoard({ count: 13, wins: [{ symbol: "dot", positions: [] }] }, 10, "4x6")).toBe(55);
-    expect(payoutForFullBoard({ count: 24, wins: [{ symbol: "dot", positions: [] }] }, 10, "4x6")).toBe(190);
+  it("pays the 4x6 dot table across its 3 tiers (11-12 / 13-14 / 15-24)", () => {
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 11, positions: [] }] }, 10, "4x6")).toBe(5);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 13, positions: [] }] }, 10, "4x6")).toBe(20);
+    expect(payoutForFullBoard({ wins: [{ symbol: "dot", count: 24, positions: [] }] }, 10, "4x6")).toBe(65);
   });
 
   it("scales the raw payout by (1 - houseEdge) / that board size's BASELINE_RTP when houseEdge is given", () => {
-    const win = { count: 11, wins: [{ symbol: "seven" as const, positions: [] }] };
+    const win = { wins: [{ symbol: "seven" as const, count: 7, positions: [] }] };
     const raw = payoutForFullBoard(win, 100, "5x3");
     const scaled = payoutForFullBoard(win, 100, "5x3", DEFAULT_HOUSE_EDGE);
     expect(scaled).toBe(
@@ -520,7 +516,7 @@ describe("payoutForFullBoard", () => {
   });
 
   it("a lower house edge pays more, a higher house edge pays less, than the unscaled default", () => {
-    const win = { count: 11, wins: [{ symbol: "seven" as const, positions: [] }] };
+    const win = { wins: [{ symbol: "seven" as const, count: 7, positions: [] }] };
     const raw = payoutForFullBoard(win, 100, "5x3");
     expect(payoutForFullBoard(win, 100, "5x3", MIN_HOUSE_EDGE)).toBeGreaterThan(raw);
     expect(payoutForFullBoard(win, 100, "5x3", MAX_HOUSE_EDGE)).toBeLessThan(raw);
