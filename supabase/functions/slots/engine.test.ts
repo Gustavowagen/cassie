@@ -526,10 +526,12 @@ describe("payoutForFullBoard", () => {
 describe("full-board RTP", () => {
   // Exact multinomial-composition enumeration over SYMBOL_WEIGHTS, generic
   // over total cell count — recomputed independently of
-  // evaluateFullBoardWin/payoutForFullBoard. Ties are summed generically
-  // (matches the pay-all-ties rule), though under the current tables at
-  // most a 2-way tie is ever reachable — see engine.ts's own corrected
-  // comment on this.
+  // evaluateFullBoardWin/payoutForFullBoard. Every symbol is checked
+  // against its own threshold independently (no "max count" concept),
+  // mirroring the pay-every-qualifier rule, and every qualifying symbol's
+  // own-tier pay is summed (matches linearity of expectation, since each
+  // symbol's marginal count distribution is exactly binomial regardless of
+  // the others).
   function factorial(n: number): number {
     let r = 1;
     for (let i = 2; i <= n; i++) r *= i;
@@ -544,45 +546,25 @@ describe("full-board RTP", () => {
 
     function enumerate(idx: number, remaining: number, counts: number[]) {
       if (idx === SYMBOL_WEIGHTS.length - 1) {
-        // The last symbol's count isn't free to choose — it's whatever's
-        // left after every other symbol has claimed its share of the `n`
-        // cells, since every cell holds exactly one symbol.
         counts[idx] = remaining;
-        // coef: the multinomial coefficient n! / (c0! * c1! * ... * cN!) —
-        // how many distinct cell layouts produce this exact per-symbol
-        // count breakdown.
         let coef = factorial(n);
-        // pw: the probability of any one specific layout with this count
-        // breakdown — each symbol's weight raised to its own count,
-        // multiplied together (cells are independent draws).
         let pw = 1;
         for (let i = 0; i < SYMBOL_WEIGHTS.length; i++) {
           coef /= factorial(counts[i]);
           pw *= SYMBOL_WEIGHTS[i].weight ** counts[i];
         }
-        // p: total probability of this count breakdown = (# layouts) *
-        // (probability per layout).
         const p = coef * pw;
 
-        const maxCount = Math.max(...counts);
-        if (maxCount >= config.minCount) {
-          const tier = config.tierIndex(maxCount);
-          // Unlike single-row mode (single winner, no same-row tie
-          // possible at any current threshold), full-board mode pays
-          // every symbol tied for maxCount — sum each tied symbol's pay
-          // at this tier, mirroring evaluateFullBoardWin/
-          // payoutForFullBoard's pay-all-ties rule. A k-way tie is only
-          // reachable when k * minCount <= n; under the current tables
-          // that caps out at a 2-way tie (verified by the "matches each
-          // board size's pinned baselineRtp" test above), but this loop
-          // stays correct for any tie width.
-          let tiedPay = 0;
-          for (let i = 0; i < counts.length; i++) {
-            if (counts[i] === maxCount) tiedPay += config.symbols[i].pay[tier];
+        let spinPay = 0;
+        let anyWin = false;
+        config.symbols.forEach((s, i) => {
+          if (counts[i] >= s.threshold) {
+            anyWin = true;
+            spinPay += s.pay[s.tierIndex(counts[i])];
           }
-          rtp += p * tiedPay;
-          hitFrequency += p;
-        }
+        });
+        rtp += p * spinPay;
+        if (anyWin) hitFrequency += p;
         return;
       }
       for (let c = 0; c <= remaining; c++) {
@@ -602,17 +584,9 @@ describe("full-board RTP", () => {
   });
 
   it("a chosen house edge scales payoutForFullBoard's raw payout by (1 - houseEdge) / baselineRtp, for every full-board size", () => {
-    // Mirrors the 5x3-only version of this test in the payoutForFullBoard
-    // block above, but exercises payoutForFullBoard (and therefore
-    // engine.ts's real edgeScale) directly for all 3 sizes, rather than
-    // re-deriving the scale factor locally — a purely local
-    // `baseline * ((1-e)/baseline)` check is tautological (true by algebra
-    // for any baseline) and never touches production code.
     for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
       const n = BOARD_DIMENSIONS[boardSize].rows * BOARD_DIMENSIONS[boardSize].cols;
-      // A max-count win (every cell the same symbol) is always a valid win
-      // at every board size's top tier, regardless of that size's minCount.
-      const win = { count: n, wins: [{ symbol: "seven" as const, positions: [] }] };
+      const win = { wins: [{ symbol: "seven" as const, count: n, positions: [] }] };
       const raw = payoutForFullBoard(win, 100, boardSize);
       for (const houseEdge of [MIN_HOUSE_EDGE, 0.02, DEFAULT_HOUSE_EDGE, MAX_HOUSE_EDGE]) {
         const scaled = payoutForFullBoard(win, 100, boardSize, houseEdge);
@@ -623,15 +597,60 @@ describe("full-board RTP", () => {
 
   it("hit frequencies land where exact enumeration puts them (documented in the design doc)", () => {
     const expected: Record<"5x3" | "3x6" | "4x6", [number, number]> = {
-      "5x3": [0.28, 0.36],
-      "3x6": [0.3, 0.39],
-      "4x6": [0.33, 0.42],
+      "5x3": [0.3, 0.36],
+      "3x6": [0.32, 0.38],
+      "4x6": [0.33, 0.4],
     };
     for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
       const { hitFrequency } = theoreticalFullBoardRtp(boardSize);
       const [lo, hi] = expected[boardSize];
       expect(hitFrequency).toBeGreaterThan(lo);
       expect(hitFrequency).toBeLessThan(hi);
+    }
+  });
+
+  function binomialTail(n: number, p: number, k: number): number {
+    if (k <= 0) return 1;
+    function logChoose(nn: number, kk: number): number {
+      let r = 0;
+      for (let i = 0; i < kk; i++) r += Math.log(nn - i) - Math.log(i + 1);
+      return r;
+    }
+    let total = 0;
+    for (let i = k; i <= n; i++) {
+      total += Math.exp(logChoose(n, i) + i * Math.log(p) + (n - i) * Math.log(1 - p));
+    }
+    return total;
+  }
+
+  it("thresholds never increase for a rarer symbol, and each symbol's exact win probability is strictly less than the next-more-common symbol's", () => {
+    // This is the core design invariant from the design doc: common
+    // symbols require at least as many matches as rarer symbols, yet
+    // still win strictly more often.
+    for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
+      const config = FULL_BOARD_TABLES[boardSize]!;
+      const n = BOARD_DIMENSIONS[boardSize].rows * BOARD_DIMENSIONS[boardSize].cols;
+      let prevThreshold = Infinity;
+      let prevWinProb = 1;
+      for (const symbolConfig of config.symbols) {
+        expect(symbolConfig.threshold).toBeLessThanOrEqual(prevThreshold);
+        const weight = SYMBOL_WEIGHTS.find((s) => s.id === symbolConfig.id)!.weight;
+        const winProb = binomialTail(n, weight, symbolConfig.threshold);
+        expect(winProb).toBeLessThan(prevWinProb);
+        prevThreshold = symbolConfig.threshold;
+        prevWinProb = winProb;
+      }
+    }
+  });
+
+  it("within every board size's table, rarer symbols pay at least as much at every tier", () => {
+    for (const boardSize of Object.keys(FULL_BOARD_TABLES) as ("5x3" | "3x6" | "4x6")[]) {
+      const symbols = FULL_BOARD_TABLES[boardSize]!.symbols;
+      for (let i = 1; i < symbols.length; i++) {
+        for (let tier = 0; tier < symbols[i].pay.length; tier++) {
+          expect(symbols[i].pay[tier]).toBeGreaterThanOrEqual(symbols[i - 1].pay[tier]);
+        }
+      }
     }
   });
 });
