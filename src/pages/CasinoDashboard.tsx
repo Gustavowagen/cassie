@@ -95,6 +95,7 @@ export function CasinoDashboard() {
   const [gameTypes, setGameTypes] = useState<GameType[]>([]);
   const [casinoGames, setCasinoGames] = useState<CasinoGame[]>([]);
   const [activeGame, setActiveGame] = useState<CasinoGame | null>(null);
+  const activeSlotsBoardSize = (activeGame?.settings as SlotsInstanceSettings | undefined)?.boardSize ?? "5x3";
 
   useEffect(() => {
     if (!currentCasino) return;
@@ -409,11 +410,8 @@ export function CasinoDashboard() {
             <Slots
               casinoId={currentCasino.id}
               gameId={activeGame.id}
-              rewardMode={resolveSlotsRewardMode(
-                activeGame.settings as SlotsInstanceSettings,
-                (activeGame.settings as SlotsInstanceSettings)?.boardSize ?? "5x3"
-              )}
-              boardSize={(activeGame.settings as SlotsInstanceSettings)?.boardSize ?? "5x3"}
+              rewardMode={resolveSlotsRewardMode(activeGame.settings as SlotsInstanceSettings, activeSlotsBoardSize)}
+              boardSize={activeSlotsBoardSize}
               // Mirrors the slots edge function's DEFAULT_HOUSE_EDGE fallback
               // (supabase/functions/slots/engine.ts) for pre-existing rows.
               houseEdge={(activeGame.settings as SlotsInstanceSettings)?.houseEdge ?? 0.02}
