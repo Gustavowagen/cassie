@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Eye, EyeOff, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
@@ -77,16 +78,16 @@ const SINGLE_ROW_PAYTABLES: Partial<Record<SlotBoardSize, ClientPaytable>> = {
     ],
   },
   "3x6": {
-    baselineRtp: 0.961146984006,
+    baselineRtp: 0.972812236308,
     tierCount: 3,
-    tierIndex: (count) => (count >= 6 ? 2 : count >= 4 ? 1 : 0),
-    label: "Paytable (3× · 4-5× · 6×)",
+    tierIndex: (count) => (count >= 6 ? 2 : count === 5 ? 1 : 0),
+    label: "Paytable (4× · 5× · 6×)",
     symbols: [
-      { id: "dot", pay: [1, 2, 7.5] },
-      { id: "square", pay: [1, 2.5, 10] },
-      { id: "diamond", pay: [1.5, 3, 12.5] },
-      { id: "star", pay: [2, 3.5, 15] },
-      { id: "seven", pay: [2.5, 5, 20] },
+      { id: "dot", pay: [4, 8, 31] },
+      { id: "square", pay: [5, 10.5, 41.5] },
+      { id: "diamond", pay: [6.5, 13, 52] },
+      { id: "star", pay: [8, 15.5, 62] },
+      { id: "seven", pay: [10.5, 20.5, 83] },
     ],
   },
 };
@@ -145,14 +146,20 @@ function displayX(n: number): string {
 // (sl-win-tier-3/4/5). 2-tier boards (3x3, 3x4) skip the middle "BIG WIN"
 // tier — their tier 0 maps to WIN (3), tier 1 straight to MEGA WIN (5).
 // Only ever called with a (boardSize, rewardMode) pair the server actually
-// allows (ALLOWED_REWARD_MODES), so the asserted lookup below always finds
-// a table — FULL_BOARD_PAYTABLES simply has no 3x3/3x4 entry because
-// full_board is never reachable on those sizes.
+// allows (ALLOWED_REWARD_MODES), so the lookups below should always find a
+// table — FULL_BOARD_PAYTABLES simply has no 3x3/3x4 entry because
+// full_board is never reachable on those sizes. Falling back to the 5x3
+// table (valid for both reward modes) rather than asserting non-null means
+// a future prop-shape violation (e.g. a stale rewardMode mid re-render)
+// degrades to a wrong-but-harmless tier instead of an uncaught render-time
+// crash — this codebase has no error boundary, so that would white-screen
+// the whole app, not just this modal. The fallback never affects the
+// correct-path result.
 function winTier(boardSize: SlotBoardSize, rewardMode: RewardMode, count: number): 3 | 4 | 5 {
   const table =
     rewardMode === "full_board"
-      ? FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"]
-      : SINGLE_ROW_PAYTABLES[boardSize]!;
+      ? (FULL_BOARD_PAYTABLES[boardSize as "5x3" | "3x6" | "4x6"] ?? FULL_BOARD_PAYTABLES["5x3"])
+      : (SINGLE_ROW_PAYTABLES[boardSize] ?? SINGLE_ROW_PAYTABLES["5x3"]!);
   const tier = table.tierIndex(count);
   if (table.tierCount === 2) return tier >= 1 ? 5 : 3;
   return tier >= 2 ? 5 : tier === 1 ? 4 : 3;
@@ -436,7 +443,7 @@ export function Slots({
         <div className="flex flex-1 items-center justify-center p-5 min-w-0">
           <div
             className={`sl-reels-wrap ${activeDesign.themeClass}`}
-            style={{ ["--rows" as string]: rows, ["--cols" as string]: cols }}
+            style={{ "--rows": rows, "--cols": cols } as CSSProperties}
           >
             {rewardMode === "single_row" && (
               <>
