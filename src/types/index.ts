@@ -84,7 +84,7 @@ export interface SlotsInstanceSettings {
   // in supabase/functions/slots/engine.ts's DEFAULT_BOARD_SIZE. Gates
   // which rewardMode values are allowed — see engine.ts's
   // ALLOWED_REWARD_MODES, enforced authoritatively server-side.
-  boardSize?: "3x3" | "3x4" | "5x3" | "3x6" | "4x6";
+  boardSize?: SlotBoardSize;
 }
 
 // Mirror of the edge function's sanitized output (engine.ts BlackjackState).
