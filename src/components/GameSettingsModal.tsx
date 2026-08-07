@@ -29,6 +29,24 @@ const REWARD_MODES = [
 const HOUSE_EDGE_OPTIONS = [0, 0.01, 0.02, 0.03, 0.04, 0.05] as const;
 type HouseEdge = (typeof HOUSE_EDGE_OPTIONS)[number];
 
+const BOARD_SIZES = [
+  { id: "3x3" as const, label: "3×3", description: "Smallest board. Locked to single row." },
+  { id: "3x4" as const, label: "3×4", description: "Locked to single row." },
+  { id: "5x3" as const, label: "5×3 (Classic)", description: "Today's board. Single row or full board." },
+  { id: "3x6" as const, label: "3×6", description: "Single row or full board." },
+  { id: "4x6" as const, label: "4×6", description: "Largest board. Locked to full board." },
+];
+type BoardSize = (typeof BOARD_SIZES)[number]["id"];
+
+// Mirrors supabase/functions/slots/engine.ts's ALLOWED_REWARD_MODES.
+const ALLOWED_REWARD_MODES: Record<BoardSize, ("single_row" | "full_board")[]> = {
+  "3x3": ["single_row"],
+  "3x4": ["single_row"],
+  "5x3": ["single_row", "full_board"],
+  "3x6": ["single_row", "full_board"],
+  "4x6": ["full_board"],
+};
+
 interface GameSettingsModalProps {
   title: string;
   imageUrl: string | undefined;
@@ -55,9 +73,16 @@ export function GameSettingsModal({
   const [name, setName] = useState(initialName);
   const [minBetText, setMinBetText] = useState(String(initialMinBet));
   const [maxBetText, setMaxBetText] = useState(String(initialMaxBet));
-  const [rewardMode, setRewardMode] = useState<"single_row" | "full_board">(
-    initialSettings.rewardMode === "full_board" ? "full_board" : "single_row"
-  );
+  const initialBoardSize: BoardSize = BOARD_SIZES.some((b) => b.id === initialSettings.boardSize)
+    ? (initialSettings.boardSize as BoardSize)
+    : "5x3";
+  const [boardSize, setBoardSize] = useState<BoardSize>(initialBoardSize);
+  const [rewardMode, setRewardMode] = useState<"single_row" | "full_board">(() => {
+    const allowed = ALLOWED_REWARD_MODES[initialBoardSize];
+    return initialSettings.rewardMode === "full_board" && allowed.includes("full_board")
+      ? "full_board"
+      : allowed[0];
+  });
   const [houseEdge, setHouseEdge] = useState<HouseEdge>(
     HOUSE_EDGE_OPTIONS.includes(initialSettings.houseEdge as HouseEdge)
       ? (initialSettings.houseEdge as HouseEdge)
@@ -69,6 +94,12 @@ export function GameSettingsModal({
   const [view, setView] = useState<"settings" | "design">("settings");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleBoardSizeChange(next: BoardSize) {
+    setBoardSize(next);
+    const allowed = ALLOWED_REWARD_MODES[next];
+    if (!allowed.includes(rewardMode)) setRewardMode(allowed[0]);
+  }
 
   const trimmed = name.trim();
   const minBet = parseFloat(minBetText);
@@ -87,7 +118,7 @@ export function GameSettingsModal({
     setSaving(true);
     setError(null);
     try {
-      const settings = isSlots ? { ...initialSettings, rewardMode, houseEdge, design } : initialSettings;
+      const settings = isSlots ? { ...initialSettings, rewardMode, houseEdge, design, boardSize } : initialSettings;
       await onSave(trimmed, minBet, maxBet, settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save game");
@@ -256,23 +287,52 @@ export function GameSettingsModal({
 
         {isSlots && (
           <div>
-            <Label>Reward Mode</Label>
+            <Label>Board Size</Label>
             <div className="mt-1.5 grid grid-cols-1 gap-2">
-              {REWARD_MODES.map((mode) => (
+              {BOARD_SIZES.map((b) => (
                 <button
-                  key={mode.id}
+                  key={b.id}
                   type="button"
-                  onClick={() => setRewardMode(mode.id)}
+                  onClick={() => handleBoardSizeChange(b.id)}
                   className={`text-left rounded-lg border px-3 py-2 transition-colors ${
-                    rewardMode === mode.id
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:border-foreground/30"
+                    boardSize === b.id ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"
                   }`}
                 >
-                  <p className="text-sm font-medium">{mode.label}</p>
-                  <p className="text-xs text-muted-foreground">{mode.description}</p>
+                  <p className="text-sm font-medium">{b.label}</p>
+                  <p className="text-xs text-muted-foreground">{b.description}</p>
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {isSlots && (
+          <div>
+            <Label>Reward Mode</Label>
+            <div className="mt-1.5 grid grid-cols-1 gap-2">
+              {REWARD_MODES.map((mode) => {
+                const allowed = ALLOWED_REWARD_MODES[boardSize].includes(mode.id);
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    onClick={() => allowed && setRewardMode(mode.id)}
+                    disabled={!allowed}
+                    className={`text-left rounded-lg border px-3 py-2 transition-colors ${
+                      !allowed
+                        ? "border-border opacity-40 cursor-not-allowed"
+                        : rewardMode === mode.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-foreground/30"
+                    }`}
+                  >
+                    <p className="text-sm font-medium">{mode.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {allowed ? mode.description : "Not available for this board size."}
+                    </p>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
