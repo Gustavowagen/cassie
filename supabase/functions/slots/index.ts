@@ -8,6 +8,11 @@ import {
   roundMoney,
   HOUSE_EDGE_OPTIONS,
   DEFAULT_HOUSE_EDGE,
+  BOARD_SIZES,
+  DEFAULT_BOARD_SIZE,
+  ALLOWED_REWARD_MODES,
+  type BoardSize,
+  type RewardMode,
 } from "./engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -34,20 +39,32 @@ const rng = () => {
   return buf[0] / 2 ** 32;
 };
 
-type RewardMode = "single_row" | "full_board";
-
-// Unknown/missing settings, or any value other than "full_board", default
-// to today's behavior — this is what keeps every pre-existing casino_games
-// row (settings = '{}') playing exactly as before.
-function resolveRewardMode(settings: unknown): RewardMode {
-  if (
-    settings &&
-    typeof settings === "object" &&
-    (settings as Record<string, unknown>).rewardMode === "full_board"
-  ) {
-    return "full_board";
+// Unknown/missing settings, or any value not in BOARD_SIZES, default to
+// DEFAULT_BOARD_SIZE ("5x3") — this is what keeps every pre-existing
+// casino_games row (settings = '{}') playing exactly as before.
+function resolveBoardSize(settings: unknown): BoardSize {
+  const raw =
+    settings && typeof settings === "object" ? (settings as Record<string, unknown>).boardSize : undefined;
+  if (typeof raw === "string" && (BOARD_SIZES as string[]).includes(raw)) {
+    return raw as BoardSize;
   }
-  return "single_row";
+  return DEFAULT_BOARD_SIZE;
+}
+
+// Authoritative gate: even if the admin UI's disabled state were bypassed
+// (or a stored settings blob predates a later change to ALLOWED_REWARD_MODES),
+// a disallowed rewardMode for the resolved boardSize is coerced to that
+// size's first allowed mode rather than trusted. For every board size
+// that allows both modes, that first-allowed value is "single_row",
+// matching today's existing default.
+function resolveRewardMode(settings: unknown, boardSize: BoardSize): RewardMode {
+  const allowed = ALLOWED_REWARD_MODES[boardSize];
+  const raw =
+    settings && typeof settings === "object" ? (settings as Record<string, unknown>).rewardMode : undefined;
+  if ((raw === "single_row" || raw === "full_board") && allowed.includes(raw)) {
+    return raw;
+  }
+  return allowed[0];
 }
 
 // Unknown/missing/off-menu settings default to DEFAULT_HOUSE_EDGE (2%) —
@@ -126,18 +143,19 @@ Deno.serve(async (req) => {
     }
     if (validBet > member.balance) return json({ error: "Insufficient balance" }, 400);
 
-    const rewardMode = resolveRewardMode(cg.settings);
+    const boardSize = resolveBoardSize(cg.settings);
+    const rewardMode = resolveRewardMode(cg.settings, boardSize);
     const houseEdge = resolveHouseEdge(cg.settings);
-    const reels = spin(rng);
+    const reels = spin(rng, boardSize);
 
     let win: ReturnType<typeof evaluateWin> | ReturnType<typeof evaluateFullBoardWin>;
     let payout: number;
     if (rewardMode === "full_board") {
-      win = evaluateFullBoardWin(reels);
-      payout = payoutForFullBoard(win, validBet, houseEdge);
+      win = evaluateFullBoardWin(reels, boardSize);
+      payout = payoutForFullBoard(win, validBet, boardSize, houseEdge);
     } else {
-      win = evaluateWin(reels);
-      payout = payoutFor(win, validBet, houseEdge);
+      win = evaluateWin(reels, boardSize);
+      payout = payoutFor(win, validBet, boardSize, houseEdge);
     }
     const net = roundMoney(payout - validBet);
     const balance = roundMoney(member.balance + net);
@@ -158,7 +176,7 @@ Deno.serve(async (req) => {
       }),
     ]);
 
-    return json({ reels, win, rewardMode, bet: validBet, payout, balance });
+    return json({ reels, win, rewardMode, boardSize, bet: validBet, payout, balance });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
