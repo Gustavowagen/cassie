@@ -482,7 +482,7 @@ export function Slots({
           <div className="mt-2 space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
-                {rewardMode === "full_board" ? activeFullBoardTable?.label : activeSingleRowTable?.label}
+                {rewardMode === "full_board" ? "Paytable" : activeSingleRowTable?.label}
               </p>
               <button
                 type="button"
@@ -495,7 +495,23 @@ export function Slots({
               </button>
             </div>
             {showPaytable &&
-              (rewardMode === "full_board" ? scaledFullBoardPay : scaledSingleRowPay).map((s) => (
+              rewardMode === "full_board" &&
+              scaledFullBoardPay.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 text-xs">
+                  <span className="sl-sym-mini">
+                    <SlotSymbol design={activeDesign} id={s.id} />
+                  </span>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-muted-foreground/70 font-mono text-[10px]">{s.rangeLabel}</span>
+                    <span className="text-muted-foreground font-mono">
+                      {s.pay.map((x) => `${displayX(x)}x`).join(" · ")}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            {showPaytable &&
+              rewardMode !== "full_board" &&
+              scaledSingleRowPay.map((s) => (
                 <div key={s.id} className="flex items-center gap-2 text-xs">
                   <span className="sl-sym-mini">
                     <SlotSymbol design={activeDesign} id={s.id} />
