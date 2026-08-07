@@ -159,12 +159,15 @@ export interface SlotWin {
 
 // Full-board mode win: count spans every row, so positions need a row
 // index alongside the reel index — kept as a separate type from SlotWin
-// rather than unifying, so single-row's shape stays untouched. `wins`
-// holds every symbol that reached the max count — normally length 1,
-// occasionally more when symbols tie (both/all pay and light up).
+// rather than unifying, so single-row's shape stays untouched. Every
+// symbol has its own threshold and wins independently (see
+// supabase/functions/slots/engine.ts), so `wins` holds every symbol that
+// independently qualified this spin — normally length 0-1, occasionally
+// more when multiple different symbols each clear their own threshold at
+// once. Each entry carries its own `count`, since different symbols can
+// qualify at different counts in the same spin.
 export interface FullBoardSlotWin {
-  count: number;
-  wins: { symbol: SlotSymbolId; positions: { reel: number; row: number }[] }[];
+  wins: { symbol: SlotSymbolId; count: number; positions: { reel: number; row: number }[] }[];
 }
 
 // Mirror of the edge function's response (supabase/functions/slots/engine.ts).
