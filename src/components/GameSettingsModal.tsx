@@ -24,9 +24,12 @@ const REWARD_MODES = [
   },
 ];
 
-// Fixed menu — mirrors supabase/functions/slots/engine.ts's HOUSE_EDGE_OPTIONS.
-// Admins pick one of these; there's no free-entry field.
+// Fixed menus — mirror each engine's HOUSE_EDGE_OPTIONS. Admins pick one of
+// these; there's no free-entry field. Tumble deliberately has no 0% option
+// (supabase/functions/tumble/engine.ts), so it gets its own list rather than
+// sharing slots'.
 const HOUSE_EDGE_OPTIONS = [0, 0.01, 0.02, 0.03, 0.04, 0.05] as const;
+const TUMBLE_HOUSE_EDGE_OPTIONS = [0.01, 0.02, 0.03, 0.04, 0.05] as const;
 type HouseEdge = (typeof HOUSE_EDGE_OPTIONS)[number];
 
 const BOARD_SIZES = [
@@ -70,6 +73,14 @@ export function GameSettingsModal({
   onSave,
   onClose,
 }: GameSettingsModalProps) {
+  // Both games skin themselves from slotsDesigns and expose a house-edge
+  // menu; only slots also picks a board size and reward mode (Tumble's board
+  // and full-board rule are fixed by the game).
+  const isSlots = gameTypeId === "slots";
+  const isTumble = gameTypeId === "tumble";
+  const hasSkin = isSlots || isTumble;
+  const edgeOptions: readonly HouseEdge[] = isTumble ? TUMBLE_HOUSE_EDGE_OPTIONS : HOUSE_EDGE_OPTIONS;
+
   const [name, setName] = useState(initialName);
   const [minBetText, setMinBetText] = useState(String(initialMinBet));
   const [maxBetText, setMaxBetText] = useState(String(initialMaxBet));
@@ -84,9 +95,12 @@ export function GameSettingsModal({
       : allowed[0];
   });
   const [houseEdge, setHouseEdge] = useState<HouseEdge>(
-    HOUSE_EDGE_OPTIONS.includes(initialSettings.houseEdge as HouseEdge)
+    edgeOptions.includes(initialSettings.houseEdge as HouseEdge)
       ? (initialSettings.houseEdge as HouseEdge)
-      : 0.02
+      : // Matches each engine's DEFAULT_HOUSE_EDGE.
+        isTumble
+        ? 0.03
+        : 0.02
   );
   const [design, setDesign] = useState<string>(
     typeof initialSettings.design === "string" ? initialSettings.design : DEFAULT_SLOTS_DESIGN_ID
@@ -110,7 +124,6 @@ export function GameSettingsModal({
     isFinite(maxBet) &&
     maxBet <= MAX_BET_CEILING &&
     maxBet >= minBet;
-  const isSlots = gameTypeId === "slots";
   const canSave = trimmed && betRangeValid;
 
   async function handleSave() {
@@ -118,7 +131,11 @@ export function GameSettingsModal({
     setSaving(true);
     setError(null);
     try {
-      const settings = isSlots ? { ...initialSettings, rewardMode, houseEdge, design, boardSize } : initialSettings;
+      const settings = isSlots
+        ? { ...initialSettings, rewardMode, houseEdge, design, boardSize }
+        : isTumble
+          ? { ...initialSettings, houseEdge, design }
+          : initialSettings;
       await onSave(trimmed, minBet, maxBet, settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save game");
@@ -253,7 +270,7 @@ export function GameSettingsModal({
           )}
         </div>
 
-        {isSlots && (
+        {hasSkin && (
           <div>
             <Label>Design</Label>
             <button
@@ -337,11 +354,11 @@ export function GameSettingsModal({
           </div>
         )}
 
-        {isSlots && (
+        {hasSkin && (
           <div>
             <Label>House edge</Label>
-            <div className="mt-1.5 grid grid-cols-6 gap-1.5">
-              {HOUSE_EDGE_OPTIONS.map((option) => (
+            <div className={`mt-1.5 grid gap-1.5 ${isTumble ? "grid-cols-5" : "grid-cols-6"}`}>
+              {edgeOptions.map((option) => (
                 <button
                   key={option}
                   type="button"

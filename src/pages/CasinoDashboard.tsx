@@ -13,7 +13,7 @@ import { useCasinoStore } from "../stores/casinoStore";
 import { useAuthStore } from "../stores/authStore";
 import { useGames } from "../hooks/useGames";
 import { cn, formatChips, gradientFromColor, avatarGradient, initialsOf } from "../lib/utils";
-import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino, CasinoTheme, SlotsInstanceSettings } from "../types";
+import type { CasinoMemberWithProfile, GameType, CasinoGame, Casino, CasinoTheme, SlotsInstanceSettings, TumbleInstanceSettings } from "../types";
 import { Blackjack } from "../components/games/Blackjack";
 import { Roulette } from "../components/games/Roulette";
 import { Dice } from "../components/games/Dice";
@@ -21,6 +21,7 @@ import { Mines } from "../components/games/Mines";
 import { Crash } from "../components/games/Crash";
 import { Slots } from "../components/games/Slots";
 import { Plinko } from "../components/games/Plinko";
+import { Tumble } from "../components/games/Tumble";
 import { Modal } from "../components/ui/modal";
 import { GameTile } from "../components/GameTile";
 import { GameSettingsModal } from "../components/GameSettingsModal";
@@ -36,8 +37,8 @@ const CTA_GRADIENT = "bg-gradient-to-r from-primary to-indigo-400 hover:opacity-
 
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
-const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko", "crash"]);
-const MANAGED_GAME_IDS = ["blackjack", "slots", "roulette", "dice", "mines", "plinko", "crash"];
+const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko", "crash", "tumble"]);
+const MANAGED_GAME_IDS = ["blackjack", "slots", "tumble", "roulette", "dice", "mines", "plinko", "crash"];
 
 // Mirrors supabase/functions/slots/engine.ts's ALLOWED_REWARD_MODES /
 // GameSettingsModal.tsx's copy of the same table. GameSettingsModal always
@@ -432,6 +433,21 @@ export function CasinoDashboard() {
               // (supabase/functions/slots/engine.ts) for pre-existing rows.
               houseEdge={(activeGame.settings as SlotsInstanceSettings)?.houseEdge ?? 0.02}
               design={(activeGame.settings as SlotsInstanceSettings)?.design ?? DEFAULT_SLOTS_DESIGN_ID}
+              balance={membership?.balance ?? 0}
+              minBet={activeGame.min_bet}
+              maxBet={activeGame.max_bet}
+              onExit={() => setActiveGame(null)}
+            />
+          )}
+          {activeGame.game_type_id === "tumble" && (
+            <Tumble
+              casinoId={currentCasino.id}
+              gameId={activeGame.id}
+              // Mirrors the tumble edge function's DEFAULT_HOUSE_EDGE
+              // fallback (supabase/functions/tumble/engine.ts) for rows whose
+              // settings an admin hasn't touched yet.
+              houseEdge={(activeGame.settings as TumbleInstanceSettings)?.houseEdge ?? 0.03}
+              design={(activeGame.settings as TumbleInstanceSettings)?.design ?? DEFAULT_SLOTS_DESIGN_ID}
               balance={membership?.balance ?? 0}
               minBet={activeGame.min_bet}
               maxBet={activeGame.max_bet}
