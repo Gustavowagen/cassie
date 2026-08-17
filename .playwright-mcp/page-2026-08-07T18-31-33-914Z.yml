@@ -1,0 +1,88 @@
+- generic [ref=e1]:
+  - main [ref=e4]:
+    - generic [ref=e5]:
+      - button "Back to Casinos" [ref=e6] [cursor=pointer]
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - heading "Bjørnar Berge" [level=1] [ref=e13]
+          - paragraph [ref=e14]: ccczcsz
+          - generic [ref=e15]:
+            - generic [ref=e16]: 13 members
+            - 'button "Code: 69A1E0" [ref=e17] [cursor=pointer]'
+        - generic [ref=e22]: 986,991.5487 chips
+      - generic [ref=e24]:
+        - heading "Games" [level=2] [ref=e25]
+        - generic [ref=e26]:
+          - button [ref=e27] [cursor=pointer]:
+            - generic [ref=e29]:
+              - heading "blackjack" [level=3] [ref=e30]
+              - text: Play now →
+          - button [active] [ref=e31] [cursor=pointer]:
+            - generic [ref=e33]:
+              - heading "hNeon Rush slots" [level=3] [ref=e34]
+              - text: Play now →
+          - button [ref=e35] [cursor=pointer]:
+            - generic [ref=e37]:
+              - heading "Mines" [level=3] [ref=e38]
+              - text: Play now →
+          - button [ref=e39] [cursor=pointer]:
+            - generic [ref=e41]:
+              - heading "Plinko" [level=3] [ref=e42]
+              - text: Play now →
+          - button [ref=e43] [cursor=pointer]:
+            - generic [ref=e45]:
+              - heading "Roulette" [level=3] [ref=e46]
+              - text: Play now →
+      - navigation [ref=e47]:
+        - button "Games" [ref=e48] [cursor=pointer]
+        - button "Members" [ref=e51] [cursor=pointer]
+        - button "Stats" [ref=e57] [cursor=pointer]
+        - button "Trades" [ref=e59] [cursor=pointer]
+        - button "Settings" [ref=e63] [cursor=pointer]
+  - generic [ref=e70]:
+    - generic [ref=e71]:
+      - generic [ref=e72]:
+        - paragraph [ref=e73]: Neon Rush
+        - paragraph [ref=e74]: "Balance: 986,991.5487 chips"
+      - generic [ref=e75]:
+        - button "Use solid backdrop" [ref=e76] [cursor=pointer]
+        - button "Mute sound" [ref=e79] [cursor=pointer]
+        - button "Game info" [ref=e84] [cursor=pointer]
+        - button "Exit" [ref=e87] [cursor=pointer]
+    - generic [ref=e91]:
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - text: Bet Amount
+          - spinbutton [ref=e94]: "0.01"
+          - generic [ref=e95]:
+            - button "½" [ref=e96] [cursor=pointer]
+            - button "2×" [ref=e97] [cursor=pointer]
+          - paragraph [ref=e98]: Min 0.0100 · Max 10,000,000.0000
+        - button "Spin" [ref=e99] [cursor=pointer]
+        - generic [ref=e100]:
+          - generic [ref=e101]:
+            - paragraph [ref=e102]: Paytable
+            - button "Hide paytable" [pressed] [ref=e103] [cursor=pointer]
+          - generic [ref=e113]:
+            - generic [ref=e114]: 11-12 · 13-14 · 15+
+            - generic [ref=e115]: 0.53x · 2.12x · 6.89x
+          - generic [ref=e120]:
+            - generic [ref=e121]: 9-10 · 11-12 · 13+
+            - generic [ref=e122]: 1.06x · 3.18x · 11.66x
+          - generic [ref=e127]:
+            - generic [ref=e128]: 9-10 · 11 · 12+
+            - generic [ref=e129]: 3.71x · 11.66x · 41.35x
+          - generic [ref=e134]:
+            - generic [ref=e135]: 7 · 8 · 9+
+            - generic [ref=e136]: 5.3x · 15.37x · 53.54x
+          - generic [ref=e137]:
+            - generic [ref=e138]: "7"
+            - generic [ref=e141]:
+              - generic [ref=e142]: 6 · 7 · 8+
+              - generic [ref=e143]: 11.66x · 34.99x · 123.52x
+      - generic [ref=e146]:
+        - generic [ref=e161]: "7"
+        - generic [ref=e176]:
+          - generic [ref=e177]: "7"
+          - generic [ref=e183]: "7"
+        - generic [ref=e217]: "7"

@@ -15,6 +15,10 @@ Platform for creating and joining free play-money online casinos. Built with Vit
 - URL: https://tvivhadsgtvfvxwpahef.supabase.co
 - Migrations in `supabase/migrations/` — apply via Supabase MCP (`apply_migration`)
 
+## Email Sending
+
+Supabase flagged the project for a high bounce rate on transactional emails (Aug 2026). Until this is resolved, **do not trigger real emails to addresses that may not exist**: never sign up through the actual `auth.signUp` flow with made-up or typo'd addresses. Use direct DB inserts (see `@mock.cassie` seed users in migrations) for demo/test users instead — those never touch the mailer. Only use real inboxes (e.g. the test account below) for anything that must go through the real signup flow.
+
 ## Architecture
 
 - **Auth**: Supabase Auth (email/password). Profile auto-created on signup via DB trigger.

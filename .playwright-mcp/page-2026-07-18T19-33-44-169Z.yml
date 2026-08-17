@@ -1,9 +1,0 @@
-- generic [ref=f7e3]:
-  - navigation [ref=f7e4]:
-    - link "OnlineCassie" [ref=f7e5] [cursor=pointer]:
-      - /url: /
-    - generic [ref=f7e6]:
-      - generic [ref=f7e7]: C
-      - button "Sign out" [ref=f7e9] [cursor=pointer]
-  - main [ref=f7e10]:
-    - generic [ref=f7e11]: Loading casino...

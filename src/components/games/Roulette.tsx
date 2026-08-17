@@ -486,15 +486,18 @@ export function Roulette({ casinoId, gameId, balance: initialBalance, minBet, on
       });
       if (fnErr) {
         // supabase-js returns non-2xx as FunctionsHttpError; the JSON { error }
-        // body lives on error.context (a Response), not on `data`.
-        let message = fnErr.message;
+        // body lives on error.context (a Response), not on `data`. When the
+        // request never reached the function (network failure) there's no
+        // context to parse, so fall back to a message a player can act on
+        // instead of the raw SDK error text.
+        let message = "Failed to place bet, please try again";
         const ctx = (fnErr as unknown as { context?: Response }).context;
         if (ctx && typeof ctx.json === "function") {
           try {
             const parsed = await ctx.json();
             if (parsed?.error) message = parsed.error as string;
           } catch {
-            /* keep the default message */
+            /* keep the fallback message */
           }
         }
         throw new Error(message);

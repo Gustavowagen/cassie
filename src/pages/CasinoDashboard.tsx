@@ -720,24 +720,32 @@ function SettingsTab({
 
                 {instances.length > 0 && (
                   <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
-                    {instances.map((inst) => (
-                      <div key={inst.id} className="flex items-center justify-between">
-                        <span className="text-sm">{inst.custom_name}</span>
-                        <div className="flex items-center gap-2">
+                    {instances.map((inst, idx) => (
+                      <div
+                        key={inst.id}
+                        className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-2.5 py-2"
+                      >
+                        <span className="text-sm min-w-0 truncate">
+                          <span className="text-muted-foreground mr-1.5">#{idx + 1}</span>
+                          {inst.custom_name}
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => setGameModal({ mode: "edit", game: inst })}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label={`Edit ${inst.custom_name}`}
+                            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
                           >
-                            <Settings className="h-3.5 w-3.5" />
+                            <Settings className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             disabled={deletingId === inst.id}
                             onClick={() => handleDelete(inst.id)}
-                            className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                            aria-label={`Delete ${inst.custom_name}`}
+                            className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-background transition-colors disabled:opacity-40"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </div>

@@ -127,8 +127,8 @@ export function GameSettingsModal({
   }
 
   return (
-    <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} overflow-hidden`}>
-      <div className="flex items-start justify-between p-5 border-b border-white/10">
+    <div className={`rounded-2xl ${GLASS} ${CARD_GLOW} overflow-hidden flex-1 min-h-0 flex flex-col`}>
+      <div className="flex items-start justify-between p-5 border-b border-white/10 shrink-0">
         {view === "design" ? (
           <button
             type="button"
@@ -151,7 +151,7 @@ export function GameSettingsModal({
       </div>
 
       {view === "design" ? (
-        <div className="p-5 space-y-2">
+        <div className="p-5 space-y-2 overflow-y-auto min-h-0">
           {SLOTS_DESIGNS.map((d) => {
             const selected = d.id === design;
             return (
@@ -187,7 +187,7 @@ export function GameSettingsModal({
           })}
         </div>
       ) : (
-      <div className="p-5 space-y-4">
+      <div className="p-5 space-y-4 overflow-y-auto min-h-0">
         <div>
           <Label>Front image</Label>
           <div className="mt-1.5 rounded-xl border border-border overflow-hidden">
