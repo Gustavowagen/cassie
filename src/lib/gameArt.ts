@@ -9,4 +9,5 @@ export const GAME_ART: Record<string, string> = {
   dice: "/games/dice.svg",
   mines: "/games/mines.svg",
   plinko: "/games/plinko.svg",
+  tumble: "/games/tumble.svg",
 };

@@ -181,6 +181,74 @@ export interface SlotsResult {
   balance: number;
 }
 
+// --- Tumble ---------------------------------------------------------------
+//
+// Mirrors supabase/functions/tumble/engine.ts. Tumble reuses the slots symbol
+// ids (and therefore the slotsDesigns skins), but is otherwise its own game:
+// a fixed 5x6 board, full-board wins only, and a cascade where winning
+// symbols pop and fresh ones rain down until nothing qualifies.
+
+// board[col][row], row 0 = top.
+export type TumbleBoard = SlotSymbolId[][];
+
+export interface TumbleCell {
+  col: number;
+  row: number;
+}
+
+export interface TumbleWin {
+  symbol: SlotSymbolId;
+  count: number;
+  tier: number;
+  /** Pay multiplier for this symbol alone, already house-edge scaled. */
+  pay: number;
+  positions: TumbleCell[];
+}
+
+export interface TumbleOrb extends TumbleCell {
+  value: number;
+}
+
+/** One cascade step: the board that scored, what it paid, what popped. */
+export interface TumbleStep {
+  board: TumbleBoard;
+  wins: TumbleWin[];
+  orbs: TumbleOrb[];
+  pay: number;
+}
+
+export interface TumbleRound {
+  steps: TumbleStep[];
+  /** The board left once nothing qualified — the opening board on a loss. */
+  finalBoard: TumbleBoard;
+  /** Summed pay of every step, edge-scaled. A bet multiplier, not chips. */
+  basePay: number;
+  /** Summed orb values, or 1 when none landed. Orbs never pay alone. */
+  multiplier: number;
+  totalMultiplier: number;
+}
+
+export interface TumbleResult {
+  round: TumbleRound;
+  bet: number;
+  payout: number;
+  balance: number;
+}
+
+// Shape of CasinoGame.settings for a tumble instance. Board size and reward
+// mode are fixed by the game, so unlike slots there is nothing to configure
+// but the edge and the skin.
+export interface TumbleInstanceSettings {
+  // Fixed menu of 1%-5% in 1% steps — note there is no 0% option, unlike
+  // slots. Missing/off-menu defaults to 0.03, both here and server-side in
+  // supabase/functions/tumble/engine.ts (HOUSE_EDGE_OPTIONS /
+  // DEFAULT_HOUSE_EDGE), which is the authoritative gate.
+  houseEdge?: 0.01 | 0.02 | 0.03 | 0.04 | 0.05;
+  // Visual design id from src/lib/slotsDesigns.ts, shared with slots.
+  // Missing defaults to DEFAULT_SLOTS_DESIGN_ID. Never affects odds.
+  design?: string;
+}
+
 export type PlinkoRisk = "low" | "medium" | "high";
 
 export interface PlinkoResult {

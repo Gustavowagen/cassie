@@ -5,7 +5,7 @@ export interface GameInfoEntry {
 }
 
 export const GAME_INFO: Record<
-  "dice" | "plinko" | "blackjack" | "roulette" | "mines" | "slots" | "crash",
+  "dice" | "plinko" | "blackjack" | "roulette" | "mines" | "slots" | "crash" | "tumble",
   GameInfoEntry
 > = {
   dice: {
@@ -64,6 +64,18 @@ export const GAME_INFO: Record<
     description:
       "A slot machine whose board size and win rule are configured per casino. Wins are counted either along the middle row or across the whole board, depending on setup.",
     rules: ["Open a specific slot machine's info panel for its exact board size, win rule, and thresholds."],
+  },
+  // Generic fallback only — Tumble.tsx builds an instance-specific
+  // GameInfoEntry instead, because the payouts it lists are scaled by the
+  // machine's own house edge and a static description would be wrong for
+  // most instances.
+  tumble: {
+    title: "Tumble",
+    description:
+      "A cascading 5×6 slot. Symbols pay by how many land anywhere on the board, winning symbols pop, and fresh ones rain down — if the new board wins again, it pays again.",
+    rules: [
+      "Open a specific machine's info panel for its exact counts, payouts, and house edge.",
+    ],
   },
   crash: {
     title: "Crash",
