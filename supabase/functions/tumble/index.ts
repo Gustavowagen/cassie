@@ -3,6 +3,7 @@ import {
   playRound,
   payoutFor,
   roundMoney,
+  resolveFreeSpinsSettings,
   HOUSE_EDGE_OPTIONS,
   DEFAULT_HOUSE_EDGE,
   type TumbleRound,
@@ -57,6 +58,133 @@ function describeRound(round: TumbleRound): string {
   return `Tumble: ${symbols}${tumbles}${mult}`;
 }
 
+function describeFreeSpins(spins: number, bet: number, payout: number): string {
+  return `Tumble free spins: ${spins} x ${bet} chips, total payout ${payout}`;
+}
+
+async function handleSpin(
+  body: unknown,
+  userId: string,
+  userClient: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createClient>
+): Promise<Response> {
+  const { casino_id, casino_game_id, bet } = body as {
+    casino_id: string;
+    casino_game_id: string;
+    bet: number;
+  };
+
+  // Membership/balance and bet limits don't depend on each other.
+  const [{ data: member }, { data: cg }] = await Promise.all([
+    userClient.from("casino_members").select("balance").eq("casino_id", casino_id).eq("user_id", userId).single(),
+    admin
+      .from("casino_games")
+      .select("min_bet, max_bet, settings")
+      .eq("id", casino_game_id)
+      .eq("casino_id", casino_id)
+      .eq("game_type_id", "tumble")
+      .single(),
+  ]);
+  if (!member) return json({ error: "You are not a member of this casino" }, 403);
+  if (!cg) return json({ error: "Game not found" }, 400);
+  if (typeof bet !== "number" || !isFinite(bet) || bet <= 0) {
+    return json({ error: "Invalid bet" }, 400);
+  }
+  const validBet = roundMoney(bet);
+  if (validBet < Number(cg.min_bet) || validBet > Number(cg.max_bet)) {
+    return json({ error: `Bet must be between ${cg.min_bet} and ${cg.max_bet}` }, 400);
+  }
+  if (validBet > member.balance) return json({ error: "Insufficient balance" }, 400);
+
+  const houseEdge = resolveHouseEdge(cg.settings);
+  // The whole cascade resolves here, so bet and payout settle in one atomic
+  // update — the client only replays the returned steps.
+  const round = playRound(rng, houseEdge);
+  const payout = payoutFor(round, validBet);
+  const net = roundMoney(payout - validBet);
+  const balance = roundMoney(member.balance + net);
+
+  await Promise.all([
+    admin.from("casino_members").update({ balance }).eq("casino_id", casino_id).eq("user_id", userId),
+    admin.from("transactions").insert({
+      casino_id,
+      user_id: userId,
+      amount: net,
+      balance_after: balance,
+      game_type_id: "tumble",
+      description: describeRound(round),
+    }),
+  ]);
+
+  return json({ round, bet: validBet, payout, balance });
+}
+
+async function handleBuyFreeSpins(
+  body: unknown,
+  userId: string,
+  userClient: ReturnType<typeof createClient>,
+  admin: ReturnType<typeof createClient>
+): Promise<Response> {
+  const { casino_id, casino_game_id, bet } = body as {
+    casino_id: string;
+    casino_game_id: string;
+    bet: number;
+  };
+
+  const [{ data: member }, { data: cg }] = await Promise.all([
+    userClient.from("casino_members").select("balance").eq("casino_id", casino_id).eq("user_id", userId).single(),
+    admin
+      .from("casino_games")
+      .select("min_bet, max_bet, settings")
+      .eq("id", casino_game_id)
+      .eq("casino_id", casino_id)
+      .eq("game_type_id", "tumble")
+      .single(),
+  ]);
+  if (!member) return json({ error: "You are not a member of this casino" }, 403);
+  if (!cg) return json({ error: "Game not found" }, 400);
+
+  const freeSpins = resolveFreeSpinsSettings(cg.settings, Number(cg.max_bet));
+  if (!freeSpins.enabled) {
+    return json({ error: "Free spins are not enabled for this game" }, 400);
+  }
+  if (typeof bet !== "number" || !isFinite(bet) || bet <= 0) {
+    return json({ error: "Invalid bet" }, 400);
+  }
+  const validBet = roundMoney(bet);
+  if (validBet < freeSpins.minBet || validBet > freeSpins.maxBet) {
+    return json({ error: `Free spins bet must be between ${freeSpins.minBet} and ${freeSpins.maxBet}` }, 400);
+  }
+  const cost = roundMoney(freeSpins.spinsPerPurchase * validBet);
+  if (cost > member.balance) return json({ error: "Insufficient balance" }, 400);
+
+  const houseEdge = resolveHouseEdge(cg.settings);
+  // Every round resolves here, all at once — spinsPerPurchase is capped at
+  // 50 (see resolveFreeSpinsSettings), so this is cheap even at MAX_TUMBLES
+  // worst case per round.
+  const rounds: TumbleRound[] = [];
+  for (let i = 0; i < freeSpins.spinsPerPurchase; i++) {
+    rounds.push(playRound(rng, houseEdge));
+  }
+  const payout = roundMoney(rounds.reduce((sum, r) => sum + payoutFor(r, validBet), 0));
+  const net = roundMoney(payout - cost);
+  const balance = roundMoney(member.balance + net);
+
+  await Promise.all([
+    admin.from("casino_members").update({ balance }).eq("casino_id", casino_id).eq("user_id", userId),
+    admin.from("transactions").insert({
+      casino_id,
+      user_id: userId,
+      amount: net,
+      balance_after: balance,
+      game_type_id: "tumble",
+      description: describeFreeSpins(rounds.length, validBet, payout),
+    }),
+  ]);
+
+  return json({ rounds, bet: validBet, cost, payout, balance });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -71,64 +199,12 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Not authenticated" }, 401);
 
     const body = await req.json();
-    const { casino_id, casino_game_id, bet } = body as {
-      casino_id: string;
-      casino_game_id: string;
-      bet: number;
-    };
+    const action = (body as { action?: string }).action ?? "spin";
 
-    // Membership/balance and bet limits don't depend on each other.
-    const [{ data: member }, { data: cg }] = await Promise.all([
-      userClient
-        .from("casino_members")
-        .select("balance")
-        .eq("casino_id", casino_id)
-        .eq("user_id", user.id)
-        .single(),
-      admin
-        .from("casino_games")
-        .select("min_bet, max_bet, settings")
-        .eq("id", casino_game_id)
-        .eq("casino_id", casino_id)
-        .eq("game_type_id", "tumble")
-        .single(),
-    ]);
-    if (!member) return json({ error: "You are not a member of this casino" }, 403);
-    if (!cg) return json({ error: "Game not found" }, 400);
-    if (typeof bet !== "number" || !isFinite(bet) || bet <= 0) {
-      return json({ error: "Invalid bet" }, 400);
+    if (action === "buy_free_spins") {
+      return await handleBuyFreeSpins(body, user.id, userClient, admin);
     }
-    const validBet = roundMoney(bet);
-    if (validBet < Number(cg.min_bet) || validBet > Number(cg.max_bet)) {
-      return json({ error: `Bet must be between ${cg.min_bet} and ${cg.max_bet}` }, 400);
-    }
-    if (validBet > member.balance) return json({ error: "Insufficient balance" }, 400);
-
-    const houseEdge = resolveHouseEdge(cg.settings);
-    // The whole cascade resolves here, so bet and payout settle in one atomic
-    // update — the client only replays the steps as an animation.
-    const round = playRound(rng, houseEdge);
-    const payout = payoutFor(round, validBet);
-    const net = roundMoney(payout - validBet);
-    const balance = roundMoney(member.balance + net);
-
-    await Promise.all([
-      admin
-        .from("casino_members")
-        .update({ balance })
-        .eq("casino_id", casino_id)
-        .eq("user_id", user.id),
-      admin.from("transactions").insert({
-        casino_id,
-        user_id: user.id,
-        amount: net,
-        balance_after: balance,
-        game_type_id: "tumble",
-        description: describeRound(round),
-      }),
-    ]);
-
-    return json({ round, bet: validBet, payout, balance });
+    return await handleSpin(body, user.id, userClient, admin);
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }

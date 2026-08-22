@@ -267,3 +267,50 @@ export function playRound(rng: Rng, houseEdge?: number): TumbleRound {
 export function payoutFor(round: TumbleRound, bet: number): number {
   return roundMoney(bet * round.totalMultiplier);
 }
+
+// Bounds for the free-spins settings menu — enforced here, never trusted
+// from the client (same rule as HOUSE_EDGE_OPTIONS above).
+export const FREE_SPINS_MIN_BET_FLOOR = 1;
+export const FREE_SPINS_MAX_BET_CEILING = 10_000_000;
+export const FREE_SPINS_SPINS_MIN = 1;
+export const FREE_SPINS_SPINS_MAX = 50;
+export const DEFAULT_FREE_SPINS_COUNT = 10;
+
+// Missing/invalid settings default to a disabled feature. Even when
+// enabled, every field is clamped into range rather than trusted — the
+// admin UI (GameSettingsModal.tsx) is not the authority, same rule
+// index.ts's resolveHouseEdge follows for the house edge menu. Pure and
+// dependency-free (no Deno/Supabase imports) so it's directly testable here,
+// unlike resolveHouseEdge which stays in index.ts.
+export function resolveFreeSpinsSettings(
+  settings: unknown,
+  regularMaxBet: number
+): { enabled: boolean; minBet: number; maxBet: number; spinsPerPurchase: number } {
+  const raw =
+    settings && typeof settings === "object" ? (settings as Record<string, unknown>).freeSpins : undefined;
+  const fs = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : undefined;
+
+  const defaultMaxBet = Math.max(FREE_SPINS_MIN_BET_FLOOR, regularMaxBet);
+  if (!fs || fs.enabled !== true) {
+    return {
+      enabled: false,
+      minBet: FREE_SPINS_MIN_BET_FLOOR,
+      maxBet: defaultMaxBet,
+      spinsPerPurchase: DEFAULT_FREE_SPINS_COUNT,
+    };
+  }
+
+  let minBet = typeof fs.minBet === "number" && isFinite(fs.minBet) ? fs.minBet : FREE_SPINS_MIN_BET_FLOOR;
+  minBet = Math.min(Math.max(minBet, FREE_SPINS_MIN_BET_FLOOR), FREE_SPINS_MAX_BET_CEILING);
+
+  let maxBet = typeof fs.maxBet === "number" && isFinite(fs.maxBet) ? fs.maxBet : defaultMaxBet;
+  maxBet = Math.min(Math.max(maxBet, minBet), FREE_SPINS_MAX_BET_CEILING);
+
+  let spinsPerPurchase =
+    typeof fs.spinsPerPurchase === "number" && Number.isInteger(fs.spinsPerPurchase)
+      ? fs.spinsPerPurchase
+      : DEFAULT_FREE_SPINS_COUNT;
+  spinsPerPurchase = Math.min(Math.max(spinsPerPurchase, FREE_SPINS_SPINS_MIN), FREE_SPINS_SPINS_MAX);
+
+  return { enabled: true, minBet, maxBet, spinsPerPurchase };
+}

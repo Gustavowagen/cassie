@@ -20,6 +20,7 @@ import {
   playRound,
   payoutFor,
   pickSymbol,
+  resolveFreeSpinsSettings,
   type Board,
   type SymbolId,
 } from "./engine";
@@ -431,5 +432,69 @@ describe("BASELINE_RTP", () => {
     expect(hitRate).toBeGreaterThan(0.12);
     expect(hitRate).toBeLessThan(0.2);
     expect(expectation(D) / hitRate).toBeGreaterThan(1.3); // tumbles per winning round
+  });
+});
+
+describe("resolveFreeSpinsSettings", () => {
+  it("defaults to disabled with a floor of 1 and 10 spins when settings is missing", () => {
+    const resolved = resolveFreeSpinsSettings(undefined, 500);
+    expect(resolved).toEqual({ enabled: false, minBet: 1, maxBet: 500, spinsPerPurchase: 10 });
+  });
+
+  it("defaults maxBet to at least 1 when the instance's regular max bet is below 1", () => {
+    const resolved = resolveFreeSpinsSettings(undefined, 0.5);
+    expect(resolved.maxBet).toBe(1);
+  });
+
+  it("defaults to disabled when freeSpins.enabled is not exactly true", () => {
+    expect(resolveFreeSpinsSettings({ freeSpins: {} }, 500).enabled).toBe(false);
+    expect(resolveFreeSpinsSettings({ freeSpins: { enabled: "yes" } }, 500).enabled).toBe(false);
+  });
+
+  it("passes through valid enabled settings unchanged", () => {
+    const resolved = resolveFreeSpinsSettings(
+      { freeSpins: { enabled: true, minBet: 2, maxBet: 20, spinsPerPurchase: 25 } },
+      500
+    );
+    expect(resolved).toEqual({ enabled: true, minBet: 2, maxBet: 20, spinsPerPurchase: 25 });
+  });
+
+  it("clamps minBet up to the floor of 1", () => {
+    const resolved = resolveFreeSpinsSettings(
+      { freeSpins: { enabled: true, minBet: 0, maxBet: 20, spinsPerPurchase: 10 } },
+      500
+    );
+    expect(resolved.minBet).toBe(1);
+  });
+
+  it("clamps maxBet up to at least minBet", () => {
+    const resolved = resolveFreeSpinsSettings(
+      { freeSpins: { enabled: true, minBet: 10, maxBet: 5, spinsPerPurchase: 10 } },
+      500
+    );
+    expect(resolved.maxBet).toBe(10);
+  });
+
+  it("clamps maxBet down to the 10,000,000 ceiling", () => {
+    const resolved = resolveFreeSpinsSettings(
+      { freeSpins: { enabled: true, minBet: 1, maxBet: 50_000_000, spinsPerPurchase: 10 } },
+      500
+    );
+    expect(resolved.maxBet).toBe(10_000_000);
+  });
+
+  it("clamps spinsPerPurchase into [1, 50] and falls back to 10 when non-integer", () => {
+    expect(
+      resolveFreeSpinsSettings({ freeSpins: { enabled: true, minBet: 1, maxBet: 20, spinsPerPurchase: 0 } }, 500)
+        .spinsPerPurchase
+    ).toBe(1);
+    expect(
+      resolveFreeSpinsSettings({ freeSpins: { enabled: true, minBet: 1, maxBet: 20, spinsPerPurchase: 999 } }, 500)
+        .spinsPerPurchase
+    ).toBe(50);
+    expect(
+      resolveFreeSpinsSettings({ freeSpins: { enabled: true, minBet: 1, maxBet: 20, spinsPerPurchase: 3.5 } }, 500)
+        .spinsPerPurchase
+    ).toBe(10);
   });
 });
