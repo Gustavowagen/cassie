@@ -66,6 +66,13 @@ function displayX(n: number): string {
 function roundMoney(n: number): number {
   return Math.round((n + Number.EPSILON) * 10000) / 10000;
 }
+// Mirrors supabase/functions/tumble/engine.ts's payoutFor — used to credit
+// each round's own payout locally as it finishes animating (see
+// playOutRound below). Never used to decide an outcome, only to read one
+// already-decided by the server.
+function payoutFor(round: TumbleRound, bet: number): number {
+  return roundMoney(bet * round.totalMultiplier);
+}
 function randomSymbolId(): SlotSymbolId {
   return SYMBOL_IDS[Math.floor(Math.random() * SYMBOL_IDS.length)];
 }
@@ -212,10 +219,30 @@ export function Tumble({
     return collectedOrbs;
   }
 
+  // Plays one already-resolved round's cascade animation, then credits that
+  // round's own payout into local balance and shows its win banner — the
+  // shared per-round contract a manual spin (below) and each round of a
+  // purchased free-spin batch (handleBuyFreeSpins) both use. Nothing here
+  // computes an outcome; `round` and `bet` are already decided server-side.
+  async function playOutRound(round: TumbleRound, bet: number, token: number) {
+    resetRound();
+    await replay(round, token);
+    if (runId.current !== token) return;
+
+    const payout = payoutFor(round, bet);
+    if (payout > 0) {
+      setLocalBalance((b) => roundMoney(b + payout));
+      setSettled({ payout, multiplier: round.multiplier });
+      playWinChime();
+      setTimeout(() => {
+        if (runId.current === token) setSettled(null);
+      }, BANNER_MS + 400);
+    }
+  }
+
   async function handleSpin() {
     if (!betValid || busy) return;
     setFormError(null);
-    resetRound();
     setAnimating(true);
 
     const token = ++runId.current;
@@ -238,18 +265,11 @@ export function Tumble({
     }
     if (runId.current !== token) return;
 
-    await replay(result.round, token);
+    await playOutRound(result.round, bet, token);
     if (runId.current !== token) return;
 
     setLocalBalance(result.balance);
     setAnimating(false);
-    if (result.payout > 0) {
-      setSettled({ payout: result.payout, multiplier: result.round.multiplier });
-      playWinChime();
-      setTimeout(() => {
-        if (runId.current === token) setSettled(null);
-      }, BANNER_MS + 400);
-    }
   }
 
   const tumbleInfo: GameInfoEntry = useMemo(
