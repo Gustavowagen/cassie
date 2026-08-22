@@ -251,10 +251,13 @@ export function Tumble({
   // shared per-round contract a manual spin (below) and each round of a
   // purchased free-spin batch (handleBuyFreeSpins) both use. Nothing here
   // computes an outcome; `round` and `bet` are already decided server-side.
-  async function playOutRound(round: TumbleRound, bet: number, token: number) {
+  // Returns this round's payout (0 if it didn't pay) so a caller looping
+  // over multiple rounds — handleBuyFreeSpins — can tell whether a banner
+  // was actually shown and needs a beat to be seen before moving on.
+  async function playOutRound(round: TumbleRound, bet: number, token: number): Promise<number> {
     resetRound();
     await replay(round, token);
-    if (runId.current !== token) return;
+    if (runId.current !== token) return 0;
 
     const payout = payoutFor(round, bet);
     if (payout > 0) {
@@ -265,6 +268,7 @@ export function Tumble({
         if (runId.current === token) setSettled(null);
       }, BANNER_MS + 400);
     }
+    return payout;
   }
 
   async function handleSpin() {
@@ -303,6 +307,7 @@ export function Tumble({
   async function handleBuyFreeSpins() {
     if (!freeSpinBetValid || busy) return;
     setFormError(null);
+    resetRound();
     setAnimating(true);
 
     const token = ++runId.current;
@@ -327,8 +332,19 @@ export function Tumble({
 
     for (let i = 0; i < result.rounds.length; i++) {
       setFreeSpinsRemaining({ index: i + 1, total: result.rounds.length });
-      await playOutRound(result.rounds[i], result.bet, token);
+      const payout = await playOutRound(result.rounds[i], result.bet, token);
       if (runId.current !== token) return;
+
+      // Give a paid round's win banner an actual beat on screen before the
+      // next round's playOutRound wipes it via resetRound() — otherwise
+      // React coalesces the two state updates and the banner never paints.
+      // A round that didn't pay has no banner to protect, so it flows
+      // straight into the next one.
+      const hasNext = i + 1 < result.rounds.length;
+      if (hasNext && payout > 0) {
+        await sleep(BANNER_MS);
+        if (runId.current !== token) return;
+      }
     }
 
     setFreeSpinsRemaining(null);
