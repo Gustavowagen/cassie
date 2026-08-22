@@ -11,6 +11,14 @@ const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
 const MIN_BET_FLOOR = 0.01;
 const MAX_BET_CEILING = 10_000_000;
 
+// Mirrors supabase/functions/tumble/engine.ts's FREE_SPINS_* constants —
+// this UI is not the authority, the edge function re-clamps everything.
+const FREE_SPINS_MIN_BET_FLOOR = 1;
+const FREE_SPINS_MAX_BET_CEILING = MAX_BET_CEILING;
+const FREE_SPINS_SPINS_MIN = 1;
+const FREE_SPINS_SPINS_MAX = 50;
+const DEFAULT_FREE_SPINS_COUNT = 10;
+
 const REWARD_MODES = [
   {
     id: "single_row" as const,
@@ -105,6 +113,25 @@ export function GameSettingsModal({
   const [design, setDesign] = useState<string>(
     typeof initialSettings.design === "string" ? initialSettings.design : DEFAULT_SLOTS_DESIGN_ID
   );
+  const initialFreeSpins =
+    initialSettings.freeSpins && typeof initialSettings.freeSpins === "object"
+      ? (initialSettings.freeSpins as Partial<{
+          enabled: boolean;
+          minBet: number;
+          maxBet: number;
+          spinsPerPurchase: number;
+        }>)
+      : undefined;
+  const [freeSpinsEnabled, setFreeSpinsEnabled] = useState(initialFreeSpins?.enabled === true);
+  const [freeSpinsMinBetText, setFreeSpinsMinBetText] = useState(
+    String(initialFreeSpins?.minBet ?? FREE_SPINS_MIN_BET_FLOOR)
+  );
+  const [freeSpinsMaxBetText, setFreeSpinsMaxBetText] = useState(
+    String(initialFreeSpins?.maxBet ?? initialMaxBet)
+  );
+  const [freeSpinsCountText, setFreeSpinsCountText] = useState(
+    String(initialFreeSpins?.spinsPerPurchase ?? DEFAULT_FREE_SPINS_COUNT)
+  );
   const [view, setView] = useState<"settings" | "design">("settings");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,17 +151,38 @@ export function GameSettingsModal({
     isFinite(maxBet) &&
     maxBet <= MAX_BET_CEILING &&
     maxBet >= minBet;
-  const canSave = trimmed && betRangeValid;
+  const freeSpinsMinBet = parseFloat(freeSpinsMinBetText);
+  const freeSpinsMaxBet = parseFloat(freeSpinsMaxBetText);
+  const freeSpinsCount = parseInt(freeSpinsCountText, 10);
+  // Only blocks Save while the toggle is on — a disabled section can't
+  // block Save, so its numbers (however malformed) never gate the form.
+  const freeSpinsValid =
+    !freeSpinsEnabled ||
+    (isFinite(freeSpinsMinBet) &&
+      freeSpinsMinBet >= FREE_SPINS_MIN_BET_FLOOR &&
+      isFinite(freeSpinsMaxBet) &&
+      freeSpinsMaxBet <= FREE_SPINS_MAX_BET_CEILING &&
+      freeSpinsMaxBet >= freeSpinsMinBet &&
+      Number.isInteger(freeSpinsCount) &&
+      freeSpinsCount >= FREE_SPINS_SPINS_MIN &&
+      freeSpinsCount <= FREE_SPINS_SPINS_MAX);
+  const canSave = trimmed && betRangeValid && freeSpinsValid;
 
   async function handleSave() {
     if (!canSave || saving) return;
     setSaving(true);
     setError(null);
     try {
+      const sanitizedFreeSpins = {
+        enabled: freeSpinsEnabled,
+        minBet: isFinite(freeSpinsMinBet) ? freeSpinsMinBet : FREE_SPINS_MIN_BET_FLOOR,
+        maxBet: isFinite(freeSpinsMaxBet) ? freeSpinsMaxBet : initialMaxBet,
+        spinsPerPurchase: Number.isInteger(freeSpinsCount) ? freeSpinsCount : DEFAULT_FREE_SPINS_COUNT,
+      };
       const settings = isSlots
         ? { ...initialSettings, rewardMode, houseEdge, design, boardSize }
         : isTumble
-          ? { ...initialSettings, houseEdge, design }
+          ? { ...initialSettings, houseEdge, design, freeSpins: sanitizedFreeSpins }
           : initialSettings;
       await onSave(trimmed, minBet, maxBet, settings);
     } catch (err) {
@@ -376,6 +424,85 @@ export function GameSettingsModal({
             <p className="mt-1.5 text-xs text-muted-foreground">
               Only changes the payout multiplier for a win — never how often players win.
             </p>
+          </div>
+        )}
+
+        {isTumble && (
+          <div>
+            <Label>Free Spins</Label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFreeSpinsEnabled(false)}
+                className={`rounded-lg border py-1.5 text-sm font-medium transition-colors ${
+                  !freeSpinsEnabled ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"
+                }`}
+              >
+                Disabled
+              </button>
+              <button
+                type="button"
+                onClick={() => setFreeSpinsEnabled(true)}
+                className={`rounded-lg border py-1.5 text-sm font-medium transition-colors ${
+                  freeSpinsEnabled ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"
+                }`}
+              >
+                Enabled
+              </button>
+            </div>
+
+            {freeSpinsEnabled && (
+              <div className="mt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="game-settings-fs-min-bet">Free spin min bet</Label>
+                    <Input
+                      id="game-settings-fs-min-bet"
+                      type="number"
+                      min={FREE_SPINS_MIN_BET_FLOOR}
+                      max={FREE_SPINS_MAX_BET_CEILING}
+                      step="any"
+                      value={freeSpinsMinBetText}
+                      onChange={(e) => setFreeSpinsMinBetText(e.target.value)}
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="game-settings-fs-max-bet">Free spin max bet</Label>
+                    <Input
+                      id="game-settings-fs-max-bet"
+                      type="number"
+                      min={FREE_SPINS_MIN_BET_FLOOR}
+                      max={FREE_SPINS_MAX_BET_CEILING}
+                      step="any"
+                      value={freeSpinsMaxBetText}
+                      onChange={(e) => setFreeSpinsMaxBetText(e.target.value)}
+                      className="mt-1.5"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="game-settings-fs-count">Free spins per purchase</Label>
+                  <Input
+                    id="game-settings-fs-count"
+                    type="number"
+                    min={FREE_SPINS_SPINS_MIN}
+                    max={FREE_SPINS_SPINS_MAX}
+                    step="1"
+                    value={freeSpinsCountText}
+                    onChange={(e) => setFreeSpinsCountText(e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+                {!freeSpinsValid && (
+                  <p className="text-xs text-destructive">
+                    Free spin min bet must be at least {FREE_SPINS_MIN_BET_FLOOR}, max bet can't exceed{" "}
+                    {FREE_SPINS_MAX_BET_CEILING.toLocaleString()} and must be at least the min bet, and spins
+                    per purchase must be a whole number between {FREE_SPINS_SPINS_MIN} and {FREE_SPINS_SPINS_MAX}.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
