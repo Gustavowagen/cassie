@@ -65,12 +65,15 @@ player choice, it resolves exactly like a single spin does today: everything
 computed and settled in one atomic request, matching the codebase's existing
 "whole round resolves server-side in one request" rule for Tumble.
 
-`resolveFreeSpinsSettings(settings, cg)` — new function in `index.ts`,
-co-located with `resolveHouseEdge` and following the same convention (settings
-resolution/IO lives in `index.ts`; pure game math lives in `engine.ts`).
-Returns the defaulted/clamped shape above, clamping any admin-saved value that
-is somehow out of range (min < 1, max < min, spins outside [1,50]) rather than
-trusting it.
+`resolveFreeSpinsSettings(settings, regularMaxBet)` — new function in
+`engine.ts`, not `index.ts`. Unlike `resolveHouseEdge` (which stays where it
+is), this one has no reason to live in the edge function: it's a pure
+function of its inputs with no Deno/Supabase dependency, so putting it in
+`engine.ts` gets it real `vitest` coverage (see Testing below) instead of
+being manual-only. `index.ts` imports and calls it. Returns the
+defaulted/clamped shape above, clamping any admin-saved value that is somehow
+out of range (min < 1, max < min, spins outside [1,50]) rather than trusting
+it.
 
 Request body: `{ action: "buy_free_spins", casino_id, casino_game_id, bet }`
 — `bet` is the per-spin stake the player picked.
@@ -174,19 +177,20 @@ activeGame.max_bet, spinsPerPurchase: 10 }`), mirroring how `houseEdge` and
 
 ## Testing
 
-`engine.test.ts` needs no changes — per-round math (`playRound`, `payoutFor`)
-is untouched; a purchase just calls `playRound` `spinsPerPurchase` times.
+`playRound`/`payoutFor` themselves need no changes — a purchase just calls
+`playRound` `spinsPerPurchase` times.
 
-`resolveFreeSpinsSettings` and the `buy_free_spins` action's request
-validation live in `index.ts`, same as `resolveHouseEdge` today — which is
-not currently vitest-covered (it lives in a Deno edge function that isn't
-imported by the node-based `engine.test.ts`). This design keeps that existing
-boundary rather than introducing an inconsistency: free-spin settings
-resolution and purchase validation are verified the same way the single-spin
-endpoint's `resolveHouseEdge`/bet-range checks are today — manual/Playwright
-verification against the deployed function, not a vitest suite. If that
-boundary changes later (e.g. `resolveHouseEdge` moves into `engine.ts` for
-testability), `resolveFreeSpinsSettings` should move with it.
+`resolveFreeSpinsSettings` (in `engine.ts`) gets real `vitest` coverage in
+`engine.test.ts`: defaults when `freeSpins` is missing/malformed, clamping of
+an out-of-range or non-integer `spinsPerPurchase`, clamping `minBet` up to
+the floor of 1, clamping `maxBet` down to the ceiling and up to at least
+`minBet`, and the disabled-by-default case.
+
+The `buy_free_spins` action's request handling in `index.ts` (auth, balance
+checks, the atomic cost/payout update, the transaction row) stays
+manual/Playwright-verified, same as the existing single-spin flow's
+`resolveHouseEdge`/bet-range checks — it lives in a Deno edge function that
+isn't imported by the node-based `engine.test.ts`.
 
 Manual verification via Playwright against the running app: enable free
 spins in the settings modal with a min/max/count, buy a batch from the game
