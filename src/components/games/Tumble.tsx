@@ -17,7 +17,6 @@ import type {
   TumbleBoard,
   TumbleFreeSpinsResult,
   TumbleFreeSpinsSettings,
-  TumbleOrb,
   TumbleRound,
   TumbleStep,
 } from "../../types";
@@ -46,7 +45,7 @@ const PAYTABLE: PaytableRow[] = [
 ];
 // Mirrors the engine's BASELINE_RTP so displayed pays match what the server
 // actually pays at this instance's edge.
-const BASELINE_RTP = 1.070847083099;
+const BASELINE_RTP = 1.4081232249959508;
 const SYMBOL_IDS: SlotSymbolId[] = ["dot", "square", "diamond", "star", "seven"];
 
 // Animation beats, in ms. Kept here (not in CSS alone) because the replay
@@ -61,9 +60,22 @@ const COL_STAGGER_MS = 80;
 // second end to end.
 const FALL_MS = DROP_MS + (COLS - 1) * COL_STAGGER_MS;
 const HIGHLIGHT_MS = 760;
+// A step with an X on the board gets this much longer to highlight instead
+// of HIGHLIGHT_MS — the plain win flash reads fine at 760ms, but a multiplier
+// hit needs enough time to actually register before it pops.
+const X_HIGHLIGHT_MS = 1500;
 const POP_MS = 330;
-const ORB_MS = 520;
 const BANNER_MS = 1500;
+// An X that's collected doesn't just glow in place — it launches out of its
+// cell and flies to the running-multiplier counter, landing there is what
+// actually ticks the counter up (see flyXToCounter below). Multiple X's in
+// the same step launch this far apart so the counter visibly ticks once per
+// arrival instead of jumping all at once.
+const FLY_STAGGER_MS = 130;
+const FLY_MS = 520;
+// Extra headroom after the last flyer lands before the step is allowed to
+// move on to popping/falling, so the counter's final tick is never cut off.
+const FLY_LAND_BUFFER_MS = 250;
 
 function edgeScale(houseEdge: number): number {
   return (1 - houseEdge) / BASELINE_RTP;
@@ -97,14 +109,63 @@ function randomBoard(): TumbleBoard {
 }
 const cellKey = (col: number, row: number) => `${col}:${row}`;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Forces a real, painted "settled" frame before the caller continues. Without
+// this, clearing `falling` and lighting the next win happen back to back with
+// no yield between them, so React (and the browser) can fold both into a
+// single commit/paint — the next win's highlight then lands in the same
+// frame the fall is still resolving in, instead of only once the board is
+// genuinely at rest and visible. Double rAF: the first callback fires before
+// the NEXT paint (so the settled frame may not have painted yet), the second
+// fires after that paint has happened.
+const nextFrame = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
 // How many cells each column loses on this step. The engine refills a column
 // from the top, so the next board's fresh cells are exactly rows
-// [0, poppedInColumn) — which is what drives the rain-down animation.
+// [0, poppedInColumn) — which is what drives the rain-down animation. Every X
+// currently on the board pops alongside the winning cells (see engine.ts's
+// tumble()), so it counts here too.
 function poppedPerColumn(step: TumbleStep): number[] {
   const counts = Array<number>(COLS).fill(0);
   for (const win of step.wins) for (const p of win.positions) counts[p.col]++;
+  step.board.forEach((col, c) =>
+    col.forEach((cell) => {
+      if (typeof cell !== "string") counts[c]++;
+    })
+  );
   return counts;
+}
+
+// Positions (and values) of every X cell currently on the board, for
+// lighting/popping them alongside the step's winning symbols and for flying
+// each one's value to the counter individually.
+function xPositions(board: TumbleBoard): { col: number; row: number; value: number }[] {
+  const out: { col: number; row: number; value: number }[] = [];
+  board.forEach((col, c) =>
+    col.forEach((cell, r) => {
+      if (typeof cell !== "string") out.push({ col: c, row: r, value: cell.value });
+    })
+  );
+  return out;
+}
+
+// One X in flight from its cell to the running-multiplier counter. x/y and
+// dx/dy are real viewport pixels read off the DOM at launch time (see
+// flyXToCounter), not layout guesses — the board's cell size is a responsive
+// clamp() and the counter sits in an unrelated part of the layout, so there's
+// no fixed offset between them to hard-code.
+interface FlyingX {
+  id: number;
+  value: number;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  delayMs: number;
+}
+
+function rectCenter(rect: DOMRect) {
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
 interface Props {
@@ -140,10 +201,16 @@ export function Tumble({
 
   const [board, setBoard] = useState<TumbleBoard>(randomBoard);
   const [lit, setLit] = useState<Set<string>>(() => new Set());
+  // Cells currently showing the distinct "X collected" glow — separate from
+  // `lit` (which is the plain win-symbol highlight) so an X hit always gets
+  // its own unmistakable treatment, including the trailing sweep in replay()
+  // below where there's no winning symbol lit alongside it at all.
+  const [xHit, setXHit] = useState<Set<string>>(() => new Set());
   const [popping, setPopping] = useState<Set<string>>(() => new Set());
   const [falling, setFalling] = useState<Set<string>>(() => new Set());
-  const [orbs, setOrbs] = useState<TumbleOrb[]>([]);
+  const [flyers, setFlyers] = useState<FlyingX[]>([]);
   const [runningPay, setRunningPay] = useState(0);
+  const [runningMultiplier, setRunningMultiplier] = useState(0);
   const [tumbleCount, setTumbleCount] = useState(0);
   const [settled, setSettled] = useState<{ payout: number; multiplier: number } | null>(null);
   const [animating, setAnimating] = useState(false);
@@ -159,6 +226,14 @@ export function Tumble({
       runId.current++;
     };
   }, []);
+
+  // DOM handles for measuring real on-screen positions — a flying X's start
+  // and end points depend on the board's responsive cell size and the
+  // counter's actual layout position, neither of which can be computed from
+  // props/state alone.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const multBadgeRef = useRef<HTMLSpanElement>(null);
+  const flyIdRef = useRef(0);
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const betValid = bet >= minBet && bet <= maxBet && bet <= localBalance;
@@ -177,16 +252,54 @@ export function Tumble({
 
   function resetRound() {
     setLit(new Set());
+    setXHit(new Set());
     setPopping(new Set());
     setFalling(new Set());
-    setOrbs([]);
+    setFlyers([]);
     setRunningPay(0);
+    setRunningMultiplier(0);
     setTumbleCount(0);
     setSettled(null);
   }
 
+  // Launches one flying element per collected X, from its cell's real screen
+  // position to the counter's, staggered so each lands (and ticks the
+  // counter up) separately. Fire-and-forget from the caller's perspective —
+  // replay() waits out its own step timing independently, sized to always
+  // cover the full staggered flight below (see FLY_LAND_BUFFER_MS).
+  function flyXToCounter(xPos: { col: number; row: number; value: number }[], token: number) {
+    const boardEl = boardRef.current;
+    const badgeEl = multBadgeRef.current;
+    if (!boardEl || !badgeEl || xPos.length === 0) return;
+    const badgeCenter = rectCenter(badgeEl.getBoundingClientRect());
+
+    xPos.forEach((p, i) => {
+      const cellEl = boardEl.querySelector<HTMLElement>(`[data-cell-key="${cellKey(p.col, p.row)}"]`);
+      if (!cellEl) return;
+      const start = rectCenter(cellEl.getBoundingClientRect());
+      const delayMs = i * FLY_STAGGER_MS;
+      const id = ++flyIdRef.current;
+      setFlyers((prev) => [
+        ...prev,
+        { id, value: p.value, x: start.x, y: start.y, dx: badgeCenter.x - start.x, dy: badgeCenter.y - start.y, delayMs },
+      ]);
+      setTimeout(() => {
+        if (runId.current !== token) return;
+        setFlyers((prev) => prev.filter((f) => f.id !== id));
+        setRunningMultiplier((m) => roundMoney(m + p.value));
+      }, delayMs + FLY_MS);
+    });
+  }
+
+  // How long a step must wait for its X's to finish flying (0 if it has
+  // none) before it's safe to pop/fall onward.
+  function xFlightWaitMs(count: number): number {
+    if (count === 0) return 0;
+    return (count - 1) * FLY_STAGGER_MS + FLY_MS + FLY_LAND_BUFFER_MS;
+  }
+
   // Replays the server's already-decided round as an animation. Nothing here
-  // computes an outcome — every board, win, orb and pay comes from the
+  // computes an outcome — every board, win, X and pay comes from the
   // response.
   async function replay(round: TumbleRound, token: number) {
     const alive = () => runId.current === token;
@@ -198,38 +311,44 @@ export function Tumble({
     await sleep(FALL_MS);
     if (!alive()) return;
     setFalling(new Set());
+    // Let the settled, unlit board actually paint before the first
+    // highlight — otherwise React can batch "falling cleared" and "win lit"
+    // into the same commit, so the highlight can land before the fall has
+    // visibly finished (see nextFrame's comment above).
+    await nextFrame();
+    if (!alive()) return;
 
-    let collectedOrbs: TumbleOrb[] = [];
     let paid = 0;
 
     for (let i = 0; i < round.steps.length; i++) {
       const step = round.steps[i];
+      const winPositions = step.wins.flatMap((w) => w.positions.map((p) => cellKey(p.col, p.row)));
+      const xPosDetailed = xPositions(step.board);
+      const xPos = xPosDetailed.map((p) => cellKey(p.col, p.row));
 
-      // 1. Light up every winning cell and bank this step's pay.
-      setLit(new Set(step.wins.flatMap((w) => w.positions.map((p) => cellKey(p.col, p.row)))));
+      // 1. Light up every winning cell; any X riding along gets its own,
+      //    slower, unmistakable "collected" glow (see .tm-x-hit) and launches
+      //    toward the counter — landing there (not this moment) is what
+      //    actually ticks the running multiplier up, see flyXToCounter.
+      setLit(new Set(winPositions));
+      setXHit(new Set(xPos));
       paid = roundMoney(paid + step.pay);
       setRunningPay(paid);
       setTumbleCount(i);
-      await sleep(HIGHLIGHT_MS);
+      flyXToCounter(xPosDetailed, token);
+      const highlightMs = xPos.length > 0 ? Math.max(X_HIGHLIGHT_MS, xFlightWaitMs(xPos.length)) : HIGHLIGHT_MS;
+      await sleep(highlightMs);
       if (!alive()) return;
 
-      // 2. Any orbs this step dropped land on the board and join the round's
-      //    running multiplier.
-      if (step.orbs.length > 0) {
-        collectedOrbs = [...collectedOrbs, ...step.orbs];
-        setOrbs(collectedOrbs);
-        await sleep(ORB_MS);
-        if (!alive()) return;
-      }
-
-      // 3. Winning cells pop.
-      setPopping(new Set(step.wins.flatMap((w) => w.positions.map((p) => cellKey(p.col, p.row)))));
+      // 2. Winning cells and any X pop together.
+      setPopping(new Set([...winPositions, ...xPos]));
       await sleep(POP_MS);
       if (!alive()) return;
       setLit(new Set());
+      setXHit(new Set());
       setPopping(new Set());
 
-      // 4. Survivors fall and fresh symbols rain into the gaps.
+      // 3. Survivors fall and fresh symbols rain into the gaps.
       const nextBoard = round.steps[i + 1]?.board ?? round.finalBoard;
       const dropped = poppedPerColumn(step);
       setBoard(nextBoard);
@@ -241,9 +360,30 @@ export function Tumble({
       await sleep(FALL_MS);
       if (!alive()) return;
       setFalling(new Set());
+      // Same reasoning as the opening board: force the settled frame to
+      // paint before the next step's win (if any) gets highlighted, so a
+      // second-tumble win never flashes on while its shapes are still
+      // visibly mid-fall.
+      await nextFrame();
+      if (!alive()) return;
     }
 
-    return collectedOrbs;
+    // A winning tumble's own refill can drop a fresh X with no further win to
+    // sweep it up as a step — the engine still counts it (see playRound in
+    // engine.ts), so give it the same collected glow here before the round
+    // settles. Nothing pops: this really is the resting board the player
+    // keeps looking at, so the X stays put once collected.
+    if (round.steps.length > 0) {
+      const trailingDetailed = xPositions(round.finalBoard);
+      const trailingKeys = trailingDetailed.map((p) => cellKey(p.col, p.row));
+      if (trailingKeys.length > 0) {
+        setXHit(new Set(trailingKeys));
+        flyXToCounter(trailingDetailed, token);
+        await sleep(Math.max(X_HIGHLIGHT_MS, xFlightWaitMs(trailingDetailed.length)));
+        if (!alive()) return;
+        setXHit(new Set());
+      }
+    }
   }
 
   // Plays one already-resolved round's cascade animation, then credits that
@@ -363,7 +503,7 @@ export function Tumble({
         "A rarer symbol needs fewer of itself to pay, but still lands a winning count less often than a commoner one.",
         "Symbols are judged independently, so several can pay on the same board — all of them pay, and all of them pop.",
         "Every tumble in a round pays, and the round's wins add together.",
-        "Multiplier orbs can drop on any paying tumble. All orbs collected in a round add up and multiply the round's whole win — orbs never pay on their own.",
+        "A ×2–×25 multiplier symbol can drop into any cell, just like the other symbols. Whenever a tumble pays, every one of these currently on the board is swept up and its value added to the round's running multiplier — several on the same tumble add together (a ×10 and a ×2 combine into ×12). It's the only way to multiply a win; it never pays on its own.",
         `This machine's house edge is ${(houseEdge * 100).toFixed(0)}%, already applied to the payouts shown.`,
         ...(freeSpins.enabled
           ? [
@@ -377,8 +517,7 @@ export function Tumble({
     [houseEdge, freeSpins]
   );
 
-  const orbTotal = orbs.reduce((sum, o) => sum + o.value, 0);
-  const showMultiplier = orbTotal > 0;
+  const showMultiplier = runningMultiplier > 0;
 
   return (
     <div
@@ -501,16 +640,18 @@ export function Tumble({
           </div>
 
           <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-3 p-4">
-            <div className={`tm-board sl-reels-wrap ${activeDesign.themeClass}`}>
+            <div ref={boardRef} className={`tm-board sl-reels-wrap ${activeDesign.themeClass}`}>
               <div className="tm-grid">
                 {board.map((col, c) => (
                   <div className="tm-col" key={c}>
-                    {col.map((symbol, r) => {
+                    {col.map((cell, r) => {
                       const key = cellKey(c, r);
+                      const isXHit = xHit.has(key) && typeof cell !== "string";
                       const classes = [
                         "sl-cell",
                         "tm-cell",
                         lit.has(key) ? "sl-lit" : "",
+                        isXHit ? "tm-x-hit" : "",
                         popping.has(key) ? "tm-pop" : "",
                         falling.has(key) ? "tm-fall" : "",
                       ]
@@ -520,30 +661,20 @@ export function Tumble({
                         <div
                           className={classes}
                           key={r}
+                          data-cell-key={key}
                           style={{ "--fall-row": r, "--fall-col": c } as CSSProperties}
                         >
-                          <SlotSymbol design={activeDesign} id={symbol} />
+                          {typeof cell === "string" ? (
+                            <SlotSymbol design={activeDesign} id={cell} />
+                          ) : (
+                            <span className="tm-x-sym">×{cell.value}</span>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 ))}
               </div>
-
-              {orbs.map((orb, i) => (
-                <div
-                  className="tm-orb"
-                  key={`${orb.col}:${orb.row}:${i}`}
-                  style={
-                    {
-                      left: `calc(var(--pad) + ${orb.col} * (var(--cell) + var(--gap)) + var(--cell) / 2)`,
-                      top: `calc(var(--pad) + ${orb.row} * (var(--cell) + var(--gap)) + var(--cell) / 2)`,
-                    } as CSSProperties
-                  }
-                >
-                  ×{orb.value}
-                </div>
-              ))}
 
               {settled && (
                 <div className="sl-win-banner">
@@ -566,11 +697,37 @@ export function Tumble({
                   {displayX(runningPay)}× {tumbleCount > 0 && <span className="text-muted-foreground">· {tumbleCount + 1} tumbles</span>}
                 </span>
               )}
-              {showMultiplier && <span className="tm-mult-badge">×{orbTotal}</span>}
+              {/* Always mounted (visibility toggled via class) so its real
+                  screen position is measurable the instant the very first X
+                  of a round needs somewhere to fly to — see flyXToCounter. */}
+              <span
+                ref={multBadgeRef}
+                className={`tm-mult-badge ${showMultiplier ? "" : "tm-mult-badge-hidden"}`}
+              >
+                ×{runningMultiplier}
+              </span>
             </div>
           </div>
         </div>
       )}
+
+      {flyers.map((f) => (
+        <div
+          key={f.id}
+          className="tm-flyer"
+          style={
+            {
+              left: f.x,
+              top: f.y,
+              "--dx": `${f.dx}px`,
+              "--dy": `${f.dy}px`,
+              animationDelay: `${f.delayMs}ms`,
+            } as CSSProperties
+          }
+        >
+          ×{f.value}
+        </div>
+      ))}
     </div>
   );
 }
@@ -595,7 +752,7 @@ function TumbleStyles() {
       }
       .tm-grid { display: flex; gap: var(--gap); }
       .tm-col { display: flex; flex-direction: column; gap: var(--gap); }
-      .tm-cell { border-radius: 10px; background: rgba(0,0,0,0.25); transition: background 160ms ease, box-shadow 160ms ease; }
+      .tm-cell { position: relative; border-radius: 10px; background: rgba(0,0,0,0.25); transition: background 160ms ease, box-shadow 160ms ease; }
 
       /* Fresh symbols rain in from above the board. Each cell starts one row
          higher than its own position so a full refill looks like a column of
@@ -620,26 +777,69 @@ function TumbleStyles() {
       }
       .tm-cell.tm-pop { animation: tmPop ${POP_MS}ms ease-in forwards; }
 
-      .tm-orb {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        z-index: 4;
-        min-width: 2.4em;
-        padding: 4px 8px;
-        border-radius: 999px;
+      /* The multiplier symbol drops into a cell like any other — same fall
+         and pop animations above apply to it unchanged — so it only needs
+         its own look, not its own motion. */
+      .tm-x-sym {
+        width: 78%;
+        height: 78%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
         font-weight: 800;
-        font-size: 13px;
-        text-align: center;
+        font-size: clamp(11px, 1.7vw, 15px);
         color: #fff8e1;
         background: radial-gradient(circle at 35% 30%, #ffd76b, #d4820f 70%);
         border: 1px solid rgba(255, 240, 190, 0.85);
-        box-shadow: 0 0 12px rgba(255, 190, 70, 0.85), 0 0 28px rgba(255, 150, 40, 0.5);
-        animation: tmOrbIn ${ORB_MS}ms cubic-bezier(0.2, 1.5, 0.5, 1) backwards;
+        box-shadow: 0 0 10px rgba(255, 190, 70, 0.75), 0 0 22px rgba(255, 150, 40, 0.4);
       }
-      @keyframes tmOrbIn {
-        0% { transform: translate(-50%, -180%) scale(0.3); opacity: 0; }
-        60% { opacity: 1; }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+
+      /* The distinct "X collected" treatment — deliberately its own look and
+         its own (longer) pacing, so a multiplier hit reads as its own event
+         rather than blending into the plain win-symbol highlight. Runs for
+         X_HIGHLIGHT_MS, whether the X pops right after (mid-cascade) or just
+         sits there (the trailing sweep once the round settles). */
+      .tm-cell.tm-x-hit { animation: tmXGlow ${X_HIGHLIGHT_MS}ms ease-in-out; z-index: 2; }
+      .tm-cell.tm-x-hit .tm-x-sym { animation: tmXPulse ${X_HIGHLIGHT_MS}ms ease-in-out; }
+      @keyframes tmXGlow {
+        0%, 100% { box-shadow: none; background: rgba(0,0,0,0.25); }
+        12%, 50% { box-shadow: 0 0 0 3px rgba(255,214,110,0.95), 0 0 26px 8px rgba(255,170,40,0.8); background: rgba(255,190,60,0.16); }
+        31%, 69% { box-shadow: 0 0 0 1px rgba(255,214,110,0.45), 0 0 12px 3px rgba(255,170,40,0.4); background: rgba(255,190,60,0.08); }
+      }
+      @keyframes tmXPulse {
+        0%, 100% { transform: scale(1); filter: brightness(1) saturate(1); }
+        12%, 50% { transform: scale(1.4); filter: brightness(1.7) saturate(1.4); }
+        31%, 69% { transform: scale(1.12); filter: brightness(1.25) saturate(1.15); }
+      }
+      /* The collected X's value launches out of its cell and travels to the
+         running-multiplier counter — a real fixed-position element (see the
+         .tm-flyer map in Tumble's JSX), not a CSS-only effect, since its
+         start (the cell) and end (the counter) are two unrelated parts of
+         the layout whose real screen positions are only known at launch
+         time (see flyXToCounter). --dx/--dy are that measured delta. */
+      .tm-flyer {
+        position: fixed;
+        transform: translate(-50%, -50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: clamp(12px, 1.8vw, 16px);
+        color: #fff8e1;
+        background: radial-gradient(circle at 35% 30%, #ffd76b, #d4820f 70%);
+        box-shadow: 0 0 10px rgba(255, 190, 70, 0.85), 0 0 22px rgba(255, 150, 40, 0.5);
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 60;
+        animation: tmXFly ${FLY_MS}ms cubic-bezier(0.32, 0, 0.6, 1) both;
+      }
+      @keyframes tmXFly {
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        65% { opacity: 1; }
+        100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.3); opacity: 0; }
       }
 
       .tm-mult-badge {
@@ -652,10 +852,17 @@ function TumbleStyles() {
         color: #fff8e1;
         background: radial-gradient(circle at 35% 30%, #ffd76b, #d4820f 70%);
         box-shadow: 0 0 12px rgba(255, 190, 70, 0.6);
+        transition: opacity 160ms ease;
       }
+      /* Kept mounted (not conditionally rendered) at 0, rather than removed
+         from the DOM — a flyer needs a real target rect to fly to from the
+         moment the very first X of a round is hit, see flyXToCounter. */
+      .tm-mult-badge-hidden { opacity: 0; }
 
       @media (prefers-reduced-motion: reduce) {
-        .tm-cell.tm-fall, .tm-cell.tm-pop, .tm-orb { animation-duration: 1ms; }
+        .tm-cell.tm-fall, .tm-cell.tm-pop, .tm-cell.tm-x-hit, .tm-cell.tm-x-hit .tm-x-sym, .tm-flyer {
+          animation-duration: 1ms;
+        }
         .tm-cell.tm-fall { animation-delay: 0ms; }
         .sl-win-banner { animation: none; }
       }

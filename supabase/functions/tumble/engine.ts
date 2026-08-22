@@ -1,5 +1,6 @@
 export type Rng = () => number;
 export type SymbolId = "dot" | "square" | "diamond" | "star" | "seven";
+export type CellId = SymbolId | "x";
 
 // Fixed 5x6 board — unlike the older `slots` game there is no selectable
 // board size, and no single-row reward mode. Tumble is full-board only.
@@ -25,10 +26,13 @@ export interface SymbolConfig {
   pay: [number, number, number];
 }
 
-// Weights match the `slots` game so the shared design skins in
-// src/lib/slotsDesigns.ts apply unchanged. Thresholds and pays are specific
-// to this board and were derived by exact enumeration, not simulation — see
-// the design doc referenced by BASELINE_RTP below.
+// Weights match the `slots` game, scaled down by (1 - X_WEIGHT) so a cell's
+// full distribution (these five plus "x" below) still sums to 1 — so the
+// shared design skins in src/lib/slotsDesigns.ts apply unchanged and the
+// relative shape between symbols (and therefore the "rarer needs fewer cells
+// but still wins less often" invariant) is untouched. Thresholds and pays are
+// specific to this board and were derived by exact enumeration, not
+// simulation — see the design doc referenced by BASELINE_RTP below.
 //
 // Opening-board win probability per symbol (exact binomial tail over 30
 // cells), which is what the "rarer symbol, fewer cells, still rarer win"
@@ -36,43 +40,58 @@ export interface SymbolConfig {
 //   dot     15 cells -> 6.52%      star     9 cells -> 0.69%
 //   square  12 cells -> 5.07%      seven    8 cells -> 0.20%
 //   diamond 11 cells -> 2.56%
+// (figures predate the X symbol's cell share; see engine.test.ts for the
+// exact post-X binomial tails, which shrink slightly but keep the ordering.)
 export const SYMBOLS: SymbolConfig[] = [
-  { id: "dot", weight: 0.35, threshold: 15, pay: [0.25, 0.6, 1.5] },
-  { id: "square", weight: 0.25, threshold: 12, pay: [0.6, 1.5, 4] },
-  { id: "diamond", weight: 0.2, threshold: 11, pay: [1.2, 3, 8] },
-  { id: "star", weight: 0.12, threshold: 9, pay: [2.5, 6.5, 18] },
-  { id: "seven", weight: 0.08, threshold: 8, pay: [6, 16, 50] },
+  { id: "dot", weight: 0.35 * 0.97, threshold: 15, pay: [0.25, 0.6, 1.5] },
+  { id: "square", weight: 0.25 * 0.97, threshold: 12, pay: [0.6, 1.5, 4] },
+  { id: "diamond", weight: 0.2 * 0.97, threshold: 11, pay: [1.2, 3, 8] },
+  { id: "star", weight: 0.12 * 0.97, threshold: 9, pay: [2.5, 6.5, 18] },
+  { id: "seven", weight: 0.08 * 0.97, threshold: 8, pay: [6, 16, 50] },
 ];
 
-// Multiplier orbs. On every step that pays, this many orbs land (indexed by
-// count), each taking one of ORB_VALUES. Orb values are NEVER scaled by the
-// house edge — the player sees "x25" on the board and gets exactly x25;
-// only the pay table moves with the edge.
-export const ORB_COUNT_WEIGHTS = [0.84, 0.14, 0.02];
-export const ORB_VALUES: { value: number; weight: number }[] = [
-  { value: 2, weight: 0.72 },
+// The multiplier symbol. It drops into a cell exactly like the five paying
+// symbols above — same odds mechanism, same fall/pop animation — but never
+// counts toward any symbol's threshold and never pays on its own (see
+// countSymbols/evaluateBoard, which both ignore it). Whenever a tumble
+// already pays, every X currently on the board is swept up: its value adds
+// to the round's running multiplier and the cell pops and refills alongside
+// the winning symbols, so the same X can never be counted twice. X values are
+// NEVER scaled by the house edge — the player sees "x25" on the board and
+// gets exactly x25; only the pay table moves with the edge.
+export const X_WEIGHT = 0.03;
+export const X_VALUES: { value: number; weight: number }[] = [
+  { value: 2, weight: 0.73 },
   { value: 3, weight: 0.15 },
   { value: 5, weight: 0.06 },
-  { value: 10, weight: 0.03 },
+  { value: 10, weight: 0.04 },
   { value: 25, weight: 0.02 },
-  { value: 50, weight: 0.012 },
-  { value: 100, weight: 0.006 },
-  { value: 250, weight: 0.002 },
 ];
 
-// Exact long-run RTP of the raw pay table above, including the orb feature,
-// at scale 1. Computed by solving the cascade as a Markov chain over
-// per-symbol count vectors (only 324,632 vectors of sum <= 30 exist, so the
-// game is solvable exactly) — see
-// docs/superpowers/specs/2026-08-08-tumble-game-design.md.
+// Long-run RTP of the raw pay table above, including the X symbol, at scale
+// 1. Unlike the old orb feature (an extra draw independent of the board, so
+// the whole cascade was solvable exactly as a 324,632-state Markov chain over
+// per-symbol counts), X occupies real board cells: it competes with the five
+// paying symbols for space, and how many X land on a given winning step is
+// coupled to that step's board state. That breaks the independence the exact
+// solve leaned on and blows the state space up ~6x, so this is calibrated
+// empirically instead — 20,000,000 simulated rounds (Math.random, scale 1):
+// mean 1.4081232249959508, stderr 0.0027 (95% CI ±0.0054, ~0.4% relative).
+// See docs/superpowers/specs/2026-08-08-tumble-game-design.md for the
+// original exact-solve era and the design note on this switch.
 //
 // It exceeds 1 because the raw table is deliberately authored at
 // human-readable numbers; edgeScale below divides it back down so whichever
-// edge the admin picks becomes the exact realized RTP.
-export const BASELINE_RTP = 1.070847083099;
+// edge the admin picks becomes the (statistically) realized RTP.
+//
+// Jumped up from the pre-2026-08-21 figure (1.0474430474956598) when
+// playRound started sweeping any X left on finalBoard by the last winning
+// tumble's own refill into the multiplier (previously silently discarded) —
+// a real shift in the raw table's average payout, not drift to chase.
+export const BASELINE_RTP = 1.4081232249959508;
 
 // houseEdge only ever scales how much a win PAYS. It never touches the
-// symbol weights or the thresholds, so hit frequency, cascade length and orb
+// symbol weights or the thresholds, so hit frequency, cascade length and X
 // frequency are identical at every edge setting — only the pay table moves.
 export function edgeScale(houseEdge: number): number {
   return (1 - houseEdge) / BASELINE_RTP;
@@ -95,19 +114,48 @@ function pickWeighted<T>(rng: Rng, items: T[], weightOf: (item: T) => number): T
   return items[items.length - 1];
 }
 
+// The id-only draw over all 6 cell categories (5 paying symbols + "x").
+// Standalone (not composed with a value roll) so callers that only need the
+// id — like counting how a cell type is distributed — don't pay for one.
+export function pickCellId(rng: Rng): CellId {
+  return pickWeighted<{ id: CellId; weight: number }>(
+    rng,
+    [...SYMBOLS.map((s) => ({ id: s.id as CellId, weight: s.weight })), { id: "x", weight: X_WEIGHT }],
+    (item) => item.weight
+  ).id;
+}
+
 export function pickSymbol(rng: Rng): SymbolId {
   return pickWeighted(rng, SYMBOLS, (s) => s.weight).id;
 }
 
+// A plain symbol id for the five paying symbols, or a tagged object for the
+// multiplier symbol (which needs to carry its own rolled value). Distinguish
+// with `typeof cell === "string"` rather than a shared `id` field on both, so
+// the common case (a paying symbol) stays a bare string through the engine.
+export interface XCell {
+  id: "x";
+  value: number;
+}
+export type BoardCell = SymbolId | XCell;
+
+// Draws one cell: an "x" roll spends a second rng() call on its value, same
+// pattern the old orb-value draw used.
+export function pickCell(rng: Rng): BoardCell {
+  const id = pickCellId(rng);
+  if (id === "x") return { id: "x", value: pickWeighted(rng, X_VALUES, (v) => v.weight).value };
+  return id;
+}
+
 // board[col][row], row 0 = top. Columns are the unit that symbols fall
 // through, so this orientation is what makes the tumble refill natural.
-export type Board = SymbolId[][];
+export type Board = BoardCell[][];
 
 export function spinBoard(rng: Rng): Board {
   const board: Board = [];
   for (let c = 0; c < COLS; c++) {
-    const col: SymbolId[] = [];
-    for (let r = 0; r < ROWS; r++) col.push(pickSymbol(rng));
+    const col: BoardCell[] = [];
+    for (let r = 0; r < ROWS; r++) col.push(pickCell(rng));
     board.push(col);
   }
   return board;
@@ -127,15 +175,14 @@ export interface TumbleWin {
   positions: Cell[];
 }
 
-export interface TumbleOrb extends Cell {
-  value: number;
-}
-
 export interface TumbleStep {
-  // The board this step scored, before anything popped.
+  // The board this step scored, before anything popped. X cells (and their
+  // rolled values) live directly on it — nothing else carries their position.
   board: Board;
   wins: TumbleWin[];
-  orbs: TumbleOrb[];
+  // Sum of every X currently on the board this step, edge-scale-exempt. 0
+  // when none landed.
+  xValue: number;
   // Sum of this step's win pays, edge-scaled.
   pay: number;
 }
@@ -147,8 +194,9 @@ export interface TumbleRound {
   finalBoard: Board;
   // Summed pay of every step, edge-scaled. Bet multiplier, not chips.
   basePay: number;
-  // Product applied to basePay: the summed orb values, or 1 when no orb
-  // landed. Orbs alone never pay — they only multiply an existing win.
+  // Sum of every step's xValue, PLUS any X left on finalBoard by the last
+  // winning tumble's own refill (see playRound) — or 1 when none landed all
+  // round. X symbols alone never pay — they only multiply an existing win.
   multiplier: number;
   // basePay * multiplier.
   totalMultiplier: number;
@@ -161,15 +209,23 @@ export function tierIndex(count: number, threshold: number): number {
   return 0;
 }
 
+// Ignores X cells — they never count toward any symbol's threshold.
 export function countSymbols(board: Board): Record<SymbolId, number> {
   const counts = { dot: 0, square: 0, diamond: 0, star: 0, seven: 0 } as Record<SymbolId, number>;
-  for (const col of board) for (const symbol of col) counts[symbol]++;
+  for (const col of board) for (const cell of col) if (typeof cell === "string") counts[cell]++;
   return counts;
+}
+
+export function xValueOnBoard(board: Board): number {
+  let total = 0;
+  for (const col of board) for (const cell of col) if (typeof cell !== "string") total += cell.value;
+  return total;
 }
 
 // Every symbol is judged independently against its OWN threshold, so more
 // than one can qualify on the same board — when that happens all of them pay
 // and all of them pop. There is no single "winner" and so no tie-break rule.
+// X cells are invisible here — see countSymbols.
 export function evaluateBoard(board: Board, houseEdge?: number): TumbleWin[] {
   const counts = countSymbols(board);
   const scale = houseEdge === undefined ? 1 : edgeScale(houseEdge);
@@ -180,8 +236,8 @@ export function evaluateBoard(board: Board, houseEdge?: number): TumbleWin[] {
     const tier = tierIndex(count, symbol.threshold);
     const positions: Cell[] = [];
     board.forEach((col, c) =>
-      col.forEach((s, r) => {
-        if (s === symbol.id) positions.push({ col: c, row: r });
+      col.forEach((cell, r) => {
+        if (cell === symbol.id) positions.push({ col: c, row: r });
       })
     );
     wins.push({ symbol: symbol.id, count, tier, pay: symbol.pay[tier] * scale, positions });
@@ -194,42 +250,19 @@ export function evaluateBoard(board: Board, houseEdge?: number): TumbleWin[] {
 // independent draws rain in above them. Because scoring only ever looks at
 // per-symbol counts, this is exactly "replace each popped cell with a new
 // draw" — the falling is what the player sees, not extra randomness.
+//
+// tumble() is only ever called after a win (see playRound), so every X
+// currently on the board has already had its value collected into that
+// step's xValue — they always pop here too, never surviving to be
+// double-counted on a later step.
 export function tumble(board: Board, wins: TumbleWin[], rng: Rng): Board {
   const popped = new Set<SymbolId>(wins.map((w) => w.symbol));
   return board.map((col) => {
-    const survivors = col.filter((s) => !popped.has(s));
-    const fresh: SymbolId[] = [];
-    for (let i = survivors.length; i < ROWS; i++) fresh.push(pickSymbol(rng));
+    const survivors = col.filter((cell) => typeof cell === "string" && !popped.has(cell));
+    const fresh: BoardCell[] = [];
+    for (let i = survivors.length; i < ROWS; i++) fresh.push(pickCell(rng));
     return [...fresh, ...survivors];
   });
-}
-
-export function rollOrbs(rng: Rng): TumbleOrb[] {
-  let count = 0;
-  const r = rng();
-  let cum = 0;
-  for (let i = 0; i < ORB_COUNT_WEIGHTS.length; i++) {
-    cum += ORB_COUNT_WEIGHTS[i];
-    if (r < cum) {
-      count = i;
-      break;
-    }
-  }
-  const orbs: TumbleOrb[] = [];
-  const taken = new Set<number>();
-  for (let i = 0; i < count; i++) {
-    // Orbs sit on top of cells purely for display, so a cell is only claimed
-    // to stop two orbs stacking on the same square.
-    let slot = Math.floor(rng() * CELLS);
-    for (let guard = 0; guard < CELLS && taken.has(slot); guard++) slot = (slot + 1) % CELLS;
-    taken.add(slot);
-    orbs.push({
-      col: slot % COLS,
-      row: Math.floor(slot / COLS),
-      value: pickWeighted(rng, ORB_VALUES, (o) => o.weight).value,
-    });
-  }
-  return orbs;
 }
 
 // The chain ends with probability ~2/3 at every step, so this is unreachable
@@ -241,20 +274,28 @@ export function playRound(rng: Rng, houseEdge?: number): TumbleRound {
   let board = spinBoard(rng);
   const steps: TumbleStep[] = [];
   let basePay = 0;
-  let orbTotal = 0;
+  let xTotal = 0;
 
   for (let i = 0; i < MAX_TUMBLES; i++) {
     const wins = evaluateBoard(board, houseEdge);
     if (wins.length === 0) break;
-    const orbs = rollOrbs(rng);
     const pay = wins.reduce((sum, w) => sum + w.pay, 0);
-    steps.push({ board, wins, orbs, pay });
+    const xValue = xValueOnBoard(board);
+    steps.push({ board, wins, xValue, pay });
     basePay += pay;
-    for (const orb of orbs) orbTotal += orb.value;
+    xTotal += xValue;
     board = tumble(board, wins, rng);
   }
 
-  const multiplier = orbTotal === 0 ? 1 : orbTotal;
+  // A winning tumble's own refill can drop a fresh X that never gets a
+  // further winning step to sweep it up — the player still watched it land
+  // as part of this win's cascade, so it isn't discarded: any X left on the
+  // board is collected once, as long as the round won at least once. A total
+  // loss (steps.length === 0) never sweeps anything, since X never pays on
+  // its own regardless of what's sitting on the opening board.
+  if (steps.length > 0) xTotal += xValueOnBoard(board);
+
+  const multiplier = xTotal === 0 ? 1 : xTotal;
   return {
     steps,
     finalBoard: board,

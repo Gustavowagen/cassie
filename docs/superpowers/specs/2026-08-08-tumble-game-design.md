@@ -2,6 +2,13 @@
 
 Date: 2026-08-08
 
+> **2026-08-21 update:** the orb multiplier described below (an independent
+> extra draw layered on top of the board) was replaced by an **X multiplier
+> symbol** that drops into cells exactly like the five paying symbols. See
+> [X multiplier symbol](#x-multiplier-symbol-2026-08-21) below — the "Orbs"
+> and "Exact RTP" sections that follow are kept for history but no longer
+> describe the shipped game.
+
 A new game type (`tumble`), separate from `slots`. Full-board wins only, a
 fixed 5×6 board, an admin-selectable 1–5% house edge, and a Gates-of-Olympus
 style cascade: winning symbols pop, survivors fall, fresh symbols rain in, and
@@ -153,3 +160,74 @@ finishes, so the balance can never spoil the outcome mid-reveal.
 
 Board size and reward mode are fixed by the game, so unlike slots there is
 nothing else to configure.
+
+## X multiplier symbol (2026-08-21)
+
+The orb feature above was replaced: there is no more independent extra draw.
+Instead, a 6th cell category, `"x"`, drops into the board exactly like the
+five paying symbols — same weighted draw, same fall/pop animation — but it
+never counts toward any symbol's threshold and never pays on its own.
+
+- **Weight.** X lands on 3% of cells (`X_WEIGHT = 0.03`). The five paying
+  symbols keep their old relative shape, just scaled down by `(1 - X_WEIGHT)`
+  so the full 6-way distribution still sums to 1 — the "rarer needs fewer
+  cells but still wins less often" invariant is unaffected.
+- **Value.** Landing an X rolls its value: ×2 (73%), ×3 (15%), ×5 (6%), ×10
+  (4%), ×25 (2%) — `X_VALUES` in `engine.ts`. Never scaled by the house edge,
+  same rule the old orb values followed.
+- **Collection.** X is only ever used once the round has won at least once.
+  On any step that pays from the five symbols, every X currently on the board
+  is swept up: its value adds to the round's running multiplier, and the cell
+  pops and refills alongside the winning symbols — so the same X can never be
+  double-counted on a later step. **Trailing X (2026-08-21):** a winning
+  tumble's own refill can drop a fresh X that never gets a further winning
+  step to sweep it up — the player still watched it land as part of this
+  win's cascade, so `playRound` (`engine.ts`) collects any X left on
+  `finalBoard` too, once, as long as the round won at least once. A total
+  loss never sweeps anything (X never pays on its own regardless of what's on
+  the opening board).
+- **Combining.** The round's multiplier is the sum of every X value collected
+  across all winning steps (0 collected → ×1, same "no multiplier ⇒ ×1" rule
+  as before). Two X's on the same tumble — say ×10 and ×2 — sum to ×12
+  immediately; X's from different tumbles in the same round keep adding to
+  that same running total. This is still the *only* thing that multiplies a
+  round's win.
+- **Board/type shape.** `Board` cells are now `SymbolId | { id: "x"; value:
+  number }` (`BoardCell` in `engine.ts`, `TumbleBoardCell` in
+  `src/types/index.ts`) — distinguish with `typeof cell === "string"`.
+  `TumbleStep.orbs` became `TumbleStep.xValue: number` (that step's collected
+  total); positions don't need a separate list any more since X cells carry
+  their value directly on the board the frontend already renders.
+- **Rendering.** X is theme-independent (it doesn't go through
+  `slotsDesigns.ts`/`slotsSkin.tsx`'s per-design icon lookup) — `Tumble.tsx`
+  renders it as a gold `×N` tile in the grid cell itself, replacing the old
+  floating `.tm-orb` overlay.
+
+### Why BASELINE_RTP is no longer exact
+
+The original exact solve (see "Exact RTP" above) worked because orb draws
+were independent of the board — the whole payout factored into
+`E[W] · E[max(1,M)]`-shaped terms solvable as a 324,632-state Markov chain
+over 5-symbol count vectors. X breaks that: it competes with the five paying
+symbols for the same 30 cells, so how many X land on a given winning step is
+coupled to that step's board state, not an independent draw. Extending the
+exact solve to a 6th live category blows the state space up roughly 6x
+(~1.9M states) and is no longer cheap enough to run as a test.
+
+`BASELINE_RTP` is now calibrated empirically instead: 20,000,000 simulated
+rounds (`Math.random`, scale 1) gave a mean of `1.4081232249959508` with
+stderr ≈0.0027 (95% CI ≈±0.4% relative) — see the constant's comment in
+`engine.ts` for the up-to-date figure. `engine.test.ts`'s `BASELINE_RTP`
+describe block re-checks this on a smaller in-test sample (1,000,000 rounds)
+against a wide tolerance band rather than exact equality — a deliberate,
+documented drop in rigor from the pre-X proof. Any edit to a threshold, pay,
+or X weight/value should be followed by rerunning a large-sample calibration
+(a throwaway script simulating `playRound` and averaging `totalMultiplier` at
+scale 1) and updating both the constant and this note.
+
+The jump from the original figure (`1.0474430474956598`) is the "trailing X"
+fix above, not drift: previously, an X dropped by a winning tumble's own
+refill was silently discarded whenever the cascade didn't win again right
+after, which turned out to eat a large share of the intended RTP (roughly a
+72% chance for any given winning round). Collecting it instead raised the
+raw table's average payout by about a third.

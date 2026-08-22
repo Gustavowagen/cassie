@@ -4,8 +4,8 @@ import {
   COLS,
   CELLS,
   SYMBOLS,
-  ORB_COUNT_WEIGHTS,
-  ORB_VALUES,
+  X_WEIGHT,
+  X_VALUES,
   BASELINE_RTP,
   HOUSE_EDGE_OPTIONS,
   MIN_HOUSE_EDGE,
@@ -14,12 +14,14 @@ import {
   edgeScale,
   tierIndex,
   countSymbols,
+  xValueOnBoard,
   evaluateBoard,
   tumble,
   spinBoard,
   playRound,
   payoutFor,
   pickSymbol,
+  pickCell,
   resolveFreeSpinsSettings,
   type Board,
   type SymbolId,
@@ -60,13 +62,19 @@ describe("board shape", () => {
 });
 
 describe("symbol table", () => {
-  it("weights sum to exactly 1", () => {
-    expect(SYMBOLS.reduce((s, x) => s + x.weight, 0)).toBeCloseTo(1, 10);
+  it("weights (five symbols plus X) sum to exactly 1", () => {
+    expect(SYMBOLS.reduce((s, x) => s + x.weight, 0) + X_WEIGHT).toBeCloseTo(1, 10);
   });
 
-  it("orb distributions sum to exactly 1", () => {
-    expect(ORB_COUNT_WEIGHTS.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
-    expect(ORB_VALUES.reduce((s, o) => s + o.weight, 0)).toBeCloseTo(1, 10);
+  it("X value distribution sums to exactly 1", () => {
+    expect(X_VALUES.reduce((s, v) => s + v.weight, 0)).toBeCloseTo(1, 10);
+  });
+
+  it("every X value is within the advertised 2x-25x range", () => {
+    for (const v of X_VALUES) {
+      expect(v.value).toBeGreaterThanOrEqual(2);
+      expect(v.value).toBeLessThanOrEqual(25);
+    }
   });
 
   it("a rarer symbol needs strictly fewer cells and pays strictly more", () => {
@@ -184,7 +192,7 @@ describe("tumble", () => {
     const board = boardOf(repeat({ dot: 15, square: 11, diamond: 4 }));
     const wins = evaluateBoard(board);
     // Fresh draws are all sevens, so refilled cells are unmistakable.
-    const next = tumble(board, wins, queue([0.99]));
+    const next = tumble(board, wins, queue([0.95]));
 
     expect(next).toHaveLength(COLS);
     for (const col of next) expect(col).toHaveLength(ROWS);
@@ -200,17 +208,18 @@ describe("tumble", () => {
 
   it("leaves non-winning symbols untouched", () => {
     const board = boardOf(repeat({ dot: 15, square: 11, diamond: 4 }));
-    const next = tumble(board, evaluateBoard(board), queue([0.99]));
+    const next = tumble(board, evaluateBoard(board), queue([0.95]));
     const counts = countSymbols(next);
     expect(counts.square).toBe(11);
     expect(counts.diamond).toBe(4);
   });
 
-  it("always returns a full board", () => {
+  it("always returns a full board, X cells included", () => {
     const board = boardOf(repeat({ dot: 15, seven: 8, square: 7 }));
-    const next = tumble(board, evaluateBoard(board), queue([0.5]));
+    const next = tumble(board, evaluateBoard(board), Math.random);
     const counts = countSymbols(next);
-    expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(CELLS);
+    const xCells = next.flat().filter((cell) => typeof cell !== "string").length;
+    expect(Object.values(counts).reduce((a, b) => a + b, 0) + xCells).toBe(CELLS);
   });
 });
 
@@ -229,7 +238,7 @@ describe("playRound", () => {
     expect(countSymbols(round.finalBoard)).toEqual({ dot: 6, square: 6, diamond: 6, star: 6, seven: 6 });
   });
 
-  it("multiplier is 1 when no orb lands, so orbs never pay on their own", () => {
+  it("multiplier is 1 when no X lands, so X never pays on its own", () => {
     const cells = [0.1, 0.5, 0.7, 0.85, 0.95];
     const draws: number[] = [];
     for (let i = 0; i < 6; i++) draws.push(...cells);
@@ -257,7 +266,9 @@ describe("playRound", () => {
       // The refilled cells are random, but the survivors must line up.
       const popped = new Set(prev.wins.map((w) => w.symbol));
       for (let c = 0; c < COLS; c++) {
-        const survivors = prev.board[c].filter((s) => !popped.has(s));
+        // X cells never survive a tumble — they've already had their value
+        // collected into this step's xValue, same as a popped winning symbol.
+        const survivors = prev.board[c].filter((cell) => typeof cell === "string" && !popped.has(cell));
         const actual = round.steps[i].board[c].slice(ROWS - survivors.length);
         expect(actual).toEqual(survivors);
         expect(expected[c]).toHaveLength(ROWS);
@@ -276,162 +287,123 @@ describe("playRound", () => {
     const round = playRound(queue([0.01]));
     expect(payoutFor(round, 20)).toBeCloseTo(20 * round.basePay * round.multiplier, 6);
   });
+
+  // A winning tumble's refill can drop a fresh X that the cascade then never
+  // gets a further win to sweep up. Built by hand: the opening board wins
+  // exactly 15 dots (nothing else near its threshold), whose refill lands one
+  // X (value 2) plus 13 harmless non-winning symbols, so the round stops
+  // right there with that X still sitting on finalBoard.
+  it("sweeps an X dropped by the winning tumble's own refill into the multiplier, even with no further win", () => {
+    const initial = [
+      0.0, 0.0, 0.0, 0.0, 0.0, // col0: dot x5
+      0.0, 0.0, 0.0, 0.0, 0.0, // col1: dot x5
+      0.0, 0.0, 0.0, 0.0, 0.0, // col2: dot x5
+      0.4, 0.4, 0.4, 0.6, 0.6, // col3: square x3, diamond x2
+      0.6, 0.8, 0.8, 0.8, 0.9, // col4: diamond, star x3, seven
+      0.9, 0.9, 0.9, 0.9, 0.9, // col5: seven x5
+    ];
+    const refill = [
+      0.99, 0.0, // col0 row0: X, value tier -> 2
+      0.4, 0.4, 0.4, 0.4, // col0 rows1-4: square x4
+      0.4, // col1 row0: square
+      0.6, 0.6, 0.6, 0.6, // col1 rows1-4: diamond x4
+      0.6, // col2 row0: diamond
+      0.8, 0.8, 0.8, 0.8, // col2 rows1-4: star x4
+    ];
+    const round = playRound(queue([...initial, ...refill]));
+
+    expect(round.steps).toHaveLength(1);
+    expect(round.steps[0].xValue).toBe(0); // no X on the opening board
+    expect(evaluateBoard(round.finalBoard)).toEqual([]); // the cascade really did stop here
+    expect(xValueOnBoard(round.finalBoard)).toBe(2); // the X the refill dropped
+    expect(round.multiplier).toBe(2); // counted anyway
+    expect(round.totalMultiplier).toBeCloseTo(round.basePay * 2, 10);
+  });
 });
 
 describe("pickSymbol", () => {
+  // Weights are the five symbols scaled by (1 - X_WEIGHT), so their
+  // cumulative ranges end at 0.3395 / 0.582 / 0.776 / 0.8924 / 0.97 rather
+  // than 1 — pickSymbol has no "x" branch, so anything at or past 0.97 (where
+  // pickCellId would roll X) falls through to the pickWeighted fallback,
+  // which is the last entry, "seven".
   it("maps the weighted cumulative ranges to the right symbol", () => {
     expect(pickSymbol(queue([0.0]))).toBe("dot");
-    expect(pickSymbol(queue([0.34]))).toBe("dot");
-    expect(pickSymbol(queue([0.36]))).toBe("square");
-    expect(pickSymbol(queue([0.61]))).toBe("diamond");
-    expect(pickSymbol(queue([0.81]))).toBe("star");
-    expect(pickSymbol(queue([0.93]))).toBe("seven");
+    expect(pickSymbol(queue([0.33]))).toBe("dot");
+    expect(pickSymbol(queue([0.35]))).toBe("square");
+    expect(pickSymbol(queue([0.6]))).toBe("diamond");
+    expect(pickSymbol(queue([0.8]))).toBe("star");
+    expect(pickSymbol(queue([0.9]))).toBe("seven");
+    expect(pickSymbol(queue([0.98]))).toBe("seven");
     expect(pickSymbol(queue([1.0]))).toBe("seven");
   });
 });
 
+describe("pickCell / xValueOnBoard", () => {
+  it("rolls a plain symbol id below the X_WEIGHT threshold", () => {
+    expect(pickCell(queue([0.5]))).toBe("square");
+  });
+
+  it("rolls a tagged X cell, with a second draw for its value, above the threshold", () => {
+    // 0.98 sits inside X's cumulative slice (the five symbols end at ~0.97),
+    // so the first draw lands on "x"; 0.0 on the second draw picks the
+    // lowest X_VALUES tier.
+    const cell = pickCell(queue([0.98, 0.0]));
+    expect(cell).toEqual({ id: "x", value: 2 });
+  });
+
+  it("sums every X cell's value and ignores plain symbols", () => {
+    const board = boardOf(repeat({ dot: 15, square: 11, diamond: 4 }));
+    board[0][0] = { id: "x", value: 10 };
+    board[0][1] = { id: "x", value: 2 };
+    expect(xValueOnBoard(board)).toBe(12);
+  });
+
+  it("is 0 on a board with no X cells", () => {
+    const board = boardOf(repeat({ dot: 15, square: 11, diamond: 4 }));
+    expect(xValueOnBoard(board)).toBe(0);
+  });
+});
+
 // ---------------------------------------------------------------------------
-// Exact RTP. Scoring depends on the board only through per-symbol counts, and
-// a tumble redraws every popped cell independently — so a round is a Markov
-// chain over count vectors summing to 30. Only 324,632 vectors of sum <= 30
-// exist, so the RTP is solved exactly here rather than simulated, and any
-// edit to a threshold, pay or orb weight fails this test until BASELINE_RTP
-// is recomputed.
+// BASELINE_RTP calibration. Unlike the old orb feature (an independent extra
+// draw), X occupies real board cells and is coupled to the cascade, which
+// breaks the exact 324,632-state Markov-chain solve the design doc describes
+// for the pre-X game — extending it to a 6th live category blows the state
+// space up ~6x and is no longer cheap enough to run as a test. So
+// BASELINE_RTP is calibrated empirically (see its comment in engine.ts for
+// the calibration run) and this test re-checks that calibration on a smaller
+// in-test sample with a wide statistical tolerance, rather than asserting
+// exact equality — a real, deliberate drop in rigor from the pre-X proof.
 // ---------------------------------------------------------------------------
 describe("BASELINE_RTP", () => {
-  it("matches an exact solve of the cascade", { timeout: 180_000 }, () => {
-    const W = SYMBOLS.map((s) => s.weight);
-    const THRESH = SYMBOLS.map((s) => s.threshold);
-
-    const vectors: number[][] = [];
-    const sums: number[] = [];
-    const codeToIdx = new Map<number, number>();
-    const code = (v: number[]) => (((v[0] * 31 + v[1]) * 31 + v[2]) * 31 + v[3]) * 31 + v[4];
-    for (let s = 0; s <= CELLS; s++)
-      for (let a = 0; a <= s; a++)
-        for (let b = 0; a + b <= s; b++)
-          for (let c = 0; a + b + c <= s; c++)
-            for (let d = 0; a + b + c + d <= s; d++) {
-              const v = [a, b, c, d, s - a - b - c - d];
-              codeToIdx.set(code(v), vectors.length);
-              vectors.push(v);
-              sums.push(s);
-            }
-    const TOTAL = vectors.length;
-    expect(TOTAL).toBe(324_632);
-
-    const succ = new Int32Array(TOTAL * 5).fill(-1);
-    for (let idx = 0; idx < TOTAL; idx++) {
-      if (sums[idx] === CELLS) continue;
-      for (let i = 0; i < 5; i++) {
-        const n = vectors[idx].slice();
-        n[i]++;
-        succ[idx * 5 + i] = codeToIdx.get(code(n))!;
+  it("is within a wide tolerance of a fresh large-sample simulation", { timeout: 60_000 }, () => {
+    const N = 1_000_000;
+    let sum = 0;
+    let hits = 0;
+    let tumbleSum = 0;
+    for (let i = 0; i < N; i++) {
+      const round = playRound(Math.random);
+      sum += round.totalMultiplier;
+      if (round.steps.length > 0) {
+        hits++;
+        tumbleSum += round.steps.length;
       }
     }
-    const full: number[] = [];
-    for (let idx = 0; idx < TOTAL; idx++) if (sums[idx] === CELLS) full.push(idx);
-
-    // Push a partial board up to a full one by dropping single cells — this
-    // is the multinomial refill, done in 1.6M ops instead of per-state
-    // enumeration.
-    const fill = (buf: Float64Array) => {
-      for (let idx = 0; idx < TOTAL; idx++) {
-        const m = buf[idx];
-        if (m === 0 || sums[idx] === CELLS) continue;
-        for (let i = 0; i < 5; i++) buf[succ[idx * 5 + i]] += m * W[i];
-        buf[idx] = 0;
-      }
-    };
-    const opening = new Float64Array(TOTAL);
-    opening[0] = 1;
-    fill(opening);
-
-    // Adjoint: H[residual] = E[F(next board)].
-    const applyT = (F: Float64Array) => {
-      const H = new Float64Array(TOTAL);
-      for (let idx = TOTAL - 1; idx >= 0; idx--) {
-        if (sums[idx] === CELLS) {
-          H[idx] = F[idx];
-        } else {
-          const b = idx * 5;
-          H[idx] =
-            W[0] * H[succ[b]] +
-            W[1] * H[succ[b + 1]] +
-            W[2] * H[succ[b + 2]] +
-            W[3] * H[succ[b + 3]] +
-            W[4] * H[succ[b + 4]];
-        }
-      }
-      return H;
-    };
-
-    const residual = new Int32Array(TOTAL).fill(-1);
-    const pay = new Float64Array(TOTAL);
-    for (const idx of full) {
-      const v = vectors[idx];
-      const left = v.slice();
-      let total = 0;
-      let won = false;
-      for (let i = 0; i < 5; i++) {
-        if (v[i] >= THRESH[i]) {
-          total += SYMBOLS[i].pay[tierIndex(v[i], THRESH[i])];
-          left[i] = 0;
-          won = true;
-        }
-      }
-      pay[idx] = total;
-      if (won) residual[idx] = codeToIdx.get(code(left))!;
-    }
-
-    const fixpoint = (step: (idx: number, H: Float64Array) => number, init = 0) => {
-      let F = new Float64Array(TOTAL);
-      if (init) for (const idx of full) F[idx] = init;
-      for (let iter = 0; iter < 500; iter++) {
-        const H = applyT(F);
-        const next = new Float64Array(TOTAL);
-        let delta = 0;
-        for (const idx of full) {
-          const val = step(idx, H);
-          next[idx] = val;
-          delta = Math.max(delta, Math.abs(val - F[idx]));
-        }
-        F = next;
-        if (delta < 1e-16) break;
-      }
-      return F;
-    };
-    const expectation = (F: Float64Array) => full.reduce((s, idx) => s + opening[idx] * F[idx], 0);
-
-    const eV = ORB_VALUES.reduce((s, o) => s + o.value * o.weight, 0);
-    const eN = ORB_COUNT_WEIGHTS.reduce((s, p, n) => s + n * p, 0);
-    const mu = eN * eV; // orb value added by one winning step
-    const q = ORB_COUNT_WEIGHTS[0]; // that step drops no orb at all
-
-    const won = (idx: number) => residual[idx] >= 0;
-    const D = fixpoint((idx, H) => (won(idx) ? 1 + H[residual[idx]] : 0));
-    const G = fixpoint((idx, H) => (won(idx) ? q * H[residual[idx]] : 1), 1);
-    const HD = applyT(D);
-    const HG = applyT(G);
-    const A = fixpoint((idx, H) => (won(idx) ? pay[idx] + H[residual[idx]] : 0));
-    const HA = applyT(A);
-    // payout = W * max(1, M) and max(1, M) = M + 1{M=0}, with M a sum of L
-    // i.i.d. orb draws independent of the board. So
-    //   E[payout] = mu * E[W*L] + E[W * q^L]
-    const B = fixpoint((idx, H) =>
-      won(idx) ? pay[idx] + pay[idx] * HD[residual[idx]] + HA[residual[idx]] + H[residual[idx]] : 0
-    );
-    const C = fixpoint((idx, H) => (won(idx) ? q * (pay[idx] * HG[residual[idx]] + H[residual[idx]]) : 0));
-
-    const exact = mu * expectation(B) + expectation(C);
-    expect(exact).toBeCloseTo(BASELINE_RTP, 9);
+    const mean = sum / N;
+    // The calibration run's 95% CI was BASELINE_RTP +/- ~0.5%; this in-test
+    // sample is 20x smaller, so the tolerance is widened well past that to
+    // stay non-flaky while still catching a real regression (e.g. a
+    // threshold, pay, or X weight/value edit that was never recalibrated).
+    expect(mean).toBeGreaterThan(BASELINE_RTP * 0.9);
+    expect(mean).toBeLessThan(BASELINE_RTP * 1.1);
 
     // Sanity on the shape the design targets, so a re-tune that wrecks the
     // feel fails here too rather than silently shipping.
-    const hitRate = full.reduce((s, idx) => s + (won(idx) ? opening[idx] : 0), 0);
-    expect(hitRate).toBeGreaterThan(0.12);
-    expect(hitRate).toBeLessThan(0.2);
-    expect(expectation(D) / hitRate).toBeGreaterThan(1.3); // tumbles per winning round
+    const hitRate = hits / N;
+    expect(hitRate).toBeGreaterThan(0.09);
+    expect(hitRate).toBeLessThan(0.16);
+    expect(tumbleSum / hits).toBeGreaterThan(1.2); // tumbles per winning round
   });
 });
 

@@ -188,8 +188,23 @@ export interface SlotsResult {
 // a fixed 5x6 board, full-board wins only, and a cascade where winning
 // symbols pop and fresh ones rain down until nothing qualifies.
 
+/**
+ * A multiplier cell. Drops into the board exactly like the five paying
+ * symbols above (same odds mechanism, same fall/pop animation) but never
+ * counts toward any symbol's threshold and never pays on its own — see
+ * TumbleStep.xValue. Distinguish from a plain symbol with `typeof cell ===
+ * "string"`.
+ */
+export interface TumbleXCell {
+  id: "x";
+  value: number;
+}
+
+/** One board cell: a plain symbol id, or a tagged multiplier cell. */
+export type TumbleBoardCell = SlotSymbolId | TumbleXCell;
+
 // board[col][row], row 0 = top.
-export type TumbleBoard = SlotSymbolId[][];
+export type TumbleBoard = TumbleBoardCell[][];
 
 export interface TumbleCell {
   col: number;
@@ -205,15 +220,14 @@ export interface TumbleWin {
   positions: TumbleCell[];
 }
 
-export interface TumbleOrb extends TumbleCell {
-  value: number;
-}
-
 /** One cascade step: the board that scored, what it paid, what popped. */
 export interface TumbleStep {
+  /** The board this step scored, before anything popped. X cells (and their
+   *  rolled values) live directly on it — nothing else carries their position. */
   board: TumbleBoard;
   wins: TumbleWin[];
-  orbs: TumbleOrb[];
+  /** Sum of every X currently on the board this step. 0 when none landed. */
+  xValue: number;
   pay: number;
 }
 
@@ -223,7 +237,8 @@ export interface TumbleRound {
   finalBoard: TumbleBoard;
   /** Summed pay of every step, edge-scaled. A bet multiplier, not chips. */
   basePay: number;
-  /** Summed orb values, or 1 when none landed. Orbs never pay alone. */
+  /** Sum of every step's xValue, or 1 when none landed all round. X symbols
+   *  never pay alone. */
   multiplier: number;
   totalMultiplier: number;
 }
