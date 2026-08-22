@@ -12,7 +12,15 @@ import { playWinChime } from "../../lib/sound";
 import { useTumble } from "../../hooks/useTumble";
 import { getSlotsDesign } from "../../lib/slotsDesigns";
 import { SlotSymbol, SlotsSkinStyles } from "./slotsSkin";
-import type { SlotSymbolId, TumbleBoard, TumbleOrb, TumbleRound, TumbleStep } from "../../types";
+import type {
+  SlotSymbolId,
+  TumbleBoard,
+  TumbleFreeSpinsResult,
+  TumbleFreeSpinsSettings,
+  TumbleOrb,
+  TumbleRound,
+  TumbleStep,
+} from "../../types";
 
 const ROWS = 5;
 const COLS = 6;
@@ -76,6 +84,14 @@ function payoutFor(round: TumbleRound, bet: number): number {
 function randomSymbolId(): SlotSymbolId {
   return SYMBOL_IDS[Math.floor(Math.random() * SYMBOL_IDS.length)];
 }
+// Used only when a parent hasn't wired the freeSpins prop yet — CasinoDashboard
+// passes the real resolved settings in Task 7 of the free-spins plan.
+const DEFAULT_FREE_SPINS: TumbleFreeSpinsSettings = {
+  enabled: false,
+  minBet: 1,
+  maxBet: 100,
+  spinsPerPurchase: 10,
+};
 function randomBoard(): TumbleBoard {
   return Array.from({ length: COLS }, () => Array.from({ length: ROWS }, randomSymbolId));
 }
@@ -96,6 +112,7 @@ interface Props {
   gameId: string;
   houseEdge: number;
   design?: string;
+  freeSpins?: TumbleFreeSpinsSettings;
   balance: number;
   minBet: number;
   maxBet: number;
@@ -107,16 +124,19 @@ export function Tumble({
   gameId,
   houseEdge,
   design,
+  freeSpins = DEFAULT_FREE_SPINS,
   balance: initialBalance,
   minBet,
   maxBet,
   onExit,
 }: Props) {
-  const { loading, spin } = useTumble(casinoId, gameId);
+  const { loading, spin, buyFreeSpins } = useTumble(casinoId, gameId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [betText, setBetText] = useState(String(minBet));
   const [formError, setFormError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [freeSpinBetText, setFreeSpinBetText] = useState(String(freeSpins.minBet));
+  const [freeSpinsRemaining, setFreeSpinsRemaining] = useState<{ index: number; total: number } | null>(null);
 
   const [board, setBoard] = useState<TumbleBoard>(randomBoard);
   const [lit, setLit] = useState<Set<string>>(() => new Set());
@@ -142,6 +162,13 @@ export function Tumble({
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const betValid = bet >= minBet && bet <= maxBet && bet <= localBalance;
+  const freeSpinBet = Math.max(0, parseFloat(freeSpinBetText) || 0);
+  const freeSpinCost = roundMoney(freeSpinBet * freeSpins.spinsPerPurchase);
+  const freeSpinBetValid =
+    freeSpins.enabled &&
+    freeSpinBet >= freeSpins.minBet &&
+    freeSpinBet <= freeSpins.maxBet &&
+    freeSpinCost <= localBalance;
   const busy = loading || animating;
 
   function adjustBet(mult: number) {
@@ -273,6 +300,42 @@ export function Tumble({
     setAnimating(false);
   }
 
+  async function handleBuyFreeSpins() {
+    if (!freeSpinBetValid || busy) return;
+    setFormError(null);
+    setAnimating(true);
+
+    const token = ++runId.current;
+    const cost = freeSpinCost;
+    // Same "deduct before the reveal" rule as a manual spin, extended to
+    // cover the whole prepaid batch at once — the balance must never spoil
+    // any individual spin's outcome ahead of that spin's own animation.
+    setLocalBalance((b) => roundMoney(b - cost));
+
+    let result: TumbleFreeSpinsResult;
+    try {
+      result = await buyFreeSpins(freeSpinBet);
+    } catch (err) {
+      if (runId.current === token) {
+        setLocalBalance((b) => roundMoney(b + cost)); // roll the deduction back
+        setFormError(err instanceof Error ? err.message : "Failed to buy free spins");
+        setAnimating(false);
+      }
+      return;
+    }
+    if (runId.current !== token) return;
+
+    for (let i = 0; i < result.rounds.length; i++) {
+      setFreeSpinsRemaining({ index: i + 1, total: result.rounds.length });
+      await playOutRound(result.rounds[i], result.bet, token);
+      if (runId.current !== token) return;
+    }
+
+    setFreeSpinsRemaining(null);
+    setLocalBalance(result.balance);
+    setAnimating(false);
+  }
+
   const tumbleInfo: GameInfoEntry = useMemo(
     () => ({
       title: "Tumble",
@@ -286,9 +349,16 @@ export function Tumble({
         "Every tumble in a round pays, and the round's wins add together.",
         "Multiplier orbs can drop on any paying tumble. All orbs collected in a round add up and multiply the round's whole win — orbs never pay on their own.",
         `This machine's house edge is ${(houseEdge * 100).toFixed(0)}%, already applied to the payouts shown.`,
+        ...(freeSpins.enabled
+          ? [
+              `Buy ${freeSpins.spinsPerPurchase} free spins for a stake between ${formatChips(
+                freeSpins.minBet
+              )} and ${formatChips(freeSpins.maxBet)} chips — each spin plays out with the exact same odds as a normal spin.`,
+            ]
+          : []),
       ],
     }),
-    [houseEdge]
+    [houseEdge, freeSpins]
   );
 
   const orbTotal = orbs.reduce((sum, o) => sum + o.value, 0);
@@ -365,6 +435,31 @@ export function Tumble({
               {busy ? "Spinning…" : "Spin"}
             </Button>
             {formError && <p className="text-xs text-destructive">{formError}</p>}
+
+            {freeSpins.enabled && (
+              <div className="pt-3 border-t border-border">
+                <label className="text-xs text-muted-foreground">Free Spins</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={freeSpinBetText}
+                  onChange={(e) => setFreeSpinBetText(e.target.value)}
+                  disabled={busy}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Min {formatChips(freeSpins.minBet)} · Max {formatChips(freeSpins.maxBet)} per spin
+                </p>
+                <Button
+                  onClick={handleBuyFreeSpins}
+                  disabled={!freeSpinBetValid || busy}
+                  variant="outline"
+                  className="w-full mt-2"
+                >
+                  Buy {freeSpins.spinsPerPurchase} Free Spins — {formatChips(freeSpinCost)}
+                </Button>
+              </div>
+            )}
 
             <div className="mt-1">
               <p className="text-xs font-semibold text-muted-foreground">
@@ -445,6 +540,11 @@ export function Tumble({
             </div>
 
             <div className="flex h-6 items-center gap-3 text-sm">
+              {freeSpinsRemaining && (
+                <span className="font-semibold text-muted-foreground">
+                  Free Spin {freeSpinsRemaining.index} of {freeSpinsRemaining.total}
+                </span>
+              )}
               {runningPay > 0 && (
                 <span className="font-semibold tabular-nums">
                   {displayX(runningPay)}× {tumbleCount > 0 && <span className="text-muted-foreground">· {tumbleCount + 1} tumbles</span>}
