@@ -243,6 +243,7 @@ export function Tumble({
   async function handleSpin() {
     if (!betValid || busy) return;
     setFormError(null);
+    resetRound();
     setAnimating(true);
 
     const token = ++runId.current;
