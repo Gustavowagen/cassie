@@ -235,9 +235,25 @@ export interface TumbleResult {
   balance: number;
 }
 
+// A purchasable batch of pre-paid spins at a chosen stake. Buying N spins at
+// stake S costs exactly N x S -- same odds/house edge as a manual spin, just
+// prepaid and auto-played. Mirrors supabase/functions/tumble/engine.ts's
+// resolveFreeSpinsSettings, which is the authoritative source of these
+// values (this type describes the shape only).
+export interface TumbleFreeSpinsSettings {
+  enabled: boolean;
+  // Floor is always 1, never lower, regardless of the instance's regular
+  // min_bet -- enforced both in GameSettingsModal.tsx and server-side.
+  minBet: number;
+  // >= minBet, capped at GameSettingsModal.tsx's MAX_BET_CEILING.
+  maxBet: number;
+  // Integer, 1-50.
+  spinsPerPurchase: number;
+}
+
 // Shape of CasinoGame.settings for a tumble instance. Board size and reward
 // mode are fixed by the game, so unlike slots there is nothing to configure
-// but the edge and the skin.
+// but the edge, the skin, and (optionally) free spins.
 export interface TumbleInstanceSettings {
   // Fixed menu of 1%-5% in 1% steps — note there is no 0% option, unlike
   // slots. Missing/off-menu defaults to 0.03, both here and server-side in
@@ -247,6 +263,23 @@ export interface TumbleInstanceSettings {
   // Visual design id from src/lib/slotsDesigns.ts, shared with slots.
   // Missing defaults to DEFAULT_SLOTS_DESIGN_ID. Never affects odds.
   design?: string;
+  // Missing/invalid defaults to { enabled: false, minBet: 1, maxBet: ...,
+  // spinsPerPurchase: 10 }, resolved authoritatively server-side by
+  // resolveFreeSpinsSettings in supabase/functions/tumble/engine.ts.
+  freeSpins?: TumbleFreeSpinsSettings;
+}
+
+// Mirror of the edge function's buy_free_spins response.
+export interface TumbleFreeSpinsResult {
+  rounds: TumbleRound[];
+  // The per-spin stake the player chose.
+  bet: number;
+  // spinsPerPurchase * bet.
+  cost: number;
+  // Summed payout across every round in the batch.
+  payout: number;
+  // Authoritative final balance after cost and payout are both applied.
+  balance: number;
 }
 
 export type PlinkoRisk = "low" | "medium" | "high";
