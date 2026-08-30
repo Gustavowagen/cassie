@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, LogIn, Camera, Check } from "lucide-react";
+import { LogIn, Camera, Check } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Modal } from "../components/ui/modal";
 import { supabase } from "../lib/supabase";
@@ -20,12 +20,13 @@ export function Profile() {
   const { user, profile, setProfile, signOut } = useAuthStore();
   const navigate = useNavigate();
 
-  const [editing, setEditing] = useState(false);
   const [nickname, setNickname] = useState(profile?.username ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const displayName = profile?.username ?? user?.email?.split("@")[0] ?? "";
+  const trimmedNickname = nickname.trim();
+  const isDirty = trimmedNickname !== "" && trimmedNickname !== profile?.username;
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [avatarSaving, setAvatarSaving] = useState<string | null>(null);
@@ -34,17 +35,9 @@ export function Profile() {
   const selectedPresetKey = avatarPresetKeyFromUrl(profile?.avatar_url);
   const selectedPreset = selectedPresetKey ? findAvatarPreset(selectedPresetKey) : undefined;
 
-  function startEditing() {
-    setNickname(displayName);
-    setEditing(true);
-  }
-
   async function handleSave() {
     const trimmed = nickname.trim();
-    if (!trimmed || trimmed === profile?.username) {
-      setEditing(false);
-      return;
-    }
+    if (!trimmed || trimmed === profile?.username) return;
     setError(null);
     setSaving(true);
     try {
@@ -61,7 +54,7 @@ export function Profile() {
         throw error;
       }
       setProfile(data);
-      setEditing(false);
+      setNickname(data.username ?? trimmed);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to update nickname");
     } finally {
@@ -139,25 +132,22 @@ export function Profile() {
           </label>
           <div className="flex items-center justify-between gap-2.5">
             <input
-              value={editing ? nickname : displayName}
+              value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              readOnly={!editing}
               maxLength={30}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
               className="flex-1 bg-transparent border-none outline-none text-sm font-semibold"
             />
-            <button
-              type="button"
-              onClick={() => (editing ? handleSave() : startEditing())}
-              disabled={saving}
-              className={`h-[26px] w-[26px] rounded-full flex items-center justify-center flex-none ${GLASS}`}
-            >
-              {editing ? (
-                <span className="text-[11px] font-bold text-primary">{saving ? "…" : "✓"}</span>
-              ) : (
-                <Pencil className="h-[13px] w-[13px]" />
-              )}
-            </button>
+            {isDirty && (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className={`h-[26px] px-3 rounded-full flex items-center justify-center flex-none text-[11px] font-bold text-primary disabled:opacity-50 ${GLASS}`}
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            )}
           </div>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}

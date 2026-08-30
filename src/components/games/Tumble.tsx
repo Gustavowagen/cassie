@@ -66,6 +66,28 @@ const HIGHLIGHT_MS = 760;
 const X_HIGHLIGHT_MS = 1500;
 const POP_MS = 330;
 const BANNER_MS = 1500;
+// When a round collected an X, the win banner reveals in two beats instead
+// of jumping straight to the final number: the raw win first, held long
+// enough to actually read it, then the multiplier badge flies up and merges
+// into it (see COLLIDE_FLY_MS) — so "50" reads as "10, times 5" rather than
+// an arbitrary bigger number appearing out of nowhere.
+const INITIAL_WIN_REVEAL_MS = 900;
+// How long the ×N badge takes to fly from its spot below the board up into
+// the win banner and land, at which point the banner's number updates to
+// the true final payout.
+const COLLIDE_FLY_MS = 480;
+// The gap between rounds in a purchased free-spins batch. A round that paid
+// already gets a full BANNER_MS pause so its own win banner has a beat to be
+// seen (see handleBuyFreeSpins). A round that didn't hit had no pause at all
+// before this — the next spin started the instant it settled — so give it a
+// smaller fixed gap too, just enough that a run of misses doesn't blur past
+// with zero breathing room between them.
+const FREE_SPIN_MISS_GAP_MS = 500;
+// How long the end-of-batch total-win summary stays up once the last round's
+// own animation (and win banner, if it had one) has finished. Matches
+// sl-win-banner's own fade-in/hold/fade-out animation length (see
+// SlotsSkinStyles) since the summary reuses that same banner treatment.
+const FREE_SPINS_SUMMARY_MS = 2400;
 // An X that's collected doesn't just glow in place — it launches out of its
 // cell and flies to the running-multiplier counter, landing there is what
 // actually ticks the counter up (see flyXToCounter below). Multiple X's in
@@ -168,6 +190,18 @@ function rectCenter(rect: DOMRect) {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
+// The ×N multiplier badge's one-time flight from below the board up into the
+// win banner, at the end of a round that collected an X — see COLLIDE_FLY_MS.
+// x/y and dx/dy are real viewport pixels read off the DOM at launch time,
+// same reasoning as FlyingX above.
+interface CollideFlight {
+  value: number;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+}
+
 interface Props {
   casinoId: string;
   gameId: string;
@@ -198,6 +232,7 @@ export function Tumble({
   const [showInfo, setShowInfo] = useState(false);
   const [freeSpinBetText, setFreeSpinBetText] = useState(String(freeSpins.minBet));
   const [freeSpinsRemaining, setFreeSpinsRemaining] = useState<{ index: number; total: number } | null>(null);
+  const [freeSpinsSummary, setFreeSpinsSummary] = useState<{ total: number } | null>(null);
 
   const [board, setBoard] = useState<TumbleBoard>(randomBoard);
   const [lit, setLit] = useState<Set<string>>(() => new Set());
@@ -213,6 +248,11 @@ export function Tumble({
   const [runningMultiplier, setRunningMultiplier] = useState(0);
   const [tumbleCount, setTumbleCount] = useState(0);
   const [settled, setSettled] = useState<{ payout: number; multiplier: number } | null>(null);
+  // Set only while the ×N badge is mid-flight into the win banner (see
+  // playOutRound) — a separate element from `flyers` above since this one
+  // flies from the multiplier badge to the banner, not from a cell to the
+  // badge, and there's ever only one in flight at a time.
+  const [collideFlight, setCollideFlight] = useState<CollideFlight | null>(null);
   const [animating, setAnimating] = useState(false);
 
   const activeDesign = useMemo(() => getSlotsDesign(design), [design]);
@@ -233,6 +273,7 @@ export function Tumble({
   // props/state alone.
   const boardRef = useRef<HTMLDivElement>(null);
   const multBadgeRef = useRef<HTMLSpanElement>(null);
+  const winBannerRef = useRef<HTMLDivElement>(null);
   const flyIdRef = useRef(0);
 
   const bet = Math.max(0, parseFloat(betText) || 0);
@@ -256,10 +297,12 @@ export function Tumble({
     setPopping(new Set());
     setFalling(new Set());
     setFlyers([]);
+    setCollideFlight(null);
     setRunningPay(0);
     setRunningMultiplier(0);
     setTumbleCount(0);
     setSettled(null);
+    setFreeSpinsSummary(null);
   }
 
   // Launches one flying element per collected X, from its cell's real screen
@@ -300,8 +343,12 @@ export function Tumble({
 
   // Replays the server's already-decided round as an animation. Nothing here
   // computes an outcome — every board, win, X and pay comes from the
-  // response.
-  async function replay(round: TumbleRound, token: number) {
+  // response. `bet` is only used to turn the engine's ×-multiplier pay into
+  // the chip amount shown live next to the running ×N counter (see
+  // runningPay below) — it must match whatever bet actually bought this
+  // round (manual spin or a free-spin round's own bet), not necessarily the
+  // bet currently sitting in the input.
+  async function replay(round: TumbleRound, bet: number, token: number) {
     const alive = () => runId.current === token;
 
     // Opening board rains in from the top.
@@ -333,7 +380,10 @@ export function Tumble({
       setLit(new Set(winPositions));
       setXHit(new Set(xPos));
       paid = roundMoney(paid + step.pay);
-      setRunningPay(paid);
+      // Shown as a chip amount, not the raw ×-multiplier, so it always reads
+      // as the same win the banner (settled.payout) will show — see the
+      // comment on runningPay's render below.
+      setRunningPay(roundMoney(bet * paid));
       setTumbleCount(i);
       flyXToCounter(xPosDetailed, token);
       const highlightMs = xPos.length > 0 ? Math.max(X_HIGHLIGHT_MS, xFlightWaitMs(xPos.length)) : HIGHLIGHT_MS;
@@ -396,13 +446,44 @@ export function Tumble({
   // was actually shown and needs a beat to be seen before moving on.
   async function playOutRound(round: TumbleRound, bet: number, token: number): Promise<number> {
     resetRound();
-    await replay(round, token);
+    await replay(round, bet, token);
     if (runId.current !== token) return 0;
 
     const payout = payoutFor(round, bet);
     if (payout > 0) {
+      // A round that swept up an X reveals in two beats instead of jumping
+      // straight to the final number: the raw win first (what basePay alone
+      // is worth), held long enough to read, then the ×N badge flies up from
+      // below the board and merges into it — see INITIAL_WIN_REVEAL_MS and
+      // COLLIDE_FLY_MS. A round with no X has nothing to collide with, so it
+      // keeps the single-step reveal.
+      if (round.multiplier > 1) {
+        const initialWin = roundMoney(bet * round.basePay);
+        setSettled({ payout: initialWin, multiplier: 1 });
+        await sleep(INITIAL_WIN_REVEAL_MS);
+        if (runId.current !== token) return 0;
+
+        const badgeEl = multBadgeRef.current;
+        const bannerEl = winBannerRef.current;
+        if (badgeEl && bannerEl) {
+          const start = rectCenter(badgeEl.getBoundingClientRect());
+          const end = rectCenter(bannerEl.getBoundingClientRect());
+          setCollideFlight({ value: round.multiplier, x: start.x, y: start.y, dx: end.x - start.x, dy: end.y - start.y });
+        }
+        await sleep(COLLIDE_FLY_MS);
+        if (runId.current !== token) return 0;
+        setCollideFlight(null);
+        // Consumed into the banner it just landed on — clearing it here
+        // (rather than waiting for the next resetRound) hides the badge the
+        // instant the merge lands instead of leaving a stale "×N" sitting
+        // below the board next to the now-combined total.
+        setRunningMultiplier(0);
+        setSettled({ payout, multiplier: round.multiplier });
+      } else {
+        setSettled({ payout, multiplier: round.multiplier });
+      }
+
       setLocalBalance((b) => roundMoney(b + payout));
-      setSettled({ payout, multiplier: round.multiplier });
       playWinChime();
       setTimeout(() => {
         if (runId.current === token) setSettled(null);
@@ -470,21 +551,41 @@ export function Tumble({
     }
     if (runId.current !== token) return;
 
+    let totalWin = 0;
     for (let i = 0; i < result.rounds.length; i++) {
       setFreeSpinsRemaining({ index: i + 1, total: result.rounds.length });
       const payout = await playOutRound(result.rounds[i], result.bet, token);
       if (runId.current !== token) return;
+      totalWin = roundMoney(totalWin + payout);
 
       // Give a paid round's win banner an actual beat on screen before the
       // next round's playOutRound wipes it via resetRound() — otherwise
       // React coalesces the two state updates and the banner never paints.
-      // A round that didn't pay has no banner to protect, so it flows
-      // straight into the next one.
+      // A round that didn't pay has no banner to protect, but still gets a
+      // short gap so a run of misses doesn't blur past with no pacing at all.
       const hasNext = i + 1 < result.rounds.length;
-      if (hasNext && payout > 0) {
-        await sleep(BANNER_MS);
+      if (hasNext) {
+        await sleep(payout > 0 ? BANNER_MS : FREE_SPIN_MISS_GAP_MS);
         if (runId.current !== token) return;
       }
+    }
+
+    // Let the final round's own win banner (if it had one) hold its moment —
+    // playOutRound schedules its own dismissal — before swapping it for the
+    // batch's total-win summary. A batch that never paid has nothing to sum
+    // up, so it skips straight to clearing (same "no banner on a loss" rule
+    // as everywhere else).
+    if (totalWin > 0) {
+      await sleep(BANNER_MS);
+      if (runId.current !== token) return;
+      // The last round's own win banner (if it had one) dismisses itself on
+      // its own timeout — clear it explicitly rather than racing it, so the
+      // two banners never render on top of each other.
+      setSettled(null);
+      setFreeSpinsSummary({ total: totalWin });
+      await sleep(FREE_SPINS_SUMMARY_MS);
+      if (runId.current !== token) return;
+      setFreeSpinsSummary(null);
     }
 
     setFreeSpinsRemaining(null);
@@ -517,7 +618,10 @@ export function Tumble({
     [houseEdge, freeSpins]
   );
 
-  const showMultiplier = runningMultiplier > 0;
+  // Hidden the instant the badge launches into the win banner (not only once
+  // it lands and runningMultiplier resets) so there's never a moment where
+  // the same value is visible both sitting below the board and mid-flight.
+  const showMultiplier = runningMultiplier > 0 && !collideFlight;
 
   return (
     <div
@@ -677,11 +781,23 @@ export function Tumble({
               </div>
 
               {settled && (
-                <div className="sl-win-banner">
+                <div ref={winBannerRef} className="sl-win-banner">
                   <div className="sl-win-label">
                     {settled.multiplier > 1 ? `WIN ×${settled.multiplier}` : "WIN"}
                   </div>
-                  <div className="sl-win-amount">{formatChips(settled.payout)}</div>
+                  {/* Keyed by payout so the element remounts (replaying the
+                      pop) both when the amount first appears and again when
+                      it jumps from the initial win to the collided total —
+                      see tm-win-amount-pop and playOutRound. */}
+                  <div key={settled.payout} className="sl-win-amount tm-win-amount-pop">
+                    {formatChips(settled.payout)}
+                  </div>
+                </div>
+              )}
+              {freeSpinsSummary && (
+                <div className="sl-win-banner">
+                  <div className="sl-win-label">FREE SPINS TOTAL WIN</div>
+                  <div className="sl-win-amount">{formatChips(freeSpinsSummary.total)}</div>
                 </div>
               )}
             </div>
@@ -694,7 +810,7 @@ export function Tumble({
               )}
               {runningPay > 0 && (
                 <span className="font-semibold tabular-nums">
-                  {displayX(runningPay)}× {tumbleCount > 0 && <span className="text-muted-foreground">· {tumbleCount + 1} tumbles</span>}
+                  {formatChips(runningPay)} {tumbleCount > 0 && <span className="text-muted-foreground">· {tumbleCount + 1} tumbles</span>}
                 </span>
               )}
               {/* Always mounted (visibility toggled via class) so its real
@@ -728,6 +844,22 @@ export function Tumble({
           ×{f.value}
         </div>
       ))}
+
+      {collideFlight && (
+        <div
+          className="tm-collide-flyer"
+          style={
+            {
+              left: collideFlight.x,
+              top: collideFlight.y,
+              "--dx": `${collideFlight.dx}px`,
+              "--dy": `${collideFlight.dy}px`,
+            } as CSSProperties
+          }
+        >
+          ×{collideFlight.value}
+        </div>
+      )}
     </div>
   );
 }
@@ -859,8 +991,46 @@ function TumbleStyles() {
          moment the very first X of a round is hit, see flyXToCounter. */
       .tm-mult-badge-hidden { opacity: 0; }
 
+      /* The ×N badge's one-time flight from below the board up into the win
+         banner, at the end of a round that collected an X — a real
+         fixed-position element (see the collideFlight render in Tumble's
+         JSX), same reasoning as .tm-flyer above: the badge and the banner
+         are two unrelated parts of the layout whose real screen positions
+         are only known at launch time (see playOutRound). Sized up from
+         .tm-flyer since this is the single payoff moment for the whole
+         round, not one of several running tallies. */
+      .tm-collide-flyer {
+        position: fixed;
+        transform: translate(-50%, -50%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-weight: 800;
+        font-size: clamp(15px, 2.2vw, 20px);
+        color: #fff8e1;
+        background: radial-gradient(circle at 35% 30%, #ffd76b, #d4820f 70%);
+        box-shadow: 0 0 12px rgba(255, 190, 70, 0.9), 0 0 26px rgba(255, 150, 40, 0.55);
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 60;
+        animation: tmXFly ${COLLIDE_FLY_MS}ms cubic-bezier(0.32, 0, 0.6, 1) both;
+      }
+
+      /* Punches the win amount when it appears — including the moment it
+         jumps from the initial (pre-X) win to the collided total, since the
+         element remounts (see the key={settled.payout} in Tumble's JSX) and
+         replays this each time. */
+      .tm-win-amount-pop { animation: tmAmountPop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+      @keyframes tmAmountPop {
+        0% { transform: scale(0.7); }
+        60% { transform: scale(1.18); }
+        100% { transform: scale(1); }
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .tm-cell.tm-fall, .tm-cell.tm-pop, .tm-cell.tm-x-hit, .tm-cell.tm-x-hit .tm-x-sym, .tm-flyer {
+        .tm-cell.tm-fall, .tm-cell.tm-pop, .tm-cell.tm-x-hit, .tm-cell.tm-x-hit .tm-x-sym, .tm-flyer, .tm-collide-flyer, .tm-win-amount-pop {
           animation-duration: 1ms;
         }
         .tm-cell.tm-fall { animation-delay: 0ms; }
