@@ -257,11 +257,15 @@ export interface TumbleResult {
 // values (this type describes the shape only).
 export interface TumbleFreeSpinsSettings {
   enabled: boolean;
-  // Floor is always 1, never lower, regardless of the instance's regular
-  // min_bet -- enforced both in GameSettingsModal.tsx and server-side.
-  minBet: number;
-  // >= minBet, capped at GameSettingsModal.tsx's MAX_BET_CEILING.
-  maxBet: number;
+  // Bounds on the TOTAL COST of one purchase, not the per-spin stake -- the
+  // player picks a price and the per-spin stake is derived from it
+  // (cost / spinsPerPurchase). Floor is always
+  // FREE_SPINS_MIN_COST_FLOOR (0.1), never lower, regardless of the
+  // instance's regular min_bet -- enforced both in GameSettingsModal.tsx and
+  // server-side.
+  minCost: number;
+  // >= minCost, capped at FREE_SPINS_MAX_COST_CEILING (10,000,000).
+  maxCost: number;
   // Integer, 1-50.
   spinsPerPurchase: number;
 }
@@ -278,18 +282,21 @@ export interface TumbleInstanceSettings {
   // Visual design id from src/lib/slotsDesigns.ts, shared with slots.
   // Missing defaults to DEFAULT_SLOTS_DESIGN_ID. Never affects odds.
   design?: string;
-  // Missing/invalid defaults to { enabled: false, minBet: 1, maxBet: ...,
+  // Missing/invalid defaults to { enabled: false, minCost: 0.1, maxCost: ...,
   // spinsPerPurchase: 10 }, resolved authoritatively server-side by
-  // resolveFreeSpinsSettings in supabase/functions/tumble/engine.ts.
+  // resolveFreeSpinsSettings in supabase/functions/tumble/engine.ts. A config
+  // saved before 2026-08-30 carries minBet/maxBet instead; those are read as
+  // costs, see resolveFreeSpinsSettings.
   freeSpins?: TumbleFreeSpinsSettings;
 }
 
 // Mirror of the edge function's buy_free_spins response.
 export interface TumbleFreeSpinsResult {
   rounds: TumbleRound[];
-  // The per-spin stake the player chose.
+  // The per-spin stake the chosen price bought: cost / spinsPerPurchase,
+  // deliberately unrounded so it divides the price exactly.
   bet: number;
-  // spinsPerPurchase * bet.
+  // The total price the player chose, and exactly what was charged.
   cost: number;
   // Summed payout across every round in the batch.
   payout: number;

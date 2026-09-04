@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { X } from "lucide-react";
+import { Minus, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { MuteButton } from "../ui/MuteButton";
 import { BackdropToggleButton } from "../ui/BackdropToggleButton";
@@ -98,6 +98,62 @@ const FLY_MS = 520;
 // Extra headroom after the last flyer lands before the step is allowed to
 // move on to popping/falling, so the counter's final tick is never cut off.
 const FLY_LAND_BUFFER_MS = 250;
+// How long the "free spins bought" takeover holds the board before the first
+// purchased round starts falling. Also the floor the buy request is held to
+// (see handleBuyFreeSpins) so a fast server response can't cut the reveal.
+const FS_INTRO_MS = 2200;
+
+// The ladder the special-feature panel's -/+ buttons step through. It prices
+// the WHOLE BATCH, not one spin — the player picks what the purchase costs
+// and the stake per spin falls out of it (cost / spinsPerPurchase), which is
+// how the engine reads it too (see handleBuyFreeSpins in
+// supabase/functions/tumble/index.ts). A 1 / 2.5 / 5 progression per decade,
+// from FREE_SPINS_MIN_COST_FLOOR up to FREE_SPINS_MAX_COST_CEILING:
+// deliberately coarse — a handful of clicks has to be able to cross eight
+// orders of magnitude — while still leaving three stops in every decade. The
+// instance's own configured min/max narrows it at both ends, see
+// costLadderFor.
+const COST_LADDER = [
+  0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000,
+  10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_500_000,
+  5_000_000, 10_000_000,
+];
+
+// The ladder narrowed to one instance's configured free-spin cost range. The
+// configured min and max are always themselves stops — an admin who set
+// 40..600 gets 40 · 50 · 100 · 250 · 500 · 600, so both ends of what they
+// allowed stay reachable even though neither is on the ladder proper.
+function costLadderFor(min: number, max: number): number[] {
+  const lo = roundMoney(Math.max(min, COST_LADDER[0]));
+  const hi = roundMoney(Math.max(lo, Math.min(max, COST_LADDER[COST_LADDER.length - 1])));
+  if (hi <= lo) return [lo];
+  return [lo, ...COST_LADDER.filter((v) => v > lo && v < hi), hi];
+}
+
+// Ladder/stake display. formatChips's fixed 4 decimals are pure noise on a
+// ladder whose stops are whole numbers or one or two decimals — "0.1000" and
+// "10,000,000.0000" both read worse than the number actually is. Same
+// thousands grouping, but only the decimals the number really has.
+function formatStake(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+}
+
+// The ladder stop one step up (dir 1) or down (dir -1) from `current`,
+// clamped at both ends. `current` is always already a stop, but the nearest
+// -stop search keeps this correct if the instance's range (and so the
+// ladder) changes underneath a stake the player already picked.
+function stepLadder(current: number, dir: 1 | -1, ladder: number[]): number {
+  let index = 0;
+  let closest = Infinity;
+  ladder.forEach((v, i) => {
+    const d = Math.abs(v - current);
+    if (d < closest) {
+      closest = d;
+      index = i;
+    }
+  });
+  return ladder[Math.min(ladder.length - 1, Math.max(0, index + dir))];
+}
 
 function edgeScale(houseEdge: number): number {
   return (1 - houseEdge) / BASELINE_RTP;
@@ -118,12 +174,30 @@ function payoutFor(round: TumbleRound, bet: number): number {
 function randomSymbolId(): SlotSymbolId {
   return SYMBOL_IDS[Math.floor(Math.random() * SYMBOL_IDS.length)];
 }
-// Used only when a parent hasn't wired the freeSpins prop yet — CasinoDashboard
-// passes the real resolved settings in Task 7 of the free-spins plan.
+// What a casino_games row's settings.freeSpins can actually look like: the
+// current cost-based shape, or a config saved before 2026-08-30 carrying
+// minBet/maxBet (which bounded the per-spin stake back then). Every field is
+// optional because this is raw jsonb — nothing has validated it yet.
+type StoredFreeSpins = Partial<TumbleFreeSpinsSettings & { minBet: number; maxBet: number }>;
+
+// Normalises that raw shape into the one the component uses, reading the
+// legacy names as costs. Mirrors resolveFreeSpinsSettings in
+// supabase/functions/tumble/engine.ts, which is the authority — this only
+// decides what the panel offers, never what a purchase is allowed to cost.
+function resolveFreeSpins(raw: StoredFreeSpins | undefined): TumbleFreeSpinsSettings {
+  return {
+    enabled: raw?.enabled === true,
+    minCost: raw?.minCost ?? raw?.minBet ?? DEFAULT_FREE_SPINS.minCost,
+    maxCost: raw?.maxCost ?? raw?.maxBet ?? DEFAULT_FREE_SPINS.maxCost,
+    spinsPerPurchase: raw?.spinsPerPurchase ?? DEFAULT_FREE_SPINS.spinsPerPurchase,
+  };
+}
+
+// The floor a row with nothing usable stored falls back to.
 const DEFAULT_FREE_SPINS: TumbleFreeSpinsSettings = {
   enabled: false,
-  minBet: 1,
-  maxBet: 100,
+  minCost: 0.1,
+  maxCost: 1000,
   spinsPerPurchase: 10,
 };
 function randomBoard(): TumbleBoard {
@@ -207,7 +281,7 @@ interface Props {
   gameId: string;
   houseEdge: number;
   design?: string;
-  freeSpins?: TumbleFreeSpinsSettings;
+  freeSpins?: StoredFreeSpins;
   balance: number;
   minBet: number;
   maxBet: number;
@@ -219,19 +293,34 @@ export function Tumble({
   gameId,
   houseEdge,
   design,
-  freeSpins = DEFAULT_FREE_SPINS,
+  freeSpins: storedFreeSpins,
   balance: initialBalance,
   minBet,
   maxBet,
   onExit,
 }: Props) {
+  const freeSpins = resolveFreeSpins(storedFreeSpins);
   const { loading, spin, buyFreeSpins } = useTumble(casinoId, gameId);
   const [localBalance, setLocalBalance] = useState(initialBalance);
   const [betText, setBetText] = useState(String(minBet));
   const [formError, setFormError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
-  const [freeSpinBetText, setFreeSpinBetText] = useState(String(freeSpins.minBet));
+  // The special-feature buy panel, and the takeover that plays over the board
+  // once a batch has actually been bought (see FS_INTRO_MS).
+  const [showFeatureBuy, setShowFeatureBuy] = useState(false);
+  const [featureIntro, setFeatureIntro] = useState<{ spins: number } | null>(null);
+  // The batch price is picked with -/+ only, so it's a ladder stop rather
+  // than free text — there's no invalid value to type and nothing to parse.
+  const [freeSpinCostPick, setFreeSpinCostPick] = useState(
+    () => costLadderFor(freeSpins.minCost, freeSpins.maxCost)[0]
+  );
   const [freeSpinsRemaining, setFreeSpinsRemaining] = useState<{ index: number; total: number } | null>(null);
+  // The batch's running total win, ticking up as each round settles. Non-null
+  // for exactly as long as a batch is playing — including at 0, so the
+  // counter is there to watch from the first spin rather than appearing out
+  // of nowhere on the first hit. Deliberately NOT touched by resetRound,
+  // which runs per round inside the batch.
+  const [freeSpinsTotal, setFreeSpinsTotal] = useState<number | null>(null);
   const [freeSpinsSummary, setFreeSpinsSummary] = useState<{ total: number } | null>(null);
 
   const [board, setBoard] = useState<TumbleBoard>(randomBoard);
@@ -267,6 +356,17 @@ export function Tumble({
     };
   }, []);
 
+  // The game's own Modal is dismissible={false}, so Escape is unbound while
+  // Tumble is open — the feature panel takes it for itself while it's up.
+  useEffect(() => {
+    if (!showFeatureBuy) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowFeatureBuy(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showFeatureBuy]);
+
   // DOM handles for measuring real on-screen positions — a flying X's start
   // and end points depend on the board's responsive cell size and the
   // counter's actual layout position, neither of which can be computed from
@@ -278,17 +378,31 @@ export function Tumble({
 
   const bet = Math.max(0, parseFloat(betText) || 0);
   const betValid = bet >= minBet && bet <= maxBet && bet <= localBalance;
-  const freeSpinBet = Math.max(0, parseFloat(freeSpinBetText) || 0);
-  const freeSpinCost = roundMoney(freeSpinBet * freeSpins.spinsPerPurchase);
-  const freeSpinBetValid =
-    freeSpins.enabled &&
-    freeSpinBet >= freeSpins.minBet &&
-    freeSpinBet <= freeSpins.maxBet &&
-    freeSpinCost <= localBalance;
+  const costLadder = useMemo(
+    () => costLadderFor(freeSpins.minCost, freeSpins.maxCost),
+    [freeSpins.minCost, freeSpins.maxCost]
+  );
+  // Clamped rather than stored clamped, so a price the player already picked
+  // stays valid if an admin narrows the instance's range mid-session.
+  const freeSpinCost = Math.min(Math.max(freeSpinCostPick, costLadder[0]), costLadder[costLadder.length - 1]);
+  // What that price buys per spin — derived, never picked. Left unrounded to
+  // match the server, which divides the charged price by the spin count
+  // exactly (see handleBuyFreeSpins in supabase/functions/tumble/index.ts);
+  // only its display is rounded.
+  const freeSpinBet = freeSpinCost / freeSpins.spinsPerPurchase;
+  const canStakeDown = freeSpinCost > costLadder[0];
+  const canStakeUp = freeSpinCost < costLadder[costLadder.length - 1];
+  // The price itself can't be out of range (it only ever comes off the
+  // ladder), so affording the batch is the only thing left to check.
+  const freeSpinBetValid = freeSpins.enabled && freeSpinCost > 0 && freeSpinCost <= localBalance;
   const busy = loading || animating;
 
   function adjustBet(mult: number) {
     setBetText(String(roundMoney(Math.max(0, bet * mult))));
+  }
+
+  function stepFreeSpinCost(dir: 1 | -1) {
+    setFreeSpinCostPick(stepLadder(freeSpinCost, dir, costLadder));
   }
 
   function resetRound() {
@@ -528,6 +642,7 @@ export function Tumble({
   async function handleBuyFreeSpins() {
     if (!freeSpinBetValid || busy) return;
     setFormError(null);
+    setShowFeatureBuy(false);
     resetRound();
     setAnimating(true);
 
@@ -538,11 +653,27 @@ export function Tumble({
     // any individual spin's outcome ahead of that spin's own animation.
     setLocalBalance((b) => roundMoney(b - cost));
 
+    // The purchase takes over the board immediately, so buying reads as a
+    // real event on the machine rather than a panel that just closed. It
+    // plays while the request is still in flight and is held to its full
+    // FS_INTRO_MS below however fast the server answers, so the batch never
+    // starts falling before the player has seen what they bought.
+    const introStart = Date.now();
+    setFeatureIntro({ spins: freeSpins.spinsPerPurchase });
+    setFreeSpinsTotal(0);
+    // Below the md breakpoint the controls stack above the board, so the buy
+    // button and the board it plays on can't both be on screen — bring the
+    // board to the player, otherwise the reveal (and the batch behind it)
+    // happens somewhere they aren't looking.
+    boardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
     let result: TumbleFreeSpinsResult;
     try {
-      result = await buyFreeSpins(freeSpinBet);
+      result = await buyFreeSpins(freeSpinCost);
     } catch (err) {
       if (runId.current === token) {
+        setFeatureIntro(null);
+        setFreeSpinsTotal(null);
         setLocalBalance((b) => roundMoney(b + cost)); // roll the deduction back
         setFormError(err instanceof Error ? err.message : "Failed to buy free spins");
         setAnimating(false);
@@ -551,12 +682,19 @@ export function Tumble({
     }
     if (runId.current !== token) return;
 
+    await sleep(Math.max(0, FS_INTRO_MS - (Date.now() - introStart)));
+    if (runId.current !== token) return;
+    setFeatureIntro(null);
+
     let totalWin = 0;
     for (let i = 0; i < result.rounds.length; i++) {
       setFreeSpinsRemaining({ index: i + 1, total: result.rounds.length });
       const payout = await playOutRound(result.rounds[i], result.bet, token);
       if (runId.current !== token) return;
       totalWin = roundMoney(totalWin + payout);
+      // playOutRound has just credited this round's payout and put its win
+      // banner up, so the counter ticks on the same beat the round pays.
+      setFreeSpinsTotal(totalWin);
 
       // Give a paid round's win banner an actual beat on screen before the
       // next round's playOutRound wipes it via resetRound() — otherwise
@@ -589,6 +727,7 @@ export function Tumble({
     }
 
     setFreeSpinsRemaining(null);
+    setFreeSpinsTotal(null);
     setLocalBalance(result.balance);
     setAnimating(false);
   }
@@ -608,14 +747,16 @@ export function Tumble({
         `This machine's house edge is ${(houseEdge * 100).toFixed(0)}%, already applied to the payouts shown.`,
         ...(freeSpins.enabled
           ? [
-              `Buy ${freeSpins.spinsPerPurchase} free spins for a stake between ${formatChips(
-                freeSpins.minBet
-              )} and ${formatChips(freeSpins.maxBet)} chips — each spin plays out with the exact same odds as a normal spin.`,
+              `Buy Special Feature opens the feature panel, where a batch of ${freeSpins.spinsPerPurchase} free spins can be bought for a total price you set with − and + between ${formatStake(
+                freeSpins.minCost
+              )} and ${formatStake(freeSpins.maxCost)} chips. That price divided by ${freeSpins.spinsPerPurchase} is the stake each spin plays for, and every spin plays out with the exact same odds as a normal spin.`,
             ]
           : []),
       ],
     }),
-    [houseEdge, freeSpins]
+    // Depends on the resolved values, not the object — resolveFreeSpins
+    // returns a fresh one every render.
+    [houseEdge, freeSpins.enabled, freeSpins.minCost, freeSpins.maxCost, freeSpins.spinsPerPurchase]
   );
 
   // Hidden the instant the badge launches into the win banner (not only once
@@ -697,26 +838,15 @@ export function Tumble({
 
             {freeSpins.enabled && (
               <div className="pt-3 border-t border-border">
-                <label className="text-xs text-muted-foreground">Free Spins</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={freeSpinBetText}
-                  onChange={(e) => setFreeSpinBetText(e.target.value)}
+                <button
+                  type="button"
+                  onClick={() => setShowFeatureBuy(true)}
                   disabled={busy}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Min {formatChips(freeSpins.minBet)} · Max {formatChips(freeSpins.maxBet)} per spin
-                </p>
-                <Button
-                  onClick={handleBuyFreeSpins}
-                  disabled={!freeSpinBetValid || busy}
-                  variant="outline"
-                  className="w-full mt-2"
+                  className="tm-feature-cta w-full"
                 >
-                  Buy {freeSpins.spinsPerPurchase} Free Spins — {formatChips(freeSpinCost)}
-                </Button>
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                  Buy Special Feature
+                </button>
               </div>
             )}
 
@@ -794,6 +924,18 @@ export function Tumble({
                   </div>
                 </div>
               )}
+              {featureIntro && (
+                <div className="tm-fs-intro">
+                  <div className="tm-fs-intro-rays" />
+                  <div className="tm-fs-intro-body">
+                    <div className="tm-fs-intro-kicker">Feature Purchased</div>
+                    <div className="tm-fs-intro-count">{featureIntro.spins}</div>
+                    <div className="tm-fs-intro-title">FREE SPINS</div>
+                    <div className="tm-fs-intro-stake">{formatStake(freeSpinBet)} per spin</div>
+                    <div className="tm-fs-intro-sub">Get ready…</div>
+                  </div>
+                </div>
+              )}
               {freeSpinsSummary && (
                 <div className="sl-win-banner">
                   <div className="sl-win-label">FREE SPINS TOTAL WIN</div>
@@ -802,10 +944,24 @@ export function Tumble({
               )}
             </div>
 
-            <div className="flex h-6 items-center gap-3 text-sm">
+            {/* Wraps rather than fixing a height: during a batch this row
+                carries the spin counter and the running total on top of the
+                per-round pay and multiplier, which is more than fits on one
+                line on a phone. */}
+            <div className="flex min-h-6 flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-sm">
               {freeSpinsRemaining && (
                 <span className="font-semibold text-muted-foreground">
                   Free Spin {freeSpinsRemaining.index} of {freeSpinsRemaining.total}
+                </span>
+              )}
+              {freeSpinsTotal !== null && (
+                <span className="tm-fs-total">
+                  <span className="tm-fs-total-label">Total win</span>
+                  {/* Keyed by value so it remounts and replays the punch on
+                      every tick — see tm-win-amount-pop. */}
+                  <span key={freeSpinsTotal} className="tm-fs-total-amount tm-win-amount-pop">
+                    {formatChips(freeSpinsTotal)}
+                  </span>
                 </span>
               )}
               {runningPay > 0 && (
@@ -822,6 +978,94 @@ export function Tumble({
               >
                 ×{runningMultiplier}
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* The special-feature buy panel. A plain overlay inside the game card
+          rather than a nested <Modal>: Tumble is already rendered inside one,
+          and a second portal would fight it over the body scroll lock and the
+          Escape handler. */}
+      {showFeatureBuy && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => setShowFeatureBuy(false)}
+          />
+          <div className="tm-feature-panel relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <p className="text-sm font-bold">Special Feature</p>
+              <button
+                type="button"
+                onClick={() => setShowFeatureBuy(false)}
+                className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="tm-feature-banner">
+                <span className="tm-feature-banner-count">{freeSpins.spinsPerPurchase}</span>
+                <span className="tm-feature-banner-title">FREE SPINS</span>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                {freeSpins.spinsPerPurchase} spins played back to back for the price you set, on
+                exactly the same odds as a normal spin. The whole batch is paid for up front.
+              </p>
+
+              <label className="mt-4 block text-xs font-semibold text-muted-foreground">
+                Total cost
+              </label>
+              <div className="mt-1.5 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => stepFreeSpinCost(-1)}
+                  disabled={!canStakeDown || busy}
+                  className="tm-stake-step"
+                  aria-label="Lower cost"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <div className="tm-stake-value">{formatStake(freeSpinCost)}</div>
+                <button
+                  type="button"
+                  onClick={() => stepFreeSpinCost(1)}
+                  disabled={!canStakeUp || busy}
+                  className="tm-stake-step"
+                  aria-label="Raise cost"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Min {formatStake(costLadder[0])} · Max {formatStake(costLadder[costLadder.length - 1])}
+              </p>
+
+              {/* The stake per spin isn't picked any more, it's what the
+                  chosen price works out to — shown so the price still reads
+                  as a bet, not just a number. */}
+              <div className="mt-4 flex items-baseline justify-between rounded-lg bg-muted/50 px-3 py-2.5">
+                <span className="text-xs font-semibold text-muted-foreground">Buys</span>
+                <span className="text-sm font-bold tabular-nums">
+                  {freeSpins.spinsPerPurchase} × {formatStake(freeSpinBet)}
+                </span>
+              </div>
+
+              <Button
+                onClick={handleBuyFreeSpins}
+                disabled={!freeSpinBetValid || busy}
+                className="mt-3 w-full"
+              >
+                Buy {freeSpins.spinsPerPurchase} Free Spins — {formatStake(freeSpinCost)}
+              </Button>
+              {freeSpinCost > localBalance && (
+                <p className="mt-2 text-center text-xs text-destructive">
+                  Not enough chips — balance is {formatChips(localBalance)}.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -1018,6 +1262,205 @@ function TumbleStyles() {
         animation: tmXFly ${COLLIDE_FLY_MS}ms cubic-bezier(0.32, 0, 0.6, 1) both;
       }
 
+      /* --- Special feature: the sidebar CTA, the buy panel, and the
+         takeover that plays on the board once a batch is bought. All three
+         share the same gold treatment as the X multiplier symbol, so the
+         feature reads as one thing across the machine. --- */
+      .tm-feature-cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 9px 12px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: #3a2100;
+        background: linear-gradient(135deg, #ffe082, #ffb31f 55%, #e08c0c);
+        border: 1px solid rgba(255, 240, 190, 0.7);
+        box-shadow: 0 0 14px rgba(255, 180, 60, 0.35);
+        transition: transform 120ms ease, box-shadow 160ms ease, filter 160ms ease;
+      }
+      .tm-feature-cta:hover:not(:disabled) { box-shadow: 0 0 22px rgba(255, 180, 60, 0.6); filter: brightness(1.06); }
+      .tm-feature-cta:active:not(:disabled) { transform: scale(0.97); }
+      .tm-feature-cta:disabled { opacity: 0.5; filter: saturate(0.6); }
+
+      .tm-feature-panel { animation: tmPanelIn 220ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+      @keyframes tmPanelIn {
+        0% { transform: translateY(10px) scale(0.96); opacity: 0; }
+        100% { transform: translateY(0) scale(1); opacity: 1; }
+      }
+
+      .tm-feature-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 12px;
+        border-radius: 12px;
+        color: #fff8e1;
+        background: radial-gradient(circle at 30% 20%, rgba(255, 215, 107, 0.35), rgba(0, 0, 0, 0.35)), #241703;
+        border: 1px solid rgba(255, 214, 110, 0.5);
+        box-shadow: inset 0 0 24px rgba(255, 170, 40, 0.22);
+      }
+      .tm-feature-banner-count {
+        font-size: 30px;
+        font-weight: 900;
+        line-height: 1;
+        color: #ffd76b;
+        text-shadow: 0 0 16px rgba(255, 180, 60, 0.7);
+      }
+      .tm-feature-banner-title {
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: 0.22em;
+        color: #ffe9a8;
+      }
+
+      .tm-stake-step {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 214, 110, 0.45);
+        color: #ffd76b;
+        background: rgba(255, 190, 60, 0.1);
+        transition: background 140ms ease, transform 120ms ease;
+      }
+      .tm-stake-step:hover:not(:disabled) { background: rgba(255, 190, 60, 0.22); }
+      .tm-stake-step:active:not(:disabled) { transform: scale(0.92); }
+      .tm-stake-step:disabled { opacity: 0.35; }
+      .tm-stake-value {
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        /* The ladder spans 0.1 to 10,000,000 — clamp rather than fix the size
+           so the widest stop still fits the panel on a phone. */
+        font-size: clamp(13px, 3.6vw, 19px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* The batch's running total win. Deliberately quieter than the win
+         banner and the ×N badge — it's a tally that sits there for the whole
+         batch, not a payoff moment, so it reads as a counter rather than
+         competing with each round's own win. */
+      .tm-fs-total {
+        display: inline-flex;
+        align-items: center;
+        /* Wide enough that the amount's tick punch (tm-win-amount-pop scales
+           to 1.18 about its centre) can never graze the label. */
+        gap: 10px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 214, 110, 0.35);
+        background: rgba(255, 190, 60, 0.08);
+        white-space: nowrap;
+      }
+      .tm-fs-total-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: rgba(255, 233, 168, 0.7);
+      }
+      .tm-fs-total-amount {
+        font-size: 13px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: #ffd76b;
+      }
+
+      /* The purchase takeover: covers the board for FS_INTRO_MS so a bought
+         batch is unmistakably announced before it starts playing. */
+      .tm-fs-intro {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 14px;
+        background: radial-gradient(circle at 50% 50%, rgba(92, 52, 0, 0.82), rgba(0, 0, 0, 0.93));
+        animation: tmFsIntroIn 260ms ease-out both;
+      }
+      @keyframes tmFsIntroIn { from { opacity: 0; } to { opacity: 1; } }
+
+      .tm-fs-intro-rays {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 170%;
+        aspect-ratio: 1;
+        transform: translate(-50%, -50%);
+        background: repeating-conic-gradient(from 0deg, rgba(255, 200, 90, 0.22) 0deg 7deg, transparent 7deg 20deg);
+        -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 60%);
+        mask-image: radial-gradient(circle, #000 8%, transparent 60%);
+        animation: tmFsRays 12s linear infinite;
+      }
+      @keyframes tmFsRays { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+      .tm-fs-intro-body { position: relative; text-align: center; padding: 0 12px; }
+      .tm-fs-intro-kicker {
+        font-size: clamp(9px, 1.2vw, 12px);
+        font-weight: 800;
+        letter-spacing: 0.3em;
+        color: rgba(255, 233, 168, 0.75);
+        animation: tmFsFadeUp 420ms ease-out both;
+      }
+      .tm-fs-intro-count {
+        margin-top: 4px;
+        font-size: clamp(44px, 8vw, 88px);
+        font-weight: 900;
+        line-height: 1;
+        color: #ffd76b;
+        text-shadow: 0 0 30px rgba(255, 180, 60, 0.75), 0 0 60px rgba(255, 140, 30, 0.4);
+        animation: tmFsPunch 640ms cubic-bezier(0.2, 1.5, 0.5, 1) 80ms both;
+      }
+      .tm-fs-intro-title {
+        font-size: clamp(16px, 2.8vw, 30px);
+        font-weight: 900;
+        letter-spacing: 0.26em;
+        color: #ffe9a8;
+        text-shadow: 0 0 20px rgba(255, 180, 60, 0.6);
+        animation: tmFsPunch 640ms cubic-bezier(0.2, 1.5, 0.5, 1) 220ms both;
+      }
+      .tm-fs-intro-stake {
+        margin-top: 10px;
+        font-size: clamp(11px, 1.5vw, 15px);
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: rgba(255, 248, 225, 0.9);
+        animation: tmFsFadeUp 460ms ease-out 420ms both;
+      }
+      .tm-fs-intro-sub {
+        margin-top: 6px;
+        font-size: clamp(10px, 1.3vw, 13px);
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        color: rgba(255, 240, 205, 0.7);
+        animation: tmFsFadeUp 460ms ease-out 620ms both, tmFsPulse 1200ms ease-in-out 1080ms infinite;
+      }
+      @keyframes tmFsPunch {
+        0% { transform: scale(0.4); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      @keyframes tmFsFadeUp {
+        0% { transform: translateY(8px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes tmFsPulse {
+        0%, 100% { opacity: 0.45; }
+        50% { opacity: 1; }
+      }
+
       /* Punches the win amount when it appears — including the moment it
          jumps from the initial (pre-X) win to the collided total, since the
          element remounts (see the key={settled.payout} in Tumble's JSX) and
@@ -1034,6 +1477,15 @@ function TumbleStyles() {
           animation-duration: 1ms;
         }
         .tm-cell.tm-fall { animation-delay: 0ms; }
+        /* The purchase takeover still has to be *seen* for its full hold, so
+           only its motion is dropped — the panel/text simply appear. */
+        .tm-feature-panel, .tm-fs-intro, .tm-fs-intro-kicker, .tm-fs-intro-count,
+        .tm-fs-intro-title, .tm-fs-intro-stake, .tm-fs-intro-sub {
+          animation-duration: 1ms;
+          animation-delay: 0ms;
+        }
+        .tm-fs-intro-rays { animation: none; }
+        .tm-fs-intro-sub { animation-iteration-count: 1; }
         .sl-win-banner { animation: none; }
       }
     `}</style>

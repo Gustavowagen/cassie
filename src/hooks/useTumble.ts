@@ -46,12 +46,14 @@ export function useTumble(casinoId: string | undefined, gameId: string | undefin
     [casinoId, gameId]
   );
 
+  // `cost` is the batch's total price; the server derives the per-spin stake
+  // from it (see handleBuyFreeSpins in supabase/functions/tumble/index.ts).
   const buyFreeSpins = useCallback(
-    async (bet: number) => {
+    async (cost: number) => {
       setLoading(true);
       setError(null);
       const { data, error } = await supabase.functions.invoke("tumble", {
-        body: { action: "buy_free_spins", casino_id: casinoId, casino_game_id: gameId, bet },
+        body: { action: "buy_free_spins", casino_id: casinoId, casino_game_id: gameId, cost },
       });
       setLoading(false);
       if (error) {

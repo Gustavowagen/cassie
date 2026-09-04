@@ -58,8 +58,8 @@ function describeRound(round: TumbleRound): string {
   return `Tumble: ${symbols}${tumbles}${mult}`;
 }
 
-function describeFreeSpins(spins: number, bet: number, payout: number): string {
-  return `Tumble free spins: ${spins} x ${bet} chips, total payout ${payout}`;
+function describeFreeSpins(spins: number, cost: number, payout: number): string {
+  return `Tumble free spins: ${spins} spins for ${cost} chips, total payout ${payout}`;
 }
 
 async function handleSpin(
@@ -125,10 +125,11 @@ async function handleBuyFreeSpins(
   userClient: ReturnType<typeof createClient>,
   admin: ReturnType<typeof createClient>
 ): Promise<Response> {
-  const { casino_id, casino_game_id, bet } = body as {
+  const { casino_id, casino_game_id, cost, bet } = body as {
     casino_id: string;
     casino_game_id: string;
-    bet: number;
+    cost?: number;
+    bet?: number;
   };
 
   const [{ data: member }, { data: cg }] = await Promise.all([
@@ -148,15 +149,28 @@ async function handleBuyFreeSpins(
   if (!freeSpins.enabled) {
     return json({ error: "Free spins are not enabled for this game" }, 400);
   }
-  if (typeof bet !== "number" || !isFinite(bet) || bet <= 0) {
-    return json({ error: "Invalid bet" }, 400);
+  // The player buys a batch for a total price; `bet` is the pre-2026-08-30
+  // request shape, where they picked a per-spin stake instead — accepted so a
+  // tab left open on the old client still works.
+  const requestedCost =
+    typeof cost === "number" ? cost : typeof bet === "number" ? bet * freeSpins.spinsPerPurchase : undefined;
+  if (typeof requestedCost !== "number" || !isFinite(requestedCost) || requestedCost <= 0) {
+    return json({ error: "Invalid cost" }, 400);
   }
-  const validBet = roundMoney(bet);
-  if (validBet < freeSpins.minBet || validBet > freeSpins.maxBet) {
-    return json({ error: `Free spins bet must be between ${freeSpins.minBet} and ${freeSpins.maxBet}` }, 400);
+  const validCost = roundMoney(requestedCost);
+  if (validCost < freeSpins.minCost || validCost > freeSpins.maxCost) {
+    return json(
+      { error: `Free spins must cost between ${freeSpins.minCost} and ${freeSpins.maxCost}` },
+      400
+    );
   }
-  const cost = roundMoney(freeSpins.spinsPerPurchase * validBet);
-  if (cost > member.balance) return json({ error: "Insufficient balance" }, 400);
+  if (validCost > member.balance) return json({ error: "Insufficient balance" }, 400);
+
+  // Deliberately NOT rounded to 4dp: the batch is charged exactly what the
+  // player picked, so the per-spin stake it buys has to divide that price
+  // exactly (0.1 across 3 spins is 0.0333…, not 0.0333) or the rounding
+  // would quietly shift the paid-in stake away from the price charged.
+  const perSpin = validCost / freeSpins.spinsPerPurchase;
 
   const houseEdge = resolveHouseEdge(cg.settings);
   // Every round resolves here, all at once — spinsPerPurchase is capped at
@@ -166,8 +180,8 @@ async function handleBuyFreeSpins(
   for (let i = 0; i < freeSpins.spinsPerPurchase; i++) {
     rounds.push(playRound(rng, houseEdge));
   }
-  const payout = roundMoney(rounds.reduce((sum, r) => sum + payoutFor(r, validBet), 0));
-  const net = roundMoney(payout - cost);
+  const payout = roundMoney(rounds.reduce((sum, r) => sum + payoutFor(r, perSpin), 0));
+  const net = roundMoney(payout - validCost);
   const balance = roundMoney(member.balance + net);
 
   await Promise.all([
@@ -178,11 +192,11 @@ async function handleBuyFreeSpins(
       amount: net,
       balance_after: balance,
       game_type_id: "tumble",
-      description: describeFreeSpins(rounds.length, validBet, payout),
+      description: describeFreeSpins(rounds.length, validCost, payout),
     }),
   ]);
 
-  return json({ rounds, bet: validBet, cost, payout, balance });
+  return json({ rounds, bet: perSpin, cost: validCost, payout, balance });
 }
 
 Deno.serve(async (req) => {

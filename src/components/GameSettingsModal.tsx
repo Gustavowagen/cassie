@@ -11,10 +11,12 @@ const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
 const MIN_BET_FLOOR = 0.01;
 const MAX_BET_CEILING = 10_000_000;
 
-// Mirrors supabase/functions/tumble/engine.ts's FREE_SPINS_* constants —
+// Mirrors supabase/functions/tumble/engine.ts's FREE_SPINS_* constants. These
+// bound the TOTAL COST of one free-spins purchase, not the per-spin stake:
+// the player picks a price and the stake per spin is derived from it. —
 // this UI is not the authority, the edge function re-clamps everything.
-const FREE_SPINS_MIN_BET_FLOOR = 1;
-const FREE_SPINS_MAX_BET_CEILING = MAX_BET_CEILING;
+const FREE_SPINS_MIN_COST_FLOOR = 0.1;
+const FREE_SPINS_MAX_COST_CEILING = MAX_BET_CEILING;
 const FREE_SPINS_SPINS_MIN = 1;
 const FREE_SPINS_SPINS_MAX = 50;
 const DEFAULT_FREE_SPINS_COUNT = 10;
@@ -117,17 +119,22 @@ export function GameSettingsModal({
     initialSettings.freeSpins && typeof initialSettings.freeSpins === "object"
       ? (initialSettings.freeSpins as Partial<{
           enabled: boolean;
+          minCost: number;
+          maxCost: number;
+          // Pre-2026-08-30 field names, when these bounded the per-spin stake.
+          // Read as costs, matching resolveFreeSpinsSettings server-side, so a
+          // config saved back then opens here without a migration.
           minBet: number;
           maxBet: number;
           spinsPerPurchase: number;
         }>)
       : undefined;
   const [freeSpinsEnabled, setFreeSpinsEnabled] = useState(initialFreeSpins?.enabled === true);
-  const [freeSpinsMinBetText, setFreeSpinsMinBetText] = useState(
-    String(initialFreeSpins?.minBet ?? FREE_SPINS_MIN_BET_FLOOR)
+  const [freeSpinsMinCostText, setFreeSpinsMinCostText] = useState(
+    String(initialFreeSpins?.minCost ?? initialFreeSpins?.minBet ?? FREE_SPINS_MIN_COST_FLOOR)
   );
-  const [freeSpinsMaxBetText, setFreeSpinsMaxBetText] = useState(
-    String(initialFreeSpins?.maxBet ?? initialMaxBet)
+  const [freeSpinsMaxCostText, setFreeSpinsMaxCostText] = useState(
+    String(initialFreeSpins?.maxCost ?? initialFreeSpins?.maxBet ?? initialMaxBet)
   );
   const [freeSpinsCountText, setFreeSpinsCountText] = useState(
     String(initialFreeSpins?.spinsPerPurchase ?? DEFAULT_FREE_SPINS_COUNT)
@@ -151,18 +158,18 @@ export function GameSettingsModal({
     isFinite(maxBet) &&
     maxBet <= MAX_BET_CEILING &&
     maxBet >= minBet;
-  const freeSpinsMinBet = parseFloat(freeSpinsMinBetText);
-  const freeSpinsMaxBet = parseFloat(freeSpinsMaxBetText);
+  const freeSpinsMinCost = parseFloat(freeSpinsMinCostText);
+  const freeSpinsMaxCost = parseFloat(freeSpinsMaxCostText);
   const freeSpinsCount = parseInt(freeSpinsCountText, 10);
   // Only blocks Save while the toggle is on — a disabled section can't
   // block Save, so its numbers (however malformed) never gate the form.
   const freeSpinsValid =
     !freeSpinsEnabled ||
-    (isFinite(freeSpinsMinBet) &&
-      freeSpinsMinBet >= FREE_SPINS_MIN_BET_FLOOR &&
-      isFinite(freeSpinsMaxBet) &&
-      freeSpinsMaxBet <= FREE_SPINS_MAX_BET_CEILING &&
-      freeSpinsMaxBet >= freeSpinsMinBet &&
+    (isFinite(freeSpinsMinCost) &&
+      freeSpinsMinCost >= FREE_SPINS_MIN_COST_FLOOR &&
+      isFinite(freeSpinsMaxCost) &&
+      freeSpinsMaxCost <= FREE_SPINS_MAX_COST_CEILING &&
+      freeSpinsMaxCost >= freeSpinsMinCost &&
       Number.isInteger(freeSpinsCount) &&
       freeSpinsCount >= FREE_SPINS_SPINS_MIN &&
       freeSpinsCount <= FREE_SPINS_SPINS_MAX);
@@ -175,8 +182,8 @@ export function GameSettingsModal({
     try {
       const sanitizedFreeSpins = {
         enabled: freeSpinsEnabled,
-        minBet: isFinite(freeSpinsMinBet) ? freeSpinsMinBet : FREE_SPINS_MIN_BET_FLOOR,
-        maxBet: isFinite(freeSpinsMaxBet) ? freeSpinsMaxBet : initialMaxBet,
+        minCost: isFinite(freeSpinsMinCost) ? freeSpinsMinCost : FREE_SPINS_MIN_COST_FLOOR,
+        maxCost: isFinite(freeSpinsMaxCost) ? freeSpinsMaxCost : initialMaxBet,
         spinsPerPurchase: Number.isInteger(freeSpinsCount) ? freeSpinsCount : DEFAULT_FREE_SPINS_COUNT,
       };
       const settings = isSlots
@@ -455,28 +462,28 @@ export function GameSettingsModal({
               <div className="mt-2 space-y-2">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="game-settings-fs-min-bet">Free spin min bet</Label>
+                    <Label htmlFor="game-settings-fs-min-cost">Free spins min cost</Label>
                     <Input
-                      id="game-settings-fs-min-bet"
+                      id="game-settings-fs-min-cost"
                       type="number"
-                      min={FREE_SPINS_MIN_BET_FLOOR}
-                      max={FREE_SPINS_MAX_BET_CEILING}
+                      min={FREE_SPINS_MIN_COST_FLOOR}
+                      max={FREE_SPINS_MAX_COST_CEILING}
                       step="any"
-                      value={freeSpinsMinBetText}
-                      onChange={(e) => setFreeSpinsMinBetText(e.target.value)}
+                      value={freeSpinsMinCostText}
+                      onChange={(e) => setFreeSpinsMinCostText(e.target.value)}
                       className="mt-1.5"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="game-settings-fs-max-bet">Free spin max bet</Label>
+                    <Label htmlFor="game-settings-fs-max-cost">Free spins max cost</Label>
                     <Input
-                      id="game-settings-fs-max-bet"
+                      id="game-settings-fs-max-cost"
                       type="number"
-                      min={FREE_SPINS_MIN_BET_FLOOR}
-                      max={FREE_SPINS_MAX_BET_CEILING}
+                      min={FREE_SPINS_MIN_COST_FLOOR}
+                      max={FREE_SPINS_MAX_COST_CEILING}
                       step="any"
-                      value={freeSpinsMaxBetText}
-                      onChange={(e) => setFreeSpinsMaxBetText(e.target.value)}
+                      value={freeSpinsMaxCostText}
+                      onChange={(e) => setFreeSpinsMaxCostText(e.target.value)}
                       className="mt-1.5"
                     />
                   </div>
@@ -494,11 +501,16 @@ export function GameSettingsModal({
                     className="mt-1.5"
                   />
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Players buy a batch at a total price in this range; the stake per spin is that price
+                  divided by the spins per purchase.
+                </p>
                 {!freeSpinsValid && (
                   <p className="text-xs text-destructive">
-                    Free spin min bet must be at least {FREE_SPINS_MIN_BET_FLOOR}, max bet can't exceed{" "}
-                    {FREE_SPINS_MAX_BET_CEILING.toLocaleString()} and must be at least the min bet, and spins
-                    per purchase must be a whole number between {FREE_SPINS_SPINS_MIN} and {FREE_SPINS_SPINS_MAX}.
+                    Free spins min cost must be at least {FREE_SPINS_MIN_COST_FLOOR}, max cost can't exceed{" "}
+                    {FREE_SPINS_MAX_COST_CEILING.toLocaleString()} and must be at least the min cost, and
+                    spins per purchase must be a whole number between {FREE_SPINS_SPINS_MIN} and{" "}
+                    {FREE_SPINS_SPINS_MAX}.
                   </p>
                 )}
               </div>

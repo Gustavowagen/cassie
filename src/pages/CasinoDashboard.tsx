@@ -448,14 +448,9 @@ export function CasinoDashboard() {
               // settings an admin hasn't touched yet.
               houseEdge={(activeGame.settings as TumbleInstanceSettings)?.houseEdge ?? 0.03}
               design={(activeGame.settings as TumbleInstanceSettings)?.design ?? DEFAULT_SLOTS_DESIGN_ID}
-              // Mirrors resolveFreeSpinsSettings's default fallback
-              // (supabase/functions/tumble/engine.ts) for rows whose
-              // settings an admin hasn't touched yet.
-              freeSpins={
-                (activeGame.settings as TumbleInstanceSettings)?.freeSpins?.enabled
-                  ? (activeGame.settings as TumbleInstanceSettings).freeSpins!
-                  : { enabled: false, minBet: 1, maxBet: Math.max(1, activeGame.max_bet), spinsPerPurchase: 10 }
-              }
+              // Passed raw: Tumble normalises it (missing fields, and the
+              // pre-2026-08-30 minBet/maxBet names) via resolveFreeSpins.
+              freeSpins={(activeGame.settings as TumbleInstanceSettings)?.freeSpins}
               balance={membership?.balance ?? 0}
               minBet={activeGame.min_bet}
               maxBet={activeGame.max_bet}

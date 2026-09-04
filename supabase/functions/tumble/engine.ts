@@ -311,8 +311,15 @@ export function payoutFor(round: TumbleRound, bet: number): number {
 
 // Bounds for the free-spins settings menu — enforced here, never trusted
 // from the client (same rule as HOUSE_EDGE_OPTIONS above).
-export const FREE_SPINS_MIN_BET_FLOOR = 1;
-export const FREE_SPINS_MAX_BET_CEILING = 10_000_000;
+//
+// These bound the TOTAL COST of a purchase, not the per-spin stake: the
+// player buys a batch for a price and the per-spin stake is derived from it
+// (cost / spinsPerPurchase), so the price is the number both the admin and
+// the player actually reason about. Before 2026-08-30 these bounded the
+// per-spin stake instead — a stored config's minBet/maxBet is read as
+// minCost/maxCost, see resolveFreeSpinsSettings.
+export const FREE_SPINS_MIN_COST_FLOOR = 0.1;
+export const FREE_SPINS_MAX_COST_CEILING = 10_000_000;
 export const FREE_SPINS_SPINS_MIN = 1;
 export const FREE_SPINS_SPINS_MAX = 50;
 export const DEFAULT_FREE_SPINS_COUNT = 10;
@@ -326,32 +333,48 @@ export const DEFAULT_FREE_SPINS_COUNT = 10;
 export function resolveFreeSpinsSettings(
   settings: unknown,
   regularMaxBet: number
-): { enabled: boolean; minBet: number; maxBet: number; spinsPerPurchase: number } {
+): { enabled: boolean; minCost: number; maxCost: number; spinsPerPurchase: number } {
   const raw =
     settings && typeof settings === "object" ? (settings as Record<string, unknown>).freeSpins : undefined;
   const fs = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : undefined;
 
-  const defaultMaxBet = Math.max(FREE_SPINS_MIN_BET_FLOOR, regularMaxBet);
-  if (!fs || fs.enabled !== true) {
-    return {
-      enabled: false,
-      minBet: FREE_SPINS_MIN_BET_FLOOR,
-      maxBet: defaultMaxBet,
-      spinsPerPurchase: DEFAULT_FREE_SPINS_COUNT,
-    };
-  }
-
-  let minBet = typeof fs.minBet === "number" && isFinite(fs.minBet) ? fs.minBet : FREE_SPINS_MIN_BET_FLOOR;
-  minBet = Math.min(Math.max(minBet, FREE_SPINS_MIN_BET_FLOOR), FREE_SPINS_MAX_BET_CEILING);
-
-  let maxBet = typeof fs.maxBet === "number" && isFinite(fs.maxBet) ? fs.maxBet : defaultMaxBet;
-  maxBet = Math.min(Math.max(maxBet, minBet), FREE_SPINS_MAX_BET_CEILING);
-
   let spinsPerPurchase =
-    typeof fs.spinsPerPurchase === "number" && Number.isInteger(fs.spinsPerPurchase)
-      ? fs.spinsPerPurchase
+    typeof fs?.spinsPerPurchase === "number" && Number.isInteger(fs.spinsPerPurchase)
+      ? (fs.spinsPerPurchase as number)
       : DEFAULT_FREE_SPINS_COUNT;
   spinsPerPurchase = Math.min(Math.max(spinsPerPurchase, FREE_SPINS_SPINS_MIN), FREE_SPINS_SPINS_MAX);
 
-  return { enabled: true, minBet, maxBet, spinsPerPurchase };
+  // A row an admin never configured prices a batch at the instance's own max
+  // bet per spin — the same purchase the player could make by hand — capped
+  // at the ceiling.
+  const defaultMaxCost = clampCost(regularMaxBet * spinsPerPurchase, FREE_SPINS_MIN_COST_FLOOR);
+  if (!fs || fs.enabled !== true) {
+    return {
+      enabled: false,
+      minCost: FREE_SPINS_MIN_COST_FLOOR,
+      maxCost: defaultMaxCost,
+      spinsPerPurchase,
+    };
+  }
+
+  // minBet/maxBet are the pre-2026-08-30 field names, when these bounded the
+  // per-spin stake — read as costs so a config saved back then keeps working
+  // without a migration.
+  const rawMin = pickNumber(fs.minCost, fs.minBet);
+  const rawMax = pickNumber(fs.maxCost, fs.maxBet);
+
+  const minCost = clampCost(rawMin ?? FREE_SPINS_MIN_COST_FLOOR, FREE_SPINS_MIN_COST_FLOOR);
+  const maxCost = clampCost(rawMax ?? defaultMaxCost, minCost);
+
+  return { enabled: true, minCost, maxCost, spinsPerPurchase };
+}
+
+// First of the candidates that's a usable number, or undefined if none is.
+function pickNumber(...candidates: unknown[]): number | undefined {
+  for (const c of candidates) if (typeof c === "number" && isFinite(c)) return c;
+  return undefined;
+}
+
+function clampCost(n: number, floor: number): number {
+  return Math.min(Math.max(n, floor), FREE_SPINS_MAX_COST_CEILING);
 }
