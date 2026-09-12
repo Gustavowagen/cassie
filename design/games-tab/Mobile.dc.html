@@ -1,0 +1,312 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #0d121c; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #c4b5fd; text-decoration: none; }
+    a:hover { color: #ede9fe; }
+    .ico { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .glass { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-sizing: border-box; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .tile { position: relative; aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden; border: 1px solid #222a39; background: #151c28; }
+    .tile-art { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    .tile-sheen { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(120% 80% at 25% 0%, rgba(255,255,255,0.16), rgba(255,255,255,0) 55%); }
+    .tile-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 66%; background: linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0)); }
+    .tile-body { position: absolute; left: 12px; right: 12px; bottom: 11px; display: flex; flex-direction: column; gap: 4px; }
+    .tile-name { margin: 0; font-size: 15px; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; color: #ffffff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+    .tile-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.72); }
+    .dot { width: 6px; height: 6px; border-radius: 9999px; background: #34d399; flex-shrink: 0; }
+    .fav { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); backdrop-filter: blur(8px); color: rgba(255,255,255,0.85); }
+    .badge { position: absolute; top: 9px; left: 9px; display: flex; align-items: center; gap: 3px; padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+    .win { position: relative; flex-shrink: 0; width: 118px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 15px 8px 12px; border-radius: 16px; overflow: hidden; box-sizing: border-box; background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025)); border: 1px solid rgba(255,255,255,0.10); }
+    .win-bar { position: absolute; top: 0; left: 50%; width: 40px; height: 3px; margin-left: -20px; border-radius: 0 0 3px 3px; }
+    .win-amt { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 800; color: #6ee7b7; }
+    .av { display: flex; align-items: center; justify-content: center; border-radius: 9999px; font-weight: 700; color: #ffffff; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12); flex-shrink: 0; }
+    .win-who { font-size: 11px; color: #94a3b8; }
+    .win-game { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #f8fafc; white-space: nowrap; }
+    .win-game img { width: 16px; height: 16px; border-radius: 4px; }
+    .promo { position: relative; flex-shrink: 0; width: 260px; height: 118px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.10); padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+    .promo-title { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+    .promo-sub { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #94a3b8; }
+    .promo-btn { margin-top: auto; display: flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+    .promo-art { position: absolute; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.45)); }
+    .chip { display: flex; align-items: center; gap: 6px; flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: 9999px; font-size: 13px; font-weight: 600; box-sizing: border-box; }
+    .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; color: #94a3b8; }
+  </style>
+</helmet>
+
+<div style="position: relative; width: 390px; height: 1560px; overflow: hidden; background: #0d121c; color: #f8fafc;">
+  <div style="position: absolute; top: -96px; left: -120px; width: 288px; height: 288px; border-radius: 9999px; background: {{accentGlow}}; filter: blur(64px);"></div>
+  <div style="position: absolute; top: 420px; right: -140px; width: 280px; height: 280px; border-radius: 9999px; background: rgba(59,130,246,0.18); filter: blur(64px);"></div>
+
+  <div style="position: relative; display: flex; flex-direction: column; gap: 18px; padding: 14px 16px 0 16px;">
+
+    <!-- Top bar -->
+    <header style="display: flex; align-items: center; gap: 10px; height: 40px;">
+      <div class="glass" style="width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #cbd5e1; flex-shrink: 0;">
+        <svg class="ico" width="18" height="18" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+      </div>
+      <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+        <span style="font-size: 15px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap;">Neon Nights</span>
+        <span style="font-size: 11px; color: #94a3b8; white-space: nowrap;">128 members</span>
+      </div>
+      <div class="glass" style="display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 3px 0 9px; border-radius: 9999px; flex-shrink: 0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10" fill="#f59e0b"></circle><circle cx="12" cy="12" r="8.6" fill="none" stroke="#fde68a" stroke-width="2.4" stroke-dasharray="3 3.75"></circle><circle cx="12" cy="12" r="5.4" fill="#fbbf24" stroke="#b45309" stroke-width="1"></circle></svg>
+        <span class="mono" style="font-size: 13px; font-weight: 600;">24,580.0000</span>
+        <div style="width: 28px; height: 28px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, #34d399, #10b981); color: #052e1f;">
+          <svg class="ico" width="14" height="14" viewBox="0 0 24 24" style="stroke-width: 2.8;"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+        </div>
+      </div>
+    </header>
+
+    <!-- Search -->
+    <div style="display: flex; gap: 10px;">
+      <div class="glass" style="flex-grow: 1; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: 12px; color: #64748b;">
+        <svg class="ico" width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <span style="font-size: 14px; color: #64748b;">Search games…</span>
+      </div>
+      <div class="glass" style="width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #cbd5e1; flex-shrink: 0;">
+        <svg class="ico" width="18" height="18" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"></line><line x1="10" x2="3" y1="4" y2="4"></line><line x1="21" x2="12" y1="12" y2="12"></line><line x1="8" x2="3" y1="12" y2="12"></line><line x1="21" x2="16" y1="20" y2="20"></line><line x1="12" x2="3" y1="20" y2="20"></line><line x1="14" x2="14" y1="2" y2="6"></line><line x1="8" x2="8" y1="10" y2="14"></line><line x1="16" x2="16" y1="18" y2="22"></line></svg>
+      </div>
+    </div>
+
+    <!-- Featured banner -->
+    <section style="position: relative; height: 216px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.10); box-shadow: 0 8px 32px {{accentHaze}};">
+      <img src="olympus-hero.jpg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: 55% 30%;">
+      <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(0deg, rgba(13,18,28,0.96) 0%, rgba(13,18,28,0.66) 45%, rgba(13,18,28,0.05) 85%);"></div>
+      <div style="position: relative; height: 100%; box-sizing: border-box; padding: 16px; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 9999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.16); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #fde68a;">
+          <svg class="ico" width="11" height="11" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+          New game
+        </div>
+        <h2 style="margin: 0; font-size: 28px; line-height: 1; font-weight: 900; letter-spacing: -0.02em;">Gates of Olympus</h2>
+        <div style="align-self: stretch; display: flex; align-items: center; gap: 10px;">
+          <div style="padding: 5px 10px; border-radius: 9px; background: linear-gradient(90deg, #db2777, #f472b6); font-size: 13px; font-weight: 800; box-shadow: 0 4px 14px rgba(219,39,119,0.40);">Orbs up to 50×</div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 7px; height: 36px; padding: 0 16px 0 13px; border-radius: 10px; background: {{cta}}; font-size: 13px; font-weight: 700; box-shadow: 0 6px 18px {{accentGlow}};">
+            <svg width="12" height="12" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" fill="#ffffff"></polygon></svg>
+            Play now
+          </div>
+        </div>
+      </div>
+      <div style="position: absolute; top: 14px; right: 14px; display: flex; gap: 5px;">
+        <span style="width: 18px; height: 5px; border-radius: 9999px; background: #ffffff;"></span>
+        <span style="width: 5px; height: 5px; border-radius: 9999px; background: rgba(255,255,255,0.4);"></span>
+        <span style="width: 5px; height: 5px; border-radius: 9999px; background: rgba(255,255,255,0.4);"></span>
+      </div>
+    </section>
+
+    <!-- Daily cards (swipe) -->
+    <div style="display: flex; gap: 10px; margin-right: -16px; overflow: hidden;">
+      <div class="promo" style="background: radial-gradient(circle at 84% 78%, rgba(236,72,153,0.32), rgba(236,72,153,0) 55%), linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));">
+        <span class="promo-title">Daily spin</span>
+        <span class="promo-sub">Free spin ready</span>
+        <div class="promo-btn" style="background: {{cta}};">Spin now</div>
+        <svg class="promo-art" viewBox="0 0 140 140" style="right: -12px; bottom: -24px; width: 112px; height: 112px; transform: rotate(-14deg);">
+          <circle cx="70" cy="70" r="66" fill="#2e1065" stroke="#fbbf24" stroke-width="4"></circle>
+          <path d="M70 70 L70 14 A56 56 0 0 1 109.6 30.4 Z" fill="#7c3aed"></path>
+          <path d="M70 70 L109.6 30.4 A56 56 0 0 1 126 70 Z" fill="#f472b6"></path>
+          <path d="M70 70 L126 70 A56 56 0 0 1 109.6 109.6 Z" fill="#fbbf24"></path>
+          <path d="M70 70 L109.6 109.6 A56 56 0 0 1 70 126 Z" fill="#22d3ee"></path>
+          <path d="M70 70 L70 126 A56 56 0 0 1 30.4 109.6 Z" fill="#7c3aed"></path>
+          <path d="M70 70 L30.4 109.6 A56 56 0 0 1 14 70 Z" fill="#f472b6"></path>
+          <path d="M70 70 L14 70 A56 56 0 0 1 30.4 30.4 Z" fill="#fbbf24"></path>
+          <path d="M70 70 L30.4 30.4 A56 56 0 0 1 70 14 Z" fill="#22d3ee"></path>
+          <circle cx="70" cy="70" r="12" fill="#fbbf24"></circle>
+          <circle cx="70" cy="70" r="5" fill="#fef3c7"></circle>
+          <path d="M61 1 h18 l-9 17 z" fill="#fef3c7" stroke="#b45309" stroke-width="2" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <div class="promo" style="background: radial-gradient(circle at 84% 78%, rgba(16,185,129,0.30), rgba(16,185,129,0) 55%), linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));">
+        <span class="promo-title">Daily bonus</span>
+        <span class="promo-sub">+5,000 chips · ready</span>
+        <div class="promo-btn" style="background: linear-gradient(180deg, #34d399, #10b981); color: #052e1f;">Claim</div>
+        <svg class="promo-art" viewBox="0 0 140 140" style="right: -2px; bottom: -10px; width: 104px; height: 104px;">
+          <rect x="26" y="62" width="88" height="64" rx="8" fill="#10b981"></rect>
+          <path d="M70 62 H106 a8 8 0 0 1 8 8 V118 a8 8 0 0 1 -8 8 H70 Z" fill="#059669"></path>
+          <rect x="20" y="46" width="100" height="22" rx="6" fill="#34d399"></rect>
+          <path d="M70 46 H114 a6 6 0 0 1 6 6 V62 a6 6 0 0 1 -6 6 H70 Z" fill="#10b981"></path>
+          <rect x="62" y="46" width="16" height="22" fill="#f472b6"></rect>
+          <rect x="62" y="68" width="16" height="58" fill="#ec4899"></rect>
+          <path d="M70 46 C56 24 34 28 41 42 C45 50 60 49 70 46 Z" fill="#f472b6"></path>
+          <path d="M70 46 C84 24 106 28 99 42 C95 50 80 49 70 46 Z" fill="#ec4899"></path>
+          <circle cx="70" cy="46" r="7" fill="#db2777"></circle>
+        </svg>
+      </div>
+      <div class="promo" style="background: radial-gradient(circle at 84% 78%, rgba(245,158,11,0.28), rgba(245,158,11,0) 55%), linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));">
+        <span class="promo-title">Leaderboard</span>
+        <span class="promo-sub">You’re #4 this week</span>
+        <div class="promo-btn glass" style="color: #e2e8f0;">View ranks</div>
+        <svg class="promo-art" viewBox="0 0 140 140" style="right: 0px; bottom: -8px; width: 100px; height: 100px;">
+          <path d="M40 30 H26 a14 14 0 0 0 14 28" fill="none" stroke="#f59e0b" stroke-width="7" stroke-linecap="round"></path>
+          <path d="M100 30 H114 a14 14 0 0 1 -14 28" fill="none" stroke="#d97706" stroke-width="7" stroke-linecap="round"></path>
+          <path d="M38 22 H102 V52 a32 32 0 0 1 -64 0 Z" fill="#fbbf24"></path>
+          <path d="M70 22 H102 V52 a32 32 0 0 1 -32 32 Z" fill="#f59e0b"></path>
+          <rect x="34" y="17" width="72" height="9" rx="4.5" fill="#fde68a"></rect>
+          <rect x="63" y="82" width="14" height="16" fill="#d97706"></rect>
+          <rect x="46" y="97" width="48" height="10" rx="3" fill="#b45309"></rect>
+          <rect x="36" y="105" width="68" height="18" rx="4" fill="#6d28d9"></rect>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Recent wins -->
+    <section style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px; height: 24px;">
+        <div style="width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: rgba(244,63,94,0.18); color: #fb7185;">
+          <svg class="ico" width="13" height="13" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+        </div>
+        <span style="font-size: 15px; font-weight: 700;">Recent wins</span>
+        <span style="display: flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 9999px; background: rgba(52,211,153,0.12); color: #6ee7b7; font-size: 10px; font-weight: 800; letter-spacing: 0.08em;"><span class="dot"></span>LIVE</span>
+      </div>
+      <div style="display: flex; gap: 8px; margin-right: -16px; overflow: hidden;">
+        <div class="win">
+          <span class="win-bar" style="background: #fb923c;"></span>
+          <span class="win-amt">+12,450</span>
+          <span class="av" style="width: 28px; height: 28px; font-size: 12px; background: linear-gradient(135deg, hsl(12 70% 55%), hsl(52 70% 40%));">M</span>
+          <span class="win-who">@maja won in</span>
+          <span class="win-game"><img src="crash.svg">Crash</span>
+        </div>
+        <div class="win">
+          <span class="win-bar" style="background: #22d3ee;"></span>
+          <span class="win-amt">+8,200</span>
+          <span class="av" style="width: 28px; height: 28px; font-size: 12px; background: linear-gradient(135deg, hsl(190 70% 55%), hsl(230 70% 40%));">J</span>
+          <span class="win-who">@jonas won in</span>
+          <span class="win-game"><img src="tumble.svg">Tumble</span>
+        </div>
+        <div class="win">
+          <span class="win-bar" style="background: #34d399;"></span>
+          <span class="win-amt">+5,000</span>
+          <span class="av" style="width: 28px; height: 28px; font-size: 12px; background: linear-gradient(135deg, hsl(320 70% 55%), hsl(0 70% 40%));">S</span>
+          <span class="win-who">@sofie won in</span>
+          <span class="win-game"><img src="blackjack.svg">Blackjack</span>
+        </div>
+        <div class="win">
+          <span class="win-bar" style="background: #4ade80;"></span>
+          <span class="win-amt">+2,940</span>
+          <span class="av" style="width: 28px; height: 28px; font-size: 12px; background: linear-gradient(135deg, hsl(270 70% 55%), hsl(310 70% 40%));">N</span>
+          <span class="win-who">@nora won in</span>
+          <span class="win-game"><img src="mines.svg">Mines</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Category chips -->
+    <div style="display: flex; gap: 8px; margin-right: -16px; overflow: hidden;">
+      <div class="chip" style="background: {{cta}}; color: #ffffff;">All games</div>
+      <div class="chip glass" style="color: #cbd5e1;">Slots</div>
+      <div class="chip glass" style="color: #cbd5e1;">Table</div>
+      <div class="chip glass" style="color: #cbd5e1;">Instant</div>
+      <div class="chip glass" style="color: #cbd5e1;">
+        <svg class="ico" width="13" height="13" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
+        Favorites
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+      <div class="tile" style="background: radial-gradient(circle at 50% 40%, #7c3aed 0%, #3b0764 58%, #1e0b3a 100%);">
+        <img src="sym-bolt.png" style="position: absolute; left: 18%; top: 8%; width: 64%; mix-blend-mode: screen;">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <span class="badge" style="background: #10b981; color: #052e1f;">New</span>
+        <div class="fav"><svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Gates of Olympus</h3><span class="tile-meta"><span class="dot"></span>3 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="tumble.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <span class="badge" style="background: #f97316; color: #ffffff;">Hot</span>
+        <div class="fav"><svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Tumble</h3><span class="tile-meta"><span class="dot"></span>5 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="slots.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <div class="fav"><svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Lucky Sevens</h3><span class="tile-meta"><span class="dot"></span>2 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="blackjack.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <div class="fav"><svg width="14" height="14" viewBox="0 0 24 24" style="fill: #f472b6; stroke: #f472b6; stroke-width: 2; stroke-linejoin: round;"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Blackjack</h3><span class="tile-meta"><span class="dot"></span>4 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="roulette.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <div class="fav"><svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Roulette</h3><span class="tile-meta"><span class="dot"></span>1 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="crash.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <span class="badge" style="background: #f97316; color: #ffffff;">Hot</span>
+        <div class="fav"><svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Crash</h3><span class="tile-meta"><span class="dot"></span>6 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="mines.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <div class="fav"><svg width="14" height="14" viewBox="0 0 24 24" style="fill: #f472b6; stroke: #f472b6; stroke-width: 2; stroke-linejoin: round;"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Mines</h3><span class="tile-meta"><span class="dot"></span>2 playing</span></div>
+      </div>
+      <div class="tile">
+        <img class="tile-art" src="plinko.svg">
+        <div class="tile-sheen"></div><div class="tile-shade"></div>
+        <div class="fav"><svg class="ico" width="14" height="14" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg></div>
+        <div class="tile-body"><h3 class="tile-name">Plinko</h3><span class="tile-meta"><span class="dot"></span>1 playing</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Existing casino tab bar (unchanged) -->
+  <nav style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; padding: 10px 4px 14px; background: rgba(21,28,40,0.9); backdrop-filter: blur(24px); border-top: 1px solid #222a39;">
+    <div class="tab" style="color: #f8fafc;">
+      <svg class="ico" width="21" height="21" viewBox="0 0 24 24" style="color: {{accent}};"><line x1="6" x2="10" y1="11" y2="11"></line><line x1="8" x2="8" y1="9" y2="13"></line><line x1="15" x2="15.01" y1="12" y2="12"></line><line x1="18" x2="18.01" y1="10" y2="10"></line><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"></path></svg>
+      Games
+    </div>
+    <div class="tab">
+      <svg class="ico" width="21" height="21" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+      Members
+    </div>
+    <div class="tab">
+      <svg class="ico" width="21" height="21" viewBox="0 0 24 24"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line></svg>
+      Stats
+    </div>
+    <div class="tab">
+      <svg class="ico" width="21" height="21" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg>
+      Trades
+    </div>
+    <div class="tab">
+      <svg class="ico" width="21" height="21" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      Settings
+    </div>
+  </nav>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#6d28d9","options":["#6d28d9","#db2777","#0891b2","#16a34a"],"section":"Theme"},"$preview":{"width":390,"height":1560}}'>
+class Component extends DCLogic {
+  renderVals() {
+    let hex = String(this.props.accent ?? '#6d28d9').replace('#', '').trim();
+    if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+    if (!/^[0-9a-fA-F]{6}$/.test(hex)) hex = '6d28d9';
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const rgba = (a) => 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    return {
+      accent: '#' + hex,
+      accentGlow: rgba(0.35),
+      accentHaze: rgba(0.15),
+      cta: 'linear-gradient(90deg, #' + hex + ', #818cf8)',
+    };
+  }
+}
+</script>
+</body>
+</html>

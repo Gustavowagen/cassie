@@ -10,4 +10,5 @@ export const GAME_ART: Record<string, string> = {
   mines: "/games/mines.svg",
   plinko: "/games/plinko.svg",
   tumble: "/games/tumble.svg",
+  olympus: "/games/olympus.svg",
 };

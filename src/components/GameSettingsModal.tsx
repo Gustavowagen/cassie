@@ -4,6 +4,14 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { SLOTS_DESIGNS, DEFAULT_SLOTS_DESIGN_ID, getSlotsDesign } from "../lib/slotsDesigns";
+import {
+  FREE_SPINS_COUNT as OLYMPUS_FREE_SPINS_COUNT,
+  freeSpinsCostMultiplier,
+} from "../lib/olympusEngine";
+
+// Read off the engine rather than written down, so the admin copy cannot
+// describe a price the game does not charge.
+const OLYMPUS_FREE_SPINS_COST_MULTIPLIER = freeSpinsCostMultiplier();
 
 const GLASS = "bg-background border border-white/10";
 const CARD_GLOW = "shadow-[0_8px_32px_rgba(124,58,237,0.15)]";
@@ -39,7 +47,8 @@ const REWARD_MODES = [
 // (supabase/functions/tumble/engine.ts), so it gets its own list rather than
 // sharing slots'.
 const HOUSE_EDGE_OPTIONS = [0, 0.01, 0.02, 0.03, 0.04, 0.05] as const;
-const TUMBLE_HOUSE_EDGE_OPTIONS = [0.01, 0.02, 0.03, 0.04, 0.05] as const;
+// Tumble and Olympus share this list: both engines omit 0% deliberately.
+const NO_ZERO_HOUSE_EDGE_OPTIONS = [0.01, 0.02, 0.03, 0.04, 0.05] as const;
 type HouseEdge = (typeof HOUSE_EDGE_OPTIONS)[number];
 
 const BOARD_SIZES = [
@@ -88,8 +97,16 @@ export function GameSettingsModal({
   // and full-board rule are fixed by the game).
   const isSlots = gameTypeId === "slots";
   const isTumble = gameTypeId === "tumble";
+  // Olympus has an edge menu and a free-spins switch, but no skin: its board
+  // is painted art, not a slotsDesigns palette. Its feature buy has nothing
+  // to configure beyond on/off either — the batch is always 15 spins and its
+  // price is fixed by the maths that holds it at the same RTP as a base spin
+  // (freeSpinsCostMultiplier in supabase/functions/olympus/engine.ts), so an
+  // admin has no price or count to set.
+  const isOlympus = gameTypeId === "olympus";
   const hasSkin = isSlots || isTumble;
-  const edgeOptions: readonly HouseEdge[] = isTumble ? TUMBLE_HOUSE_EDGE_OPTIONS : HOUSE_EDGE_OPTIONS;
+  const edgeOptions: readonly HouseEdge[] =
+    isTumble || isOlympus ? NO_ZERO_HOUSE_EDGE_OPTIONS : HOUSE_EDGE_OPTIONS;
 
   const [name, setName] = useState(initialName);
   const [minBetText, setMinBetText] = useState(String(initialMinBet));
@@ -108,7 +125,7 @@ export function GameSettingsModal({
     edgeOptions.includes(initialSettings.houseEdge as HouseEdge)
       ? (initialSettings.houseEdge as HouseEdge)
       : // Matches each engine's DEFAULT_HOUSE_EDGE.
-        isTumble
+        isTumble || isOlympus
         ? 0.03
         : 0.02
   );
@@ -129,7 +146,11 @@ export function GameSettingsModal({
           spinsPerPurchase: number;
         }>)
       : undefined;
-  const [freeSpinsEnabled, setFreeSpinsEnabled] = useState(initialFreeSpins?.enabled === true);
+  // Tumble's feature is opt-in; Olympus's is part of the game, so an
+  // unconfigured row has it on. Both match their engine's own resolver.
+  const [freeSpinsEnabled, setFreeSpinsEnabled] = useState(
+    isOlympus ? initialFreeSpins?.enabled !== false : initialFreeSpins?.enabled === true
+  );
   const [freeSpinsMinCostText, setFreeSpinsMinCostText] = useState(
     String(initialFreeSpins?.minCost ?? initialFreeSpins?.minBet ?? FREE_SPINS_MIN_COST_FLOOR)
   );
@@ -165,6 +186,7 @@ export function GameSettingsModal({
   // block Save, so its numbers (however malformed) never gate the form.
   const freeSpinsValid =
     !freeSpinsEnabled ||
+    isOlympus ||
     (isFinite(freeSpinsMinCost) &&
       freeSpinsMinCost >= FREE_SPINS_MIN_COST_FLOOR &&
       isFinite(freeSpinsMaxCost) &&
@@ -190,7 +212,9 @@ export function GameSettingsModal({
         ? { ...initialSettings, rewardMode, houseEdge, design, boardSize }
         : isTumble
           ? { ...initialSettings, houseEdge, design, freeSpins: sanitizedFreeSpins }
-          : initialSettings;
+          : isOlympus
+            ? { ...initialSettings, houseEdge, freeSpins: { enabled: freeSpinsEnabled } }
+            : initialSettings;
       await onSave(trimmed, minBet, maxBet, settings);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save game");
@@ -409,10 +433,10 @@ export function GameSettingsModal({
           </div>
         )}
 
-        {hasSkin && (
+        {(hasSkin || isOlympus) && (
           <div>
             <Label>House edge</Label>
-            <div className={`mt-1.5 grid gap-1.5 ${isTumble ? "grid-cols-5" : "grid-cols-6"}`}>
+            <div className={`mt-1.5 grid gap-1.5 ${edgeOptions.length === 5 ? "grid-cols-5" : "grid-cols-6"}`}>
               {edgeOptions.map((option) => (
                 <button
                   key={option}
@@ -430,6 +454,42 @@ export function GameSettingsModal({
             </div>
             <p className="mt-1.5 text-xs text-muted-foreground">
               Only changes the payout multiplier for a win — never how often players win.
+            </p>
+          </div>
+        )}
+
+        {isOlympus && (
+          <div>
+            <Label>Free Spins</Label>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFreeSpinsEnabled(false)}
+                className={`rounded-lg border py-1.5 text-sm font-medium transition-colors ${
+                  !freeSpinsEnabled ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"
+                }`}
+              >
+                Disabled
+              </button>
+              <button
+                type="button"
+                onClick={() => setFreeSpinsEnabled(true)}
+                className={`rounded-lg border py-1.5 text-sm font-medium transition-colors ${
+                  freeSpinsEnabled ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30"
+                }`}
+              >
+                Enabled
+              </button>
+            </div>
+            {/* Nothing else to set, unlike Tumble's: the batch is always 15
+                spins and its price is derived from the player's stake so that
+                it returns the same share of its cost as a normal spin returns
+                of its bet. Letting an admin price it would break that. */}
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Players buy {OLYMPUS_FREE_SPINS_COUNT} spins for{" "}
+              {OLYMPUS_FREE_SPINS_COST_MULTIPLIER}x their stake. One multiplier builds
+              across the whole batch. The price carries the same house edge as a normal spin, so
+              this changes what players can do — not the odds.
             </p>
           </div>
         )}

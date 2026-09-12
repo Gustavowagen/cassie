@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Copy, Check, Users, BarChart2, X, ChevronRight, Gamepad2, Settings, Trash2, ArrowLeftRight, ArrowLeft } from "lucide-react";
+import { Copy, Check, Users, BarChart2, X, ChevronLeft, ChevronRight, Gamepad2, Settings, Palette, Trash2, ArrowLeftRight, ArrowLeft, Star } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { Label } from "../components/ui/label";
 import { supabase } from "../lib/supabase";
@@ -23,7 +24,8 @@ import { Slots } from "../components/games/Slots";
 import { Plinko } from "../components/games/Plinko";
 import { Tumble } from "../components/games/Tumble";
 import { Modal } from "../components/ui/modal";
-import { GameTile } from "../components/GameTile";
+import { GamesLobby } from "../components/lobby/GamesLobby";
+import { isBigGame } from "../lib/lobby";
 import { GameSettingsModal } from "../components/GameSettingsModal";
 import { CoverPicker } from "../components/CoverPicker";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
@@ -37,8 +39,8 @@ const CTA_GRADIENT = "bg-gradient-to-r from-primary to-indigo-400 hover:opacity-
 
 // Game types with a real playable UI. Others can be enabled by the owner
 // but won't show on this page until they're implemented.
-const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko", "crash", "tumble"]);
-const MANAGED_GAME_IDS = ["blackjack", "slots", "tumble", "roulette", "dice", "mines", "plinko", "crash"];
+const PLAYABLE_GAME_IDS = new Set(["blackjack", "roulette", "dice", "mines", "slots", "plinko", "crash", "tumble", "olympus"]);
+const MANAGED_GAME_IDS = ["blackjack", "slots", "tumble", "olympus", "roulette", "dice", "mines", "plinko", "crash"];
 
 // Mirrors supabase/functions/slots/engine.ts's ALLOWED_REWARD_MODES /
 // GameSettingsModal.tsx's copy of the same table. GameSettingsModal always
@@ -94,7 +96,7 @@ export function CasinoDashboard() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [selectedMember, setSelectedMember] = useState<CasinoMemberWithProfile | null>(null);
 
-  const { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame } = useGames();
+  const { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame, setGameFeatured } = useGames();
   const [gameTypes, setGameTypes] = useState<GameType[]>([]);
   const [casinoGames, setCasinoGames] = useState<CasinoGame[]>([]);
   const [activeGame, setActiveGame] = useState<CasinoGame | null>(null);
@@ -130,6 +132,13 @@ export function CasinoDashboard() {
 
   async function handlePlayGame(instance: CasinoGame) {
     if (!currentCasino) return;
+    // Big games take over the whole screen on a route of their own; the quick
+    // games open in the modal below. CasinoGame refetches the row itself, so
+    // there's nothing to reload here first.
+    if (isBigGame(instance.game_type_id)) {
+      navigate(`/casino/${currentCasino.slug}/play/${instance.id}`);
+      return;
+    }
     // Refetch so a player always sees the admin's latest bet limits when
     // starting a new session, rather than whatever was loaded on page load.
     const fresh = await listCasinoGames(currentCasino.id);
@@ -219,78 +228,85 @@ export function CasinoDashboard() {
   const { theme, name, description, join_code, member_count } = currentCasino;
   const isMember = Boolean(membership);
   const showTabs = canManageMembers || isMember;
+  // The Games tab lobby carries its own top bar (back, casino, balance), so
+  // the classic header only shows on the other tabs and the join prompts.
+  const inLobby = showTabs && activeTab === "games";
 
   return (
     <div className={`space-y-6 ${showTabs ? "pb-28 md:pb-24" : ""}`}>
-      <button
-        type="button"
-        onClick={() => navigate("/")}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Casinos
-      </button>
+      {!inLobby && (
+        <>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Casinos
+          </button>
 
-      {/* Casino header */}
-      <div
-        className="relative rounded-2xl overflow-hidden border border-border min-h-[220px] md:min-h-[280px]"
-        style={
-          theme.backgroundUrl
-            ? undefined
-            : { background: gradientFromColor(theme.primaryColor) }
-        }
-      >
-        {theme.backgroundUrl && (
-          <img
-            src={theme.backgroundUrl}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ objectPosition: "50% 35%" }}
-          />
-        )}
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10"
-        />
-        <div className="relative p-6 md:p-8 flex flex-wrap items-end h-full gap-5">
-          <div className="flex-1 min-w-[10rem]">
-            <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow break-words">
-              {name}
-            </h1>
-            {description && (
-              <p className="text-white/75 mt-1 text-sm md:text-base max-w-xl">
-                {description}
-              </p>
+          {/* Casino header */}
+          <div
+            className="relative rounded-2xl overflow-hidden border border-border min-h-[220px] md:min-h-[280px]"
+            style={
+              theme.backgroundUrl
+                ? undefined
+                : { background: gradientFromColor(theme.primaryColor) }
+            }
+          >
+            {theme.backgroundUrl && (
+              <img
+                src={theme.backgroundUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{ objectPosition: "50% 35%" }}
+              />
             )}
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              <span className="text-white/60 text-sm">
-                {member_count === 0
-                  ? "No members yet"
-                  : `${member_count} member${member_count === 1 ? "" : "s"}`}
-              </span>
-              {(isMember || isOwner) && (
-                <button
-                  type="button"
-                  onClick={copyJoinCode}
-                  className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 px-3 py-1 text-xs font-mono font-semibold text-white transition-colors"
-                >
-                  <span>Code: {join_code}</span>
-                  {codeCopied ? (
-                    <Check className="h-3 w-3" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10"
+            />
+            <div className="relative p-6 md:p-8 flex flex-wrap items-end h-full gap-5">
+              <div className="flex-1 min-w-[10rem]">
+                <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow break-words">
+                  {name}
+                </h1>
+                {description && (
+                  <p className="text-white/75 mt-1 text-sm md:text-base max-w-xl">
+                    {description}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-3 mt-3">
+                  <span className="text-white/60 text-sm">
+                    {member_count === 0
+                      ? "No members yet"
+                      : `${member_count} member${member_count === 1 ? "" : "s"}`}
+                  </span>
+                  {(isMember || isOwner) && (
+                    <button
+                      type="button"
+                      onClick={copyJoinCode}
+                      className="flex items-center gap-1.5 rounded-full bg-white/15 hover:bg-white/25 px-3 py-1 text-xs font-mono font-semibold text-white transition-colors"
+                    >
+                      <span>Code: {join_code}</span>
+                      {codeCopied ? (
+                        <Check className="h-3 w-3" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
                   )}
-                </button>
+                </div>
+              </div>
+              {membership && (
+                <Badge className="shrink-0 text-sm px-3 py-1 bg-white/20 text-white border-white/30">
+                  {formatChips(membership.balance)} chips
+                </Badge>
               )}
             </div>
           </div>
-          {membership && (
-            <Badge className="shrink-0 text-sm px-3 py-1 bg-white/20 text-white border-white/30">
-              {formatChips(membership.balance)} chips
-            </Badge>
-          )}
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Not logged in */}
       {!user && (
@@ -316,10 +332,16 @@ export function CasinoDashboard() {
       {showTabs && (
         <div>
           {activeTab === "games" && (
-            <GameOverview
-              casinoGames={casinoGames}
+            <GamesLobby
+              casino={currentCasino}
+              balance={membership?.balance ?? 0}
+              games={casinoGames}
+              isPlayable={(g) => PLAYABLE_GAME_IDS.has(g.game_type_id)}
               onPlay={handlePlayGame}
+              onBack={() => navigate("/")}
               canAdmin={canManageMembers}
+              codeCopied={codeCopied}
+              onCopyCode={copyJoinCode}
             />
           )}
           {canViewMembers && activeTab === "members" && (
@@ -354,8 +376,12 @@ export function CasinoDashboard() {
                 await deleteGame(id);
                 setCasinoGames((prev) => prev.filter((g) => g.id !== id));
               }}
-              onDetailsSaved={(description, theme) => {
-                setCasino({ ...currentCasino, description, theme });
+              onToggleFeatured={async (id, featured) => {
+                const updated = await setGameFeatured(id, featured);
+                setCasinoGames((prev) => prev.map((g) => (g.id === id ? updated : g)));
+              }}
+              onDetailsSaved={(description, theme, rules) => {
+                setCasino({ ...currentCasino, description, theme, rules });
               }}
             />
           )}
@@ -576,43 +602,6 @@ function CasinoBottomNav({
   );
 }
 
-function GameOverview({
-  casinoGames,
-  onPlay,
-  canAdmin,
-}: {
-  casinoGames: CasinoGame[];
-  onPlay: (instance: CasinoGame) => void;
-  canAdmin?: boolean;
-}) {
-  if (casinoGames.length === 0)
-    return (
-      <div className="rounded-xl bg-card border border-border p-10 text-center text-muted-foreground space-y-3">
-        <p>No games available yet.</p>
-        {canAdmin && (
-          <p className="text-sm text-primary hover:underline cursor-pointer">
-            Add games from the Settings tab →
-          </p>
-        )}
-      </div>
-    );
-  return (
-    <div>
-      <h2 className="text-lg font-semibold mb-3">Games</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-        {casinoGames.map((g) => (
-          <GameTile
-            key={g.id}
-            game={g}
-            playable={PLAYABLE_GAME_IDS.has(g.game_type_id)}
-            onPlay={() => onPlay(g)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 type GameModalState =
   | { mode: "create"; gameType: GameType }
   | { mode: "edit"; game: CasinoGame }
@@ -626,6 +615,7 @@ function SettingsTab({
   onCreate,
   onUpdate,
   onDelete,
+  onToggleFeatured,
   onDetailsSaved,
 }: {
   casinoId: string;
@@ -647,14 +637,18 @@ function SettingsTab({
     settings: Record<string, unknown>
   ) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onDetailsSaved: (description: string, theme: CasinoTheme) => void;
+  onToggleFeatured: (id: string, featured: boolean) => Promise<void>;
+  onDetailsSaved: (description: string, theme: CasinoTheme, rules: string | null) => void;
 }) {
+  const [view, setView] = useState<"menu" | "games" | "appearance">("menu");
   const [gameModal, setGameModal] = useState<GameModalState>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const [description, setDescription] = useState(casino.description ?? "");
   const [primaryColor, setPrimaryColor] = useState(casino.theme.primaryColor);
   const [backgroundUrl, setBackgroundUrl] = useState(casino.theme.backgroundUrl ?? "");
+  const [rules, setRules] = useState(casino.rules ?? "");
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [detailsMessage, setDetailsMessage] = useState<string | null>(null);
 
@@ -671,16 +665,26 @@ function SettingsTab({
     }
   }
 
+  async function handleToggleFeatured(id: string, featured: boolean) {
+    setTogglingId(id);
+    try {
+      await onToggleFeatured(id, featured);
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
   async function handleSaveDetails() {
     setDetailsSaving(true);
     setDetailsMessage(null);
     try {
       const theme: CasinoTheme = { ...casino.theme, primaryColor, backgroundUrl: backgroundUrl || null };
+      const trimmedRules = rules.trim() || null;
       await supabase
         .from("casinos")
-        .update({ description, theme })
+        .update({ description, theme, rules: trimmedRules })
         .eq("id", casino.id);
-      onDetailsSaved(description, theme);
+      onDetailsSaved(description, theme, trimmedRules);
       setDetailsMessage("Saved!");
       setTimeout(() => setDetailsMessage(null), 2000);
     } catch (err) {
@@ -690,9 +694,56 @@ function SettingsTab({
     }
   }
 
+  if (view === "menu") {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setView("games")}
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-foreground/30"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Gamepad2 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm">Games</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Add, edit, and configure game instances.</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setView("appearance")}
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-foreground/30"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Palette className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm">Club Appearance</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Description, cover image, colors, and house rules.
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
-      {/* Games section */}
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={() => setView("menu")}
+        className="flex items-center gap-1 font-semibold text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Back to settings
+      </button>
+
+      {view === "games" && (
       <div className="space-y-3">
         <div>
           <h3 className="font-semibold text-base">Available Games</h3>
@@ -751,6 +802,22 @@ function SettingsTab({
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
+                            disabled={togglingId === inst.id}
+                            onClick={() => handleToggleFeatured(inst.id, !inst.is_featured)}
+                            aria-label={inst.is_featured ? `Unfeature ${inst.custom_name}` : `Feature ${inst.custom_name}`}
+                            aria-pressed={inst.is_featured}
+                            title={inst.is_featured ? "Featured — shown in the lobby's Featured Games" : "Not featured"}
+                            className={cn(
+                              "p-2 rounded-md transition-colors disabled:opacity-40",
+                              inst.is_featured
+                                ? "text-amber-400 hover:text-amber-300 hover:bg-background"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background"
+                            )}
+                          >
+                            <Star className={cn("h-4 w-4", inst.is_featured && "fill-current")} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setGameModal({ mode: "edit", game: inst })}
                             aria-label={`Edit ${inst.custom_name}`}
                             className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
@@ -776,6 +843,7 @@ function SettingsTab({
           })}
         </div>
       </div>
+      )}
 
       {gameModal && (
         <Modal onClose={() => setGameModal(null)} size="md">
@@ -800,9 +868,9 @@ function SettingsTab({
         </Modal>
       )}
 
-      {/* Casino details section */}
+      {view === "appearance" && (
       <div className="space-y-3">
-        <h3 className="font-semibold text-base">Casino Details</h3>
+        <h3 className="font-semibold text-base">Club Appearance</h3>
         <div className="rounded-xl border border-border p-4 space-y-4">
           <div>
             <Label>Description</Label>
@@ -833,6 +901,18 @@ function SettingsTab({
               <span className="text-sm text-muted-foreground font-mono">{primaryColor}</span>
             </div>
           </div>
+          <div>
+            <Label>Club Rules</Label>
+            <p className="text-xs text-muted-foreground mb-1.5 mt-0.5">
+              Shown to players from the House Rules button in the lobby.
+            </p>
+            <Textarea
+              value={rules}
+              onChange={(e) => setRules(e.target.value)}
+              placeholder="e.g. Be respectful, no chip trading outside the club, cash out limits..."
+              rows={6}
+            />
+          </div>
           <div className="flex items-center gap-3">
             <Button onClick={handleSaveDetails} disabled={detailsSaving}>
               {detailsSaving ? "Saving..." : "Save Details"}
@@ -843,6 +923,7 @@ function SettingsTab({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -65,5 +65,16 @@ export function useGames() {
     if (error) throw error;
   }
 
-  return { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame };
+  async function setGameFeatured(id: string, featured: boolean): Promise<CasinoGame> {
+    const { data, error } = await supabase
+      .from("casino_games")
+      .update({ is_featured: featured })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as CasinoGame;
+  }
+
+  return { listGameTypes, listCasinoGames, createGame, updateGame, deleteGame, setGameFeatured };
 }

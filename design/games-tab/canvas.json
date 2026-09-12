@@ -1,0 +1,24 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Games tab · Desktop", "x": 0, "y": 0, "w": 1440, "h": 1360 },
+    { "file": "Mobile.dc.html", "title": "Games tab · Mobile", "x": 1540, "y": 0, "w": 390, "h": 1560 },
+    { "file": "Extras.dc.html", "title": "Optional pieces", "x": 0, "y": 1720, "w": 1440, "h": 1300 }
+  ],
+  "annotations": [
+    {
+      "id": "about",
+      "x": -360,
+      "y": 0,
+      "w": 300,
+      "text": "Games tab redesign: static showcase, nothing is wired up.\n\nThe chips above the desktop frame switch the optional sections on and off (featured banner, daily cards, recent wins, online now).\n\nAccent = the casino's own primary color from Settings."
+    },
+    {
+      "id": "extras-note",
+      "x": -360,
+      "y": 1720,
+      "w": 300,
+      "text": "Optional pieces: tile states, lobby cards, list view, leaderboard and small details. Pick the ones you want and they can be built out for real later."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

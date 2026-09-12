@@ -46,10 +46,27 @@
 }
 
 @layer base {
+  /* Games-tab lobby accent (space-separated RGB). GamesLobby overrides these
+     from the casino's primary colour; these are the app violet defaults. */
+  :root {
+    --lobby-accent: 109 40 217;
+    --lobby-accent-light: 200 173 241;
+  }
+
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Swipe rows keep touch/trackpad scrolling but hide the bar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

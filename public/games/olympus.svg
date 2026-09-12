@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="olySky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b1f6b"/>
+      <stop offset="100%" stop-color="#150a24"/>
+    </linearGradient>
+    <linearGradient id="olyGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff7d6"/>
+      <stop offset="45%" stop-color="#ffd968"/>
+      <stop offset="100%" stop-color="#e08a14"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#olySky)"/>
+  <rect x="12" y="16" width="76" height="68" rx="8" fill="#2a0507" stroke="#d78a2c" stroke-width="2"/>
+  <circle cx="27" cy="31" r="6" fill="#38bdf8"/>
+  <circle cx="47" cy="31" r="6" fill="#a855f7"/>
+  <path d="M67 25 L71 31 L67 37 L63 31 Z" fill="#22c55e"/>
+  <circle cx="27" cy="50" r="6" fill="#ef4444"/>
+  <path d="M47 43 L50.5 49.5 L58 50 L52 55 L54 62 L47 58 L40 62 L42 55 L36 50 L43.5 49.5 Z" fill="#facc15"/>
+  <circle cx="67" cy="50" r="6" fill="#38bdf8" opacity="0.5"/>
+  <path d="M27 63 L31 69 L27 75 L23 69 Z" fill="#22c55e" opacity="0.45"/>
+  <circle cx="47" cy="70" r="6" fill="#a855f7" opacity="0.3"/>
+  <path d="M55 18 L45 44 L53 44 L44 68 L66 38 L57 38 L66 18 Z" fill="url(#olyGold)" stroke="#5a2408" stroke-width="1.2" opacity="0.95"/>
+  <circle cx="73" cy="67" r="12" fill="#5c0f10" stroke="url(#olyGold)" stroke-width="2.2"/>
+  <text x="73" y="71.5" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#ffd968" text-anchor="middle">x50</text>
+</svg>
