@@ -70,3 +70,14 @@
     display: none;
   }
 }
+
+@keyframes daily-spin-particle {
+  from {
+    opacity: 1;
+    transform: rotate(var(--dsp-angle)) translateY(0) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: rotate(var(--dsp-angle)) translateY(calc(var(--dsp-dist) * -1)) rotate(var(--dsp-spin));
+  }
+}
