@@ -35,6 +35,15 @@ export function useDailySpin(casino: Casino | null, lastSpinAt: string | null | 
     [casino?.settings]
   );
 
+  // `lastSpinAt` is `undefined` for one or more renders while the membership
+  // row is still being fetched (the optional chain in CasinoDashboard short-
+  // circuits until then) and only becomes `null` once the row has actually
+  // loaded and this member has never spun. Those are NOT interchangeable:
+  // collapsing "unknown" into "never spun" (e.g. `lastSpinAt ?? null`) would
+  // read as "no cooldown pending" and let a member who already spun today
+  // briefly see an actionable "Spin now" that is guaranteed to 429. Keep the
+  // unknown case distinct so `available` can stay false until we know.
+  const membershipLoaded = lastSpinAt !== undefined;
   const effectiveLast = serverNextAt ? null : lastSpinAt ?? null;
   const unlockAt = useMemo(() => {
     if (serverNextAt) {
@@ -57,7 +66,10 @@ export function useDailySpin(casino: Casino | null, lastSpinAt: string | null | 
     setServerNextAt(null);
   }, [lastSpinAt]);
 
-  const available = config.enabled && !unlockAt;
+  // Requires membershipLoaded too: while the row hasn't loaded, unlockAt is
+  // null (nothing to count down to) but that must read as "unknown", not
+  // "available" — see the comment on membershipLoaded above.
+  const available = config.enabled && membershipLoaded && !unlockAt;
   const readyIn = config.enabled && unlockAt ? formatReadyIn(unlockAt.getTime() - now) : null;
 
   const spin = useCallback(async (): Promise<DailySpinResult> => {

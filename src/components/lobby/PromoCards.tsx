@@ -41,7 +41,11 @@ export function PromoCards({
                 onClick={() => setOpen(true)}
                 className={cn(ACCENT_CTA, BUTTON)}
               >
-                {available ? "Spin now" : `Ready in ${readyIn}`}
+                {/* readyIn is null both once available and while the membership
+                    row hasn't loaded yet (cooldown status unknown) — the label
+                    must tell those apart, or an unavailable-but-no-countdown
+                    button would render the nonsensical "Ready in null". */}
+                {available ? "Spin now" : readyIn ? `Ready in ${readyIn}` : "Loading…"}
               </button>
             }
             art={<WheelArt className="-bottom-6 -right-3 h-[112px] w-[112px] -rotate-[14deg] xl:-bottom-[30px] xl:-right-3.5 xl:h-[150px] xl:w-[150px]" />}
