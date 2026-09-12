@@ -1,12 +1,37 @@
+import type { DailySpinSettings } from "../lib/dailySpin";
+
 export interface CasinoTheme {
   primaryColor: string;
   backgroundUrl: string | null;
+}
+
+/**
+ * Owner-configurable features that are not games. A namespace, not a one-off:
+ * the next non-game feature an owner can tune goes in here too.
+ */
+export interface SpecialFeaturesSettings {
+  dailySpin?: DailySpinSettings;
 }
 
 export interface CasinoSettings {
   startingBalance: number;
   allowPublicJoin: boolean;
   maxMembers: number;
+  // Absent on every casino created before Daily Spin shipped. A missing key
+  // resolves (via resolveDailySpin) to the default wheel with enabled:false,
+  // so nothing appears in an existing lobby until an owner opts in.
+  specialFeatures?: SpecialFeaturesSettings;
+}
+
+/** Mirror of the daily-spin edge function's success response. */
+export interface DailySpinResult {
+  /** Which slice the wheel must stop on — chosen by the server, not derived. */
+  segmentIndex: number;
+  label: string;
+  amount: number;
+  /** Authoritative balance after the credit. */
+  balance: number;
+  nextSpinAt: string;
 }
 
 export interface Casino {
