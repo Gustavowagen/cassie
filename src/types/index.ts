@@ -41,6 +41,7 @@ export interface Casino {
   slug: string;
   join_code: string;
   description: string | null;
+  rules: string | null;
   theme: CasinoTheme;
   settings: CasinoSettings;
   is_active: boolean;
@@ -91,6 +92,9 @@ export interface CasinoGame {
   game_type_id: string;
   custom_name: string;
   is_active: boolean;
+  // Drives the lobby's home "Featured Games" section — category browsing
+  // ignores this and always shows every game in the category.
+  is_featured: boolean;
   min_bet: number;
   max_bet: number;
   settings: Record<string, unknown>;
@@ -370,4 +374,59 @@ export interface CrashState {
   payout: number | null;
   cashedOutAt: number | null;
   balance: number;
+}
+
+// --------- olympus
+
+// Gates of Olympus. Unlike every other game here, the round/board/step types
+// are not re-declared — they are exported by the engine itself
+// (supabase/functions/olympus/engine.ts, re-exported through
+// src/lib/olympusEngine.ts), which the client imports directly, so there is
+// nothing to keep in sync. Only the request/response envelopes live here.
+import type { OlympusRound, OlyFreeSpinsBatch } from "../lib/olympusEngine";
+
+/** Mirror of the edge function's default `spin` response. */
+export interface OlympusResult {
+  round: OlympusRound;
+  bet: number;
+  payout: number;
+  /** Authoritative balance after the bet and any payout are both applied. */
+  balance: number;
+}
+
+/** Mirror of the edge function's `buy_free_spins` response. */
+export interface OlympusFreeSpinsResult {
+  batch: OlyFreeSpinsBatch;
+  /** The per-spin stake the player chose. */
+  bet: number;
+  /**
+   * What the batch actually cost, computed server-side from the stake — never
+   * sent by the client, since the price is fixed by the maths that keeps the
+   * feature at the same RTP as a base spin.
+   */
+  cost: number;
+  spins: number;
+  payout: number;
+  balance: number;
+}
+
+/**
+ * Shape of CasinoGame.settings for an olympus instance. The board, the
+ * paytable, the free-spins count and the batch price are all fixed by the
+ * game, so there is nothing to configure but the edge and whether the feature
+ * buy is offered at all.
+ */
+export interface OlympusInstanceSettings {
+  /**
+   * Fixed menu of 1%-5% in 1% steps — no 0% option, same as tumble.
+   * Missing/off-menu defaults to 0.03, resolved authoritatively by
+   * resolveHouseEdge in supabase/functions/olympus/engine.ts.
+   */
+  houseEdge?: 0.01 | 0.02 | 0.03 | 0.04 | 0.05;
+  /**
+   * Missing defaults to ENABLED — the feature buy is part of the game, not an
+   * extra, so a freshly enabled row plays the whole thing. Only an explicit
+   * `enabled: false` turns it off. See freeSpinsEnabled in the engine.
+   */
+  freeSpins?: { enabled: boolean };
 }
