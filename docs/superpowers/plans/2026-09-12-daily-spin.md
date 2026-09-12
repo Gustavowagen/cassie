@@ -21,6 +21,7 @@
 - **Reveal rule (from CLAUDE.md):** the server decides before the animation, but no result — including the balance — may be shown until the wheel's `transitionend` fires. A Nothing result gets **no banner, no modal, no loss text**; a prize gets a payout pop-in plus a particle burst.
 - **Fill sizing (from CLAUDE.md):** the wheel diameter is a CSS `clamp(minPx, Nvw, maxPx)`, checked at ~375px and ~1920px.
 - Run tests with `npm test` (vitest). Type-check with `npm run build`.
+- **Branch:** this work lives on `daily-spin`, branched from `main`. A concurrent `chip-requests` branch already claims `supabase/migrations/051_chip_requests.sql`, which is why this feature's migration is **052**, not 051. Check for a higher number before applying, and renumber if that branch has landed more migrations in the meantime.
 
 ---
 
@@ -553,7 +554,7 @@ git commit -m "feat(daily-spin): add weighted pick, expected value and cooldown 
 ### Task 3: Migration — cooldown column and `claim_daily_spin` RPC
 
 **Files:**
-- Create: `supabase/migrations/051_daily_spin.sql`
+- Create: `supabase/migrations/052_daily_spin.sql`
 
 **Interfaces:**
 - Consumes: nothing.
@@ -561,7 +562,7 @@ git commit -m "feat(daily-spin): add weighted pick, expected value and cooldown 
 
 - [ ] **Step 1: Write the migration**
 
-Create `supabase/migrations/051_daily_spin.sql`:
+Create `supabase/migrations/052_daily_spin.sql`:
 
 ```sql
 -- Daily Spin. Config lives in casinos.settings->'specialFeatures'->'dailySpin'
@@ -633,7 +634,7 @@ revoke execute on function public.claim_daily_spin(uuid, uuid, numeric, int, tex
 
 - [ ] **Step 2: Apply the migration**
 
-Apply via the Supabase MCP `apply_migration` tool (per CLAUDE.md), name `051_daily_spin`, with the SQL above.
+Apply via the Supabase MCP `apply_migration` tool (per CLAUDE.md), name `052_daily_spin`, with the SQL above.
 
 - [ ] **Step 3: Verify the migration landed**
 
@@ -652,7 +653,7 @@ Expected: `has_column = 1`, `has_function = 1`, `authenticated_can_call = false`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/051_daily_spin.sql
+git add supabase/migrations/052_daily_spin.sql
 git commit -m "feat(daily-spin): add cooldown column and claim_daily_spin RPC"
 ```
 
@@ -1877,7 +1878,7 @@ Owner-configurable things that are not games live in `casinos.settings.specialFe
 - `resolveDailySpin` is the authoritative gate and never throws: a malformed
   config degrades to the default wheel rather than breaking the lobby.
 - The prize is picked in TypeScript but credited by `claim_daily_spin`
-  (migration 051), which increments the balance under a row lock and writes the
+  (migration 052), which increments the balance under a row lock and writes the
   ledger row atomically. That RPC is revoked from `anon`/`authenticated` — only
   the edge function's service key may call it. Ledger rows use
   `game_type_id: null` so a spin stays out of per-game stats.
