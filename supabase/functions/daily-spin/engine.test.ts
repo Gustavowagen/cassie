@@ -4,6 +4,10 @@ import {
   DEFAULT_DAILY_SPIN,
   MIN_SEGMENTS,
   MAX_SEGMENTS,
+  pickSegment,
+  expectedValue,
+  nothingChance,
+  nextSpinAt,
 } from "./engine";
 
 describe("DEFAULT_DAILY_SPIN", () => {
@@ -136,5 +140,102 @@ describe("resolveDailySpin", () => {
   it("never throws, whatever it is handed", () => {
     const nasty = { enabled: true, segments: [null, undefined, 5, { amount: NaN }] };
     expect(() => resolveDailySpin(nasty)).not.toThrow();
+  });
+});
+
+describe("pickSegment", () => {
+  const wheel = resolveDailySpin({
+    segments: [
+      { id: "a", label: "A", amount: 0, weight: 1, color: "#111111" },
+      { id: "b", label: "B", amount: 10, weight: 2, color: "#222222" },
+      { id: "c", label: "C", amount: 20, weight: 7, color: "#333333" },
+    ],
+  });
+
+  it("returns index 0 when rng is 0", () => {
+    expect(pickSegment(wheel, () => 0)).toBe(0);
+  });
+
+  it("returns the last index when rng is just under 1", () => {
+    expect(pickSegment(wheel, () => 0.9999999)).toBe(2);
+  });
+
+  it("clamps to the last index if rng ever returns exactly 1", () => {
+    expect(pickSegment(wheel, () => 1)).toBe(2);
+  });
+
+  it("respects cumulative weight boundaries", () => {
+    // total weight 10 -> [0,1) = A, [1,3) = B, [3,10) = C
+    expect(pickSegment(wheel, () => 0.05)).toBe(0);
+    expect(pickSegment(wheel, () => 0.15)).toBe(1);
+    expect(pickSegment(wheel, () => 0.29)).toBe(1);
+    expect(pickSegment(wheel, () => 0.31)).toBe(2);
+  });
+
+  it("produces a distribution matching the configured weights", () => {
+    let seed = 12345;
+    const rng = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const counts = [0, 0, 0];
+    const draws = 100_000;
+    for (let i = 0; i < draws; i++) counts[pickSegment(wheel, rng)]++;
+    expect(counts[0] / draws).toBeCloseTo(0.1, 1);
+    expect(counts[1] / draws).toBeCloseTo(0.2, 1);
+    expect(counts[2] / draws).toBeCloseTo(0.7, 1);
+  });
+});
+
+describe("expectedValue / nothingChance", () => {
+  it("matches the documented default wheel figures", () => {
+    expect(expectedValue(DEFAULT_DAILY_SPIN)).toBeCloseTo(41200 / 98, 6);
+    expect(nothingChance(DEFAULT_DAILY_SPIN)).toBeCloseTo(32 / 98, 6);
+  });
+
+  it("an all-zero wheel is 0 EV and 100% nothing", () => {
+    const blank = resolveDailySpin({
+      segments: [
+        { id: "a", label: "A", amount: 0, weight: 1, color: "#111111" },
+        { id: "b", label: "B", amount: 0, weight: 5, color: "#222222" },
+        { id: "c", label: "C", amount: 0, weight: 2, color: "#333333" },
+      ],
+    });
+    expect(expectedValue(blank)).toBe(0);
+    expect(nothingChance(blank)).toBe(1);
+  });
+
+  it("weights the average, not a plain mean", () => {
+    const wheel = resolveDailySpin({
+      segments: [
+        { id: "a", label: "A", amount: 0, weight: 9, color: "#111111" },
+        { id: "b", label: "B", amount: 100, weight: 1, color: "#222222" },
+        { id: "c", label: "C", amount: 0, weight: 10, color: "#333333" },
+      ],
+    });
+    expect(expectedValue(wheel)).toBeCloseTo(5, 6);
+    expect(nothingChance(wheel)).toBeCloseTo(0.95, 6);
+  });
+});
+
+describe("nextSpinAt", () => {
+  it("returns null when the member has never spun", () => {
+    expect(nextSpinAt(null, 24)).toBeNull();
+  });
+
+  it("returns null once the cooldown has fully elapsed", () => {
+    const long = new Date(Date.now() - 48 * 3600_000).toISOString();
+    expect(nextSpinAt(long, 24)).toBeNull();
+  });
+
+  it("returns the unlock time while still cooling down", () => {
+    const anHourAgo = new Date(Date.now() - 3600_000);
+    const at = nextSpinAt(anHourAgo.toISOString(), 24);
+    expect(at).not.toBeNull();
+    expect(at!.getTime()).toBeCloseTo(anHourAgo.getTime() + 24 * 3600_000, -3);
+  });
+
+  it("treats an unparseable timestamp as never spun", () => {
+    expect(nextSpinAt("not a date", 24)).toBeNull();
   });
 });

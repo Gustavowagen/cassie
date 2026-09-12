@@ -155,3 +155,51 @@ export function resolveDailySpin(raw: unknown): DailySpinSettings {
     segments: segments.length >= MIN_SEGMENTS ? segments : DEFAULT_DAILY_SPIN.segments,
   };
 }
+
+/**
+ * Weighted pick. Walks the cumulative weights and returns the first index
+ * whose running total passes `rng() * totalWeight`, clamping to the last
+ * index so an `rng()` of exactly 1 cannot fall off the end.
+ */
+export function pickSegment(config: DailySpinSettings, rng: () => number): number {
+  const total = config.segments.reduce((sum, s) => sum + s.weight, 0);
+  const roll = rng() * total;
+  let running = 0;
+  for (let i = 0; i < config.segments.length; i++) {
+    running += config.segments[i].weight;
+    if (roll < running) return i;
+  }
+  return config.segments.length - 1;
+}
+
+/**
+ * Mean chips per spin. This is the settings editor's OP-check, which is why
+ * it lives here rather than in the edge function alone — the owner's preview
+ * and the server's wheel have to be computed from the same numbers.
+ */
+export function expectedValue(config: DailySpinSettings): number {
+  const total = config.segments.reduce((sum, s) => sum + s.weight, 0);
+  if (total <= 0) return 0;
+  const weighted = config.segments.reduce((sum, s) => sum + s.amount * s.weight, 0);
+  return weighted / total;
+}
+
+/** Odds of landing a 0-chip slice, 0–1. */
+export function nothingChance(config: DailySpinSettings): number {
+  const total = config.segments.reduce((sum, s) => sum + s.weight, 0);
+  if (total <= 0) return 1;
+  const blank = config.segments.reduce((sum, s) => sum + (s.amount === 0 ? s.weight : 0), 0);
+  return blank / total;
+}
+
+/**
+ * When the next spin unlocks, or null if one is available right now.
+ * An absent or unparseable timestamp means "never spun" — available.
+ */
+export function nextSpinAt(lastSpinAt: string | null, cooldownHours: number): Date | null {
+  if (!lastSpinAt) return null;
+  const last = new Date(lastSpinAt).getTime();
+  if (!isFinite(last)) return null;
+  const unlock = last + cooldownHours * 3600_000;
+  return unlock > Date.now() ? new Date(unlock) : null;
+}
