@@ -27,13 +27,14 @@ interface Props {
   canAdmin: boolean;
   codeCopied: boolean;
   onCopyCode: () => void;
+  lastSpinAt: string | null | undefined;
 }
 
 // The casino's Games tab: top bar, desktop category rail, featured banner,
 // daily cards, recent wins and the game grid. Search and category filters
 // work on the loaded game list; features without a backend render as inert
 // buttons (marked "No functionality yet").
-export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack, canAdmin, codeCopied, onCopyCode }: Props) {
+export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack, canAdmin, codeCopied, onCopyCode, lastSpinAt }: Props) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LobbyFilter>("all");
 
@@ -92,7 +93,7 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
             {isLobbyHome && (
               <>
                 <FeaturedBanner />
-                <PromoCards />
+                <PromoCards casino={casino} lastSpinAt={lastSpinAt} />
                 <RecentWins />
               </>
             )}

@@ -58,6 +58,8 @@ export interface CasinoMemberWithProfile {
   agent_id: string | null;
   joined_at: string;
   last_played_at: string | null;
+  /** Null until the member's first daily spin. Drives the cooldown. */
+  last_daily_spin_at: string | null;
   profile: { username: string | null; avatar_url: string | null } | null;
 }
 
@@ -76,6 +78,8 @@ export interface CasinoMember {
   agent_id: string | null;
   joined_at: string;
   last_played_at: string | null;
+  /** Null until the member's first daily spin. Drives the cooldown. */
+  last_daily_spin_at: string | null;
 }
 
 export interface GameType {

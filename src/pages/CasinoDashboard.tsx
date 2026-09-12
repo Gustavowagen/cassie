@@ -342,6 +342,7 @@ export function CasinoDashboard() {
               canAdmin={canManageMembers}
               codeCopied={codeCopied}
               onCopyCode={copyJoinCode}
+              lastSpinAt={membership?.last_daily_spin_at}
             />
           )}
           {canViewMembers && activeTab === "members" && (
