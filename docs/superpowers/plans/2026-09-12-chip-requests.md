@@ -783,7 +783,7 @@ import { ACCENT_CTA, ACCENT_SOFT, ACCENT_TEXT, GLASS, SWIPE_ROW } from "./styles
 Change to:
 
 ```tsx
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, Gamepad2, LayoutGrid, List, Search } from "lucide-react";
 import { GameTile } from "../GameTile";
 import {
@@ -1033,7 +1033,19 @@ with:
 
 - [ ] **Step 3: Fetch notifications and own popup state in `GamesLobby.tsx`**
 
-Add to the imports (alongside the `GetChipsModal` import from Task 5):
+This step introduces the first `useEffect` call in this file, so first update the React import line:
+
+```tsx
+import { useMemo, useState } from "react";
+```
+
+to:
+
+```tsx
+import { useEffect, useMemo, useState } from "react";
+```
+
+Then add to the imports (alongside the `GetChipsModal` import from Task 5):
 
 ```tsx
 import { useNotifications } from "../../hooks/useNotifications";
