@@ -1244,7 +1244,10 @@ export function ChipLedgerPanel({
       .then(setRows)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"))
       .finally(() => setLoading(false));
-  }, [casinoId, period, customFrom, customTo, listChipTransactions]);
+    // listChipTransactions deliberately omitted: useCasino() returns a fresh
+    // function reference every render, so including it here would recompute
+    // refreshLedger every render, retrigger the effect below, and loop.
+  }, [casinoId, period, customFrom, customTo]);
 
   useEffect(() => {
     refreshLedger();
@@ -1256,7 +1259,8 @@ export function ChipLedgerPanel({
       .then(setPending)
       .catch(() => setPending([]))
       .finally(() => setPendingLoading(false));
-  }, [casinoId, listChipRequests]);
+    // listChipRequests omitted for the same reason as listChipTransactions above.
+  }, [casinoId]);
 
   useEffect(() => {
     refreshPending();
