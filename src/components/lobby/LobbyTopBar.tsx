@@ -22,11 +22,12 @@ interface Props {
   onBack: () => void;
   codeCopied: boolean;
   onCopyCode: () => void;
+  onOpenGetChips: () => void;
 }
 
 // Casino identity, search, balance and account controls. Below `lg` the
 // search moves to its own row and the bell/avatar drop out.
-export function LobbyTopBar({ casino, balance, query, onQueryChange, onBack, codeCopied, onCopyCode }: Props) {
+export function LobbyTopBar({ casino, balance, query, onQueryChange, onBack, codeCopied, onCopyCode, onOpenGetChips }: Props) {
   const memberLabel =
     casino.member_count === 0
       ? "No members yet"
@@ -89,9 +90,9 @@ export function LobbyTopBar({ casino, balance, query, onQueryChange, onBack, cod
         <div className={cn(GLASS, "flex h-9 shrink-0 items-center gap-2 rounded-full pl-2.5 pr-[3px] lg:h-10 lg:gap-2.5 lg:pl-3 lg:pr-1")}>
           <ChipIcon className="h-[18px] w-[18px] shrink-0 lg:h-5 lg:w-5" />
           <span className="font-mono text-[13px] font-semibold tabular-nums lg:text-sm">{formatChips(balance)}</span>
-          {/* No functionality yet. */}
           <button
             type="button"
+            onClick={onOpenGetChips}
             aria-label="Get chips"
             className={cn(
               EMERALD_CTA,

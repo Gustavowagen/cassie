@@ -10,7 +10,10 @@ import {
 } from "../../lib/lobby";
 import { cn } from "../../lib/utils";
 import type { Casino, CasinoGame } from "../../types";
+import { useAuthStore } from "../../stores/authStore";
+import { Modal } from "../ui/modal";
 import { FeaturedBanner } from "./FeaturedBanner";
+import { GetChipsModal } from "./GetChipsModal";
 import { LobbySidebar } from "./LobbySidebar";
 import { LobbyTopBar } from "./LobbyTopBar";
 import { PromoCards } from "./PromoCards";
@@ -37,6 +40,8 @@ interface Props {
 export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack, canAdmin, codeCopied, onCopyCode, lastSpinAt }: Props) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LobbyFilter>("all");
+  const { user } = useAuthStore();
+  const [getChipsOpen, setGetChipsOpen] = useState(false);
 
   const counts = useMemo(() => countByCategory(games), [games]);
   const accentVars = useMemo(() => lobbyAccentVars(casino.theme.primaryColor), [casino.theme.primaryColor]);
@@ -75,6 +80,7 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
           onBack={onBack}
           codeCopied={codeCopied}
           onCopyCode={onCopyCode}
+          onOpenGetChips={() => setGetChipsOpen(true)}
         />
 
         <div className="lg:flex lg:items-start lg:gap-5">
@@ -165,6 +171,12 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
           </div>
         </div>
       </div>
+
+      {getChipsOpen && user && (
+        <Modal onClose={() => setGetChipsOpen(false)} size="md">
+          <GetChipsModal casinoId={casino.id} userId={user.id} onClose={() => setGetChipsOpen(false)} />
+        </Modal>
+      )}
     </div>
   );
 }
