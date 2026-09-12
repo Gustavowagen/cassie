@@ -46,13 +46,19 @@ export function useDailySpin(casino: Casino | null, lastSpinAt: string | null | 
 
   // Only tick while a cooldown is actually pending — an idle lobby does no work.
   useEffect(() => {
-    if (!unlockAt) return;
+    if (!unlockAt || !config.enabled) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [unlockAt]);
+  }, [unlockAt?.getTime() ?? null, config.enabled]);
+
+  // Clear the server override when the membership row updates, so fresh
+  // lastSpinAt values arriving from the DB are adopted once realtime sync lands.
+  useEffect(() => {
+    setServerNextAt(null);
+  }, [lastSpinAt]);
 
   const available = config.enabled && !unlockAt;
-  const readyIn = unlockAt ? formatReadyIn(unlockAt.getTime() - now) : null;
+  const readyIn = config.enabled && unlockAt ? formatReadyIn(unlockAt.getTime() - now) : null;
 
   const spin = useCallback(async (): Promise<DailySpinResult> => {
     if (!casino) throw new Error("No casino");
