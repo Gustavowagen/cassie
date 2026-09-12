@@ -56,6 +56,28 @@ Making a new game big means: file it under `slots` in `GAME_CATEGORY`, add its `
 
 A fullscreen game is mounted only once casino, game row and membership have all loaded — a game that seeds its balance from the prop once (as Olympus does) would otherwise start at 0 chips and refuse every bet.
 
+## Special Features
+
+Owner-configurable things that are not games live in `casinos.settings.specialFeatures`
+(jsonb), edited under **Settings → Special Features**
+(`src/components/settings/SpecialFeaturesPanel.tsx`).
+
+- **Daily spin** — a free prize wheel behind a cooldown. Slices are entirely
+  owner-defined (label, chip amount, weight, colour); a slice paying 0 chips is
+  a "Nothing" and is an expected outcome, not an error.
+- The wheel's validation, weighted pick and expected-value maths all live in
+  `supabase/functions/daily-spin/engine.ts`, which is Deno-free and re-exported
+  by `src/lib/dailySpin.ts`. The settings preview and the server therefore run
+  the same code — never add a second copy of the odds maths on the client.
+- `resolveDailySpin` is the authoritative gate and never throws: a malformed
+  config degrades to the default wheel rather than breaking the lobby.
+- The prize is picked in TypeScript but credited by `claim_daily_spin`
+  (migration 052), which increments the balance under a row lock and writes the
+  ledger row atomically. That RPC is revoked from `anon`/`authenticated` — only
+  the edge function's service key may call it. Ledger rows use
+  `game_type_id: null` so a spin stays out of per-game stats.
+- Cooldown state is `casino_members.last_daily_spin_at`; there is no claims table.
+
 ## Adding a New Game
 
 1. If needed, insert a new row into `game_types` (via migration).
