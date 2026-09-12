@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Copy, Check, Users, BarChart2, X, ChevronLeft, ChevronRight, Gamepad2, Settings, Palette, Trash2, ArrowLeftRight, ArrowLeft, Star } from "lucide-react";
+import { Copy, Check, Users, BarChart2, X, ChevronLeft, ChevronRight, Gamepad2, Settings, Palette, Trash2, ArrowLeftRight, ArrowLeft, Star, Sparkles } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
@@ -31,6 +31,7 @@ import { CoverPicker } from "../components/CoverPicker";
 import { ChipLedgerPanel } from "../components/ChipLedgerPanel";
 import { GAME_ART } from "../lib/gameArt";
 import { DEFAULT_SLOTS_DESIGN_ID } from "../lib/slotsDesigns";
+import { SpecialFeaturesPanel } from "../components/settings/SpecialFeaturesPanel";
 
 // Frosted-glass surface + glow, matching the homepage's glassmorphic redesign.
 const GLASS = "bg-white/5 backdrop-blur-xl border border-white/10";
@@ -641,7 +642,8 @@ function SettingsTab({
   onToggleFeatured: (id: string, featured: boolean) => Promise<void>;
   onDetailsSaved: (description: string, theme: CasinoTheme, rules: string | null) => void;
 }) {
-  const [view, setView] = useState<"menu" | "games" | "appearance">("menu");
+  const [view, setView] = useState<"menu" | "games" | "appearance" | "special">("menu");
+  const { setCasino } = useCasinoStore();
   const [gameModal, setGameModal] = useState<GameModalState>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -728,6 +730,23 @@ function SettingsTab({
             </p>
           </div>
           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setView("special")}
+          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-foreground/30"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Special Features</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Daily spin wheel — prizes, odds and cooldown.
+            </p>
+          </div>
+          <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
       </div>
     );
@@ -844,6 +863,17 @@ function SettingsTab({
           })}
         </div>
       </div>
+      )}
+
+      {view === "special" && (
+        <SpecialFeaturesPanel
+          casino={casino}
+          onSaved={(settings) => {
+            // Keep the in-memory casino in step with what was just written, so
+            // switching straight to the Games tab shows the new card state.
+            setCasino({ ...casino, settings });
+          }}
+        />
       )}
 
       {gameModal && (
