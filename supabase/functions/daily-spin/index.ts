@@ -89,12 +89,44 @@ Deno.serve(async (req) => {
       return json({ error: "Your next spin isn't ready yet" }, 429);
     }
 
+    // Ground nextSpinAt in the timestamp Postgres actually just wrote,
+    // rather than Deno's own clock, so it can't disagree with the clock
+    // that claim_daily_spin's cooldown guard enforces. The guard has just
+    // closed the window, so nothing else can move this value underneath us.
+    const { data: updated, error: reReadError } = await admin
+      .from("casino_members")
+      .select("last_daily_spin_at")
+      .eq("casino_id", casino_id)
+      .eq("user_id", user.id)
+      .single();
+
+    const grounded = nextSpinAt(
+      (updated?.last_daily_spin_at as string | null) ?? null,
+      config.cooldownHours
+    );
+    if (!grounded) {
+      // The claim already succeeded (balance moved, cooldown written) — we
+      // cannot fail this response over a display-only re-read. This branch
+      // means the re-read itself came back empty/errored immediately after
+      // writing that same row (reReadError below, if set, says why); it is
+      // not reachable via ordinary clock skew, since claim_daily_spin just
+      // stamped last_daily_spin_at with Postgres's now() and cooldownHours
+      // is at least 1. Log it so the rare case is visible in function logs
+      // rather than silently masked, then fall back to Deno's clock so the
+      // response still carries a best-effort countdown.
+      console.error("daily-spin: nextSpinAt re-read failed, falling back to Deno clock", {
+        casino_id,
+        user_id: user.id,
+        reReadError,
+      });
+    }
+
     return json({
       segmentIndex,
       label: segment.label,
       amount: segment.amount,
       balance: Number(balance),
-      nextSpinAt: new Date(Date.now() + config.cooldownHours * 3600_000).toISOString(),
+      nextSpinAt: (grounded ?? new Date(Date.now() + config.cooldownHours * 3600_000)).toISOString(),
     });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
