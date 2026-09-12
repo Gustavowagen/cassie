@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   resolveDailySpin,
   DEFAULT_DAILY_SPIN,
+  cloneDefaultDailySpin,
   MIN_SEGMENTS,
   MAX_SEGMENTS,
   pickSegment,
@@ -20,6 +21,24 @@ describe("DEFAULT_DAILY_SPIN", () => {
   });
   it("includes two Nothing slices", () => {
     expect(DEFAULT_DAILY_SPIN.segments.filter((s) => s.amount === 0)).toHaveLength(2);
+  });
+});
+
+describe("cloneDefaultDailySpin", () => {
+  it("is value-equal to DEFAULT_DAILY_SPIN but a distinct object and segments array", () => {
+    const clone = cloneDefaultDailySpin();
+    expect(clone).toEqual(DEFAULT_DAILY_SPIN);
+    expect(clone).not.toBe(DEFAULT_DAILY_SPIN);
+    expect(clone.segments).not.toBe(DEFAULT_DAILY_SPIN.segments);
+    expect(clone.segments[0]).not.toBe(DEFAULT_DAILY_SPIN.segments[0]);
+  });
+
+  it("mutating a clone never corrupts the DEFAULT_DAILY_SPIN singleton", () => {
+    const clone = cloneDefaultDailySpin();
+    clone.segments[0].label = "Mutated";
+    clone.segments.push({ id: "extra", label: "Extra", amount: 1, weight: 1, color: "#000000" });
+    expect(DEFAULT_DAILY_SPIN.segments[0].label).not.toBe("Mutated");
+    expect(DEFAULT_DAILY_SPIN.segments).toHaveLength(8);
   });
 });
 
@@ -70,6 +89,43 @@ describe("resolveDailySpin", () => {
     }));
     expect(resolveDailySpin({ segments: many }).segments).toHaveLength(MAX_SEGMENTS);
     expect(MAX_SEGMENTS).toBe(12);
+  });
+
+  it("validates before truncating, so invalid leading entries don't crowd out valid ones further down", () => {
+    // 14 entries: the first 4 are non-objects (invalid, dropped by resolveSegment),
+    // the remaining 10 are valid. Truncating to MAX_SEGMENTS (12) BEFORE filtering
+    // would slice off entries 12-13 while entries 0-3 (invalid) still occupy slots
+    // in the pre-filter array, yielding only 8 valid slices. Filtering first must
+    // yield all 10 valid entries (still <= MAX_SEGMENTS, so nothing is lost).
+    const invalidLeading = [null, undefined, 5, "nope"];
+    const validRest = Array.from({ length: 10 }, (_, i) => ({
+      id: `v${i}`,
+      label: `V${i}`,
+      amount: 50,
+      weight: 1,
+      color: "#654321",
+    }));
+    const segments = resolveDailySpin({ segments: [...invalidLeading, ...validRest] }).segments;
+    expect(segments).toHaveLength(10);
+    expect(segments.every((s) => s.label.startsWith("V"))).toBe(true);
+  });
+
+  it("when more than MAX_SEGMENTS survive validation, keeps MAX_SEGMENTS of them even with invalid leading entries", () => {
+    // 4 invalid leading entries + 14 valid ones = 14 valid survivors, more than
+    // MAX_SEGMENTS (12). The truncation must apply AFTER filtering, so the result
+    // is exactly MAX_SEGMENTS valid slices drawn from the valid entries — not a
+    // mix that includes any invalid ones and not fewer than MAX_SEGMENTS.
+    const invalidLeading = [null, undefined, 5, "nope"];
+    const validRest = Array.from({ length: 14 }, (_, i) => ({
+      id: `v${i}`,
+      label: `V${i}`,
+      amount: 50,
+      weight: 1,
+      color: "#654321",
+    }));
+    const segments = resolveDailySpin({ segments: [...invalidLeading, ...validRest] }).segments;
+    expect(segments).toHaveLength(MAX_SEGMENTS);
+    expect(segments.every((s) => s.label.startsWith("V"))).toBe(true);
   });
 
   it("clamps weight to 1..1000, never 0", () => {

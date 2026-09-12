@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import {
-  DEFAULT_DAILY_SPIN,
   MAX_SEGMENTS,
   MIN_SEGMENTS,
   SEGMENT_PALETTE,
+  cloneDefaultDailySpin,
   expectedValue,
   nothingChance,
   resolveDailySpin,
@@ -269,7 +269,7 @@ export function SpecialFeaturesPanel({
         </Button>
         <Button
           variant="outline"
-          onClick={() => setDraft({ ...DEFAULT_DAILY_SPIN, enabled: draft.enabled })}
+          onClick={() => setDraft({ ...cloneDefaultDailySpin(), enabled: draft.enabled })}
         >
           <RotateCcw className="mr-1.5 h-4 w-4" />
           Reset to default wheel

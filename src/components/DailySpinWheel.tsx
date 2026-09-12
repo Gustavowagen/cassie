@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import type { DailySpinSettings, DailySpinSegment } from "../lib/dailySpin";
 import type { DailySpinResult } from "../types";
@@ -49,6 +49,8 @@ export function DailySpinWheel({
   readyIn,
   onSpin,
   onClose,
+  onLanded,
+  onAnimatingChange,
   preview = false,
 }: {
   config: DailySpinSettings;
@@ -57,6 +59,16 @@ export function DailySpinWheel({
   readyIn?: string | null;
   onSpin?: () => Promise<DailySpinResult>;
   onClose?: () => void;
+  /**
+   * Fired the moment the wheel physically stops and commits `landed` — the
+   * SAME instant the result becomes visible, never earlier. Lets a caller
+   * apply the server's authoritative balance (e.g. to header state) without
+   * depending on a realtime subscription to carry it.
+   */
+  onLanded?: (result: DailySpinResult) => void;
+  /** Fired whenever the spin animation starts/stops, e.g. so a parent modal
+   *  can suspend dismissal while a claim is in flight visually. */
+  onAnimatingChange?: (animating: boolean) => void;
   /** Static, non-interactive render for the settings preview. */
   preview?: boolean;
 }) {
@@ -64,7 +76,6 @@ export function DailySpinWheel({
   const [landed, setLanded] = useState<DailySpinResult | null>(null);
   const [animating, setAnimating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const wheelRef = useRef<HTMLDivElement>(null);
 
   const segments = config.segments;
   const angles = sliceAngles(segments.length);
@@ -91,14 +102,20 @@ export function DailySpinWheel({
     const next = rotation + MIN_TURNS * 360 + ((target - (rotation % 360)) + 360) % 360;
 
     setAnimating(true);
+    onAnimatingChange?.(true);
     setRotation(next);
 
     // The result — including the balance — is held back until the wheel
     // physically stops. Showing it sooner spoils the landing, which is the
-    // whole point of the animation (see CLAUDE.md's reveal rule).
+    // whole point of the animation (see CLAUDE.md's reveal rule). onLanded
+    // fires from right here, in the same tick as setLanded, so a caller
+    // applying result.balance to shared state can't leak it any earlier
+    // than the reveal itself.
     window.setTimeout(() => {
       setAnimating(false);
+      onAnimatingChange?.(false);
       setLanded(result);
+      onLanded?.(result);
     }, SPIN_MS);
   }
 
@@ -134,7 +151,6 @@ export function DailySpinWheel({
           <div className="absolute left-1/2 top-0 z-10 h-0 w-0 -translate-x-1/2 border-x-[10px] border-t-[18px] border-x-transparent border-t-amber-300 drop-shadow" />
 
           <div
-            ref={wheelRef}
             className="h-full w-full"
             style={{
               transform: `rotate(${rotation}deg)`,

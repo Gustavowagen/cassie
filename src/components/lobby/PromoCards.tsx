@@ -8,7 +8,8 @@ import { ACCENT_CTA, EMERALD_CTA, GLASS, SWIPE_ROW } from "./styles";
 import { useDailySpin } from "../../hooks/useDailySpin";
 import { DailySpinWheel } from "../DailySpinWheel";
 import { Modal } from "../ui/modal";
-import type { Casino } from "../../types";
+import { useCasinoStore } from "../../stores/casinoStore";
+import type { Casino, DailySpinResult } from "../../types";
 
 const BUTTON = "mt-auto flex h-[30px] items-center rounded-lg px-3.5 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50 xl:h-[34px] xl:rounded-[9px] xl:px-4 xl:text-[13px]";
 
@@ -24,6 +25,24 @@ export function PromoCards({
 }) {
   const { config, available, readyIn, spinning, spin } = useDailySpin(casino, lastSpinAt);
   const [open, setOpen] = useState(false);
+  // Tracks the wheel's own 4s animation (distinct from `spinning`, which is
+  // just the in-flight network request) so the modal can refuse to be
+  // dismissed while a result has already been credited server-side but not
+  // yet shown — see Modal's `dismissible` below.
+  const [wheelAnimating, setWheelAnimating] = useState(false);
+  const { membership, setMembership } = useCasinoStore();
+
+  // The server is authoritative on the credited balance. Today the header
+  // normally picks it up via the casino_members realtime subscription in
+  // useBalance, but that path can be down; applying it here directly the
+  // instant the wheel commits its reveal means a win still reaches the
+  // header even without realtime. Fired from the SAME moment DailySpinWheel
+  // reveals `landed`, so this can never leak the result ahead of the spin
+  // stopping.
+  function handleLanded(result: DailySpinResult) {
+    if (!membership) return;
+    setMembership({ ...membership, balance: result.balance });
+  }
 
   return (
     <>
@@ -70,13 +89,15 @@ export function PromoCards({
       </div>
 
       {open && (
-        <Modal onClose={() => setOpen(false)} size="md">
+        <Modal onClose={() => setOpen(false)} size="md" dismissible={!wheelAnimating}>
           <DailySpinWheel
             config={config}
             spinning={spinning}
             readyIn={readyIn}
             onClose={() => setOpen(false)}
             onSpin={spin}
+            onLanded={handleLanded}
+            onAnimatingChange={setWheelAnimating}
           />
         </Modal>
       )}

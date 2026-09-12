@@ -125,6 +125,20 @@ function resolveSegment(raw: unknown, index: number): DailySpinSegment | null {
 }
 
 /**
+ * A fresh, independently-mutable copy of the default wheel: a new settings
+ * object with a new `segments` array of new segment objects. `resolveDailySpin`
+ * and the settings UI's "Reset to default wheel" both hand this out instead of
+ * `DEFAULT_DAILY_SPIN` itself, so the module singleton (which tests assert
+ * against by value) can never be corrupted by a future in-place edit downstream.
+ */
+export function cloneDefaultDailySpin(): DailySpinSettings {
+  return {
+    ...DEFAULT_DAILY_SPIN,
+    segments: DEFAULT_DAILY_SPIN.segments.map((s) => ({ ...s })),
+  };
+}
+
+/**
  * Sanitizes anything at all into a valid config. Never throws — a malformed
  * `casinos.settings` jsonb must degrade to the default wheel rather than take
  * the lobby down. This is the authoritative gate: even if the settings UI were
@@ -132,13 +146,17 @@ function resolveSegment(raw: unknown, index: number): DailySpinSegment | null {
  */
 export function resolveDailySpin(raw: unknown): DailySpinSettings {
   const rec = asRecord(raw);
-  if (!rec) return DEFAULT_DAILY_SPIN;
+  if (!rec) return cloneDefaultDailySpin();
 
   const rawSegments = Array.isArray(rec.segments) ? rec.segments : [];
+  // Validate/filter FIRST, then truncate to MAX_SEGMENTS — "3-12 entries
+  // surviving per-segment validation", not "first 12 entries that then
+  // survive validation". Truncating before filtering would let invalid
+  // leading entries crowd out otherwise-valid ones further down the array.
   const segments = rawSegments
-    .slice(0, MAX_SEGMENTS)
     .map(resolveSegment)
-    .filter((s): s is DailySpinSegment => s !== null);
+    .filter((s): s is DailySpinSegment => s !== null)
+    .slice(0, MAX_SEGMENTS);
 
   return {
     enabled: rec.enabled === true,
@@ -152,7 +170,7 @@ export function resolveDailySpin(raw: unknown): DailySpinSettings {
     ),
     // Too few usable slices is not a wheel. Fall back wholesale rather than
     // padding, so the owner sees an obviously-default wheel and not a hybrid.
-    segments: segments.length >= MIN_SEGMENTS ? segments : DEFAULT_DAILY_SPIN.segments,
+    segments: segments.length >= MIN_SEGMENTS ? segments : cloneDefaultDailySpin().segments,
   };
 }
 
