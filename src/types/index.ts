@@ -184,6 +184,16 @@ export interface ChipRequest {
   created_at: string;
 }
 
+export type NotificationType = "chip_request_created" | "chip_request_accepted" | "chip_request_denied";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  payload: { request_id: string; amount: number; requester_username?: string };
+  read_at: string | null;
+  created_at: string;
+}
+
 export type SlotSymbolId = "dot" | "square" | "diamond" | "star" | "seven";
 
 export type SlotBoardSize = "3x3" | "3x4" | "5x3" | "3x6" | "4x6";
