@@ -4,10 +4,11 @@
 // its engine's constants by hand into the component that renders them (see
 // the PAYTABLE literal at the top of Tumble.tsx), which is fine when the
 // client only needs a paytable to display. Olympus needs more than that: the
-// /showcase/olympus page plays complete rounds locally, so it needs the whole
-// engine — weights, cascade, orbs and all. Re-exporting the edge function's
-// module means the showcase and the paytable panel cannot drift from what the
-// server actually pays, because they are running the same code.
+// cabinet plays a local round to have a settled board to show before the
+// first spin, so it needs the whole engine — weights, cascade, orbs and all.
+// Re-exporting the edge function's module means the board and the paytable
+// panel cannot drift from what the server actually pays, because they are
+// running the same code.
 //
 // The engine module is deliberately free of Deno and Supabase imports so it
 // can be consumed from both sides; see its header.

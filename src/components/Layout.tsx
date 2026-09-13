@@ -6,15 +6,11 @@ const NO_NAV_ROUTES = ["/auth", "/confirm-email", "/setup-nickname"];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
-  const showNav =
-    !NO_NAV_ROUTES.includes(pathname) &&
-    !pathname.startsWith("/casino/") &&
-    !pathname.startsWith("/showcase/");
-  // Design showcases and the fullscreen big-game route paint their own
-  // edge-to-edge scene, so they opt out of the centred content container as
-  // well as the tab bar (which /casino/ already drops).
-  const fullBleed =
-    pathname.startsWith("/showcase/") || /^\/casino\/[^/]+\/play\//.test(pathname);
+  const showNav = !NO_NAV_ROUTES.includes(pathname) && !pathname.startsWith("/casino/");
+  // The fullscreen big-game route paints its own edge-to-edge scene, so it
+  // opts out of the centred content container as well as the tab bar (which
+  // /casino/ already drops).
+  const fullBleed = /^\/casino\/[^/]+\/play\//.test(pathname);
 
   return (
     <div className="min-h-screen bg-background">

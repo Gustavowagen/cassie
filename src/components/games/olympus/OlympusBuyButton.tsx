@@ -1,4 +1,4 @@
-// The showcase's feature buy: a smaller gold coin beside the spin medallion.
+// The cabinet's feature buy: a smaller gold coin beside the spin medallion.
 // Deliberately quieter than the spin button — same metal and enamel so the
 // two read as a set, but no wreath and no lightning, so the medallion stays
 // the one thing on the controls bar that asks to be pressed.
@@ -11,8 +11,8 @@ export function OlympusBuyButton({
 }: {
   spins: number;
   /**
-   * Preformatted price of one batch, shown under the coin. Absent in the
-   * showcase, where nothing is charged.
+   * Preformatted price of one batch, shown under the coin. Absent when the
+   * instance has the feature buy switched off.
    */
   price?: string;
   disabled: boolean;

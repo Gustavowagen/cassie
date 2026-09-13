@@ -21,10 +21,10 @@ import { OlympusSpinButton } from "./OlympusSpinButton";
 //
 // The machine decides nothing about a round: it asks for one, gets a fully
 // resolved OlympusRound back, and plays it as animation beats. Who resolves it
-// is the caller's business — the casino game (Olympus.tsx) hands it the edge
-// function's response, the showcase hands it a locally played round. Neither
-// path lets the machine near a balance, and the casino path settles the
-// balance only when onSettled fires, once the reveal is actually over.
+// is the caller's business — Olympus.tsx hands it the edge function's
+// response. The machine never goes near a balance itself; the caller settles
+// the authoritative one when onSettled fires, once the reveal is actually
+// over.
 
 // --- animation beats, in ms -------------------------------------------------
 // Held here rather than only in CSS because the replay loop awaits them.
@@ -50,11 +50,6 @@ const BATCH_WIN_HOLD_MS = 1700;
 const BATCH_GAP_MS = 260;
 /** The closing free-spins banner lingers longer than a single spin's. */
 const SUMMARY_MS = 4200;
-
-// The reference reads out currency at two decimals. The platform's own
-// formatChips uses four (chip precision), which would look wrong here.
-const money = (n: number) =>
-  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const keyOf = (p: Pos) => `${p.col}:${p.row}`;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -158,13 +153,17 @@ export interface OlympusMachineProps {
   freeSpinsCost?: number;
   /**
    * Fires once a replay has completely finished — after the last banner, not
-   * when the response arrived. The casino path settles the authoritative
-   * balance here, so the counter can never jump to the win before the board
-   * has shown it (see CLAUDE.md's rule for reveal-animated games).
+   * when the response arrived. The caller settles the authoritative balance
+   * here, so the counter can never jump to the win before the board has shown
+   * it (see CLAUDE.md's rule for reveal-animated games).
    */
   onSettled?: () => void;
-  /** Formats a chip amount for the readouts. */
-  formatAmount?: (n: number) => string;
+  /**
+   * How every figure on the cabinet is written. Olympus.tsx passes
+   * formatChips, so the board agrees to the digit with the balance in the
+   * header above it.
+   */
+  formatAmount: (n: number) => string;
 }
 
 /** What the win banner is showing. Chips, already multiplied — not a round. */
@@ -185,7 +184,7 @@ export function OlympusMachine({
   onBuyFreeSpins,
   freeSpinsCost,
   onSettled,
-  formatAmount,
+  formatAmount: amount,
 }: OlympusMachineProps) {
   const [view, setView] = useState<View>(() => ({
     // Decoration only: a settled board to look at before the first spin. It is
@@ -200,12 +199,6 @@ export function OlympusMachine({
   }));
   const [spinning, setSpinning] = useState(false);
   const bet = stakes[Math.min(Math.max(betIndex, 0), stakes.length - 1)];
-  /**
-   * How every figure on the cabinet is written. The showcase keeps the
-   * reference machine's two decimals; the casino passes formatChips so the
-   * board agrees with the balance in the header above it.
-   */
-  const amount = formatAmount ?? money;
   const [tumbleWin, setTumbleWin] = useState(0);
   const [multiplier, setMultiplier] = useState(0);
   const [flyers, setFlyers] = useState<Flyer[]>([]);
@@ -272,15 +265,21 @@ export function OlympusMachine({
    * collected keeps multiplying every later win. The replay treats the two
    * identically apart from the number it counts up from.
    *
-   * `payout` is what the round actually pays, in chips. It has to be passed
-   * in rather than read off the round: inside a batch a spin pays its base win
-   * times the RUNNING multiplier, which the round itself knows nothing about.
+   * `payout` is what the round actually pays, in chips, and `applied` is the
+   * multiplier that produced it. Both have to be passed in rather than read
+   * off the round: inside a batch a spin pays its base win times the BANKED
+   * total, and only when the spin collected an orb of its own — a spin that
+   * pays with none leaves the bank locked and pays flat, at `applied` 0, with
+   * the carry still showing on the counter. The round knows nothing about
+   * either. Defaults suit a base-game spin, where the round's own orbs are the
+   * whole story.
    */
   const replayRound = useCallback(async (
     round: OlympusRound,
     alive: () => boolean,
     carry = 0,
     payout?: number,
+    applied?: number,
   ) => {
     setResult(null);
     setTumbleWin(0);
@@ -371,7 +370,7 @@ export function OlympusMachine({
       setResult({
         amount,
         multipleOfBet: bet > 0 ? amount / bet : 0,
-        multiplier: carry + round.multiplier,
+        multiplier: applied ?? carry + round.multiplier,
       });
     }
     setTumbleWin(0);
@@ -411,7 +410,10 @@ export function OlympusMachine({
    *
    * The multiplier counter deliberately does NOT reset between spins here —
    * it is handed to each replay as `carry` and keeps climbing, which is the
-   * whole difference between this and fifteen ordinary spins.
+   * whole difference between this and fifteen ordinary spins. What it is worth
+   * on any given spin is another matter: the bank only multiplies a spin that
+   * collected an orb of its own, which is why each replay is told its
+   * `multiplierApplied` separately from the carry it counts up from.
    */
   const handleBuy = useCallback(async () => {
     if (spinning || !onBuyFreeSpins) return;
@@ -447,7 +449,7 @@ export function OlympusMachine({
       setBatch({ index: i + 1, total: spins.length });
       const spin = spins[i];
       const payout = spin.spinWin * bet;
-      await replayRound(spin.round, alive, spin.multiplierBefore, payout);
+      await replayRound(spin.round, alive, spin.multiplierBefore, payout, spin.multiplierApplied);
       if (!alive()) return;
       total += payout;
       setBatchWin(total);

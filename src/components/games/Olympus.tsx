@@ -20,19 +20,18 @@ import { OlympusMachine } from "./olympus/OlympusMachine";
 
 // Gates of Olympus, as a casino game.
 //
-// This file owns everything the showcase page has no need for: the header
+// This file owns the scene and everything around the cabinet: the header
 // chrome, the balance, the stake ladder bounded by the instance's own bet
 // limits, and the calls to the edge function. The cabinet itself — board,
-// cascade replay, controls, Zeus — is shared with /showcase/olympus, which
-// differs only in where its rounds come from.
+// cascade replay, controls — is OlympusMachine's.
 //
 // It fills the viewport rather than sitting in the dashboard's modal the way
 // the quick games do: it is mounted by the /casino/:slug/play/:gameId route
 // (src/pages/CasinoGame.tsx), which is the whole page.
 //
-// Zeus and the temple are rendered here rather than inside OlympusMachine for
-// the same reason the showcase renders them: the machine reports a strike and
-// the scene decides how he answers, so the board never reaches into him.
+// Zeus and the temple are rendered here rather than inside OlympusMachine:
+// the machine reports a strike and the scene decides how he answers, so the
+// board never reaches into him.
 
 const TOP_FRAME = OLY_ART.zeusFrames.length - 1;
 /** Beat between frames on the way up — quick, so four frames read as one lift. */
@@ -302,11 +301,10 @@ export function Olympus({
 function SceneStyles() {
   return (
     <style>{`
-      /* The scene fills what the header leaves rather than the whole viewport
-         as it does on the showcase page, which has no header over it. Board
-         and Zeus are one centred lockup, not a centred board with Zeus pinned
-         to an edge, which left a dead third of the scene empty at desktop
-         widths. */
+      /* The scene fills what the header leaves rather than the whole viewport.
+         Board and Zeus are one centred lockup, not a centred board with Zeus
+         pinned to an edge, which left a dead third of the scene empty at
+         desktop widths. */
       .oly-scene { position: relative; width: 100%; overflow: hidden;
         display: flex; align-items: center; justify-content: center; gap: clamp(0px, 1.5vw, 34px);
         padding: clamp(10px, 2vh, 40px) clamp(10px, 1.6vw, 32px); isolation: isolate;
@@ -315,17 +313,14 @@ function SceneStyles() {
            point of the override that follows. */
         container-type: size; }
 
-      /* The board's own sizing (OlympusMachine's --cell) is written for the
-         showcase page, where the scene IS the viewport and vh is the right
-         unit. Here a header sits above the scene, so a vh-sized board runs
-         past the bottom and cuts the controls off — at 1920x1080 by about
-         60px. cqh measures the space the board actually has instead (the
-         scene declares container-type: size above), so the board fills the
-         page at every viewport without ever reaching under the header.
+      /* OlympusMachine's own --cell is written in vh, which assumes the scene
+         is the whole viewport. Here a header sits above it, so a vh-sized
+         board runs past the bottom and cuts the controls off — at 1920x1080
+         by about 60px. cqh measures the space the board actually has instead
+         (the scene declares container-type: size above), so the board fills
+         the page at every viewport without ever reaching under the header.
          11.4cqh x 5 rows leaves room for the frame, the plaque above and the
-         control bar below; the vw term and the caps otherwise match the
-         showcase's own --cell, since both are now sizing against a full
-         screen. */
+         control bar below. */
       .oly-in-page .oly-machine { --cell: clamp(44px, min(7vw, 11.4cqh), 140px); }
 
       .oly-backdrop { position: absolute; inset: 0; z-index: -3;
@@ -384,8 +379,7 @@ function SceneStyles() {
         100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
       }
 
-      /* Sits over the gold floor at the bottom of the scene, where the note
-         does on the showcase page. */
+      /* Sits over the gold floor at the bottom of the scene. */
       .oly-error { position: absolute; z-index: 4; left: 50%; bottom: clamp(6px, 1.4vh, 18px);
         transform: translateX(-50%); margin: 0; padding: 6px 16px; border-radius: 999px;
         background: rgba(40,6,10,0.92); border: 1px solid #d78a2c;

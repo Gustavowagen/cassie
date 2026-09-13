@@ -91,6 +91,11 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
   // shows every game in that category regardless of the flag, so nothing
   // becomes unreachable.
   const homeGames = useMemo(() => games.filter((g) => g.is_featured), [games]);
+  // The banner promotes Gates of Olympus specifically, so it needs this
+  // casino's own table to send anyone to. Read off the full game list rather
+  // than homeGames: the promo is about the game existing here, not about an
+  // admin having flagged that instance as featured. No table, no banner.
+  const featuredGame = games.find((g) => g.game_type_id === "olympus") ?? null;
   const visible = useMemo(
     () => filterLobbyGames(isLobbyHome ? homeGames : games, filter, query),
     [games, homeGames, isLobbyHome, filter, query]
@@ -138,7 +143,9 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
           <div className="min-w-0 flex-1 space-y-6 lg:space-y-7">
             {isLobbyHome && (
               <>
-                <FeaturedBanner />
+                {featuredGame && isPlayable(featuredGame) && (
+                  <FeaturedBanner onPlay={() => onPlay(featuredGame)} />
+                )}
                 <PromoCards casino={casino} lastSpinAt={lastSpinAt} />
                 <RecentWins />
               </>

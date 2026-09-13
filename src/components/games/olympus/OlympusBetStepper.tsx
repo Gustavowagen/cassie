@@ -1,19 +1,12 @@
-// The showcase's bet control: the Bet readout with a small gold coin either
+// The cabinet's bet control: the Bet readout with a small gold coin either
 // side of it, stepping through a fixed ladder of stakes the way the original
-// cabinet does rather than taking a typed amount.
+// cabinet does rather than taking a typed amount. The ladder itself comes from
+// the game (Olympus.tsx's stakeLadderFor, bounded by the instance's bet
+// limits); this control only walks it.
 //
 // Quieter metal than the spin medallion — the same gold band and dark enamel
 // as the feature-buy coin, with no wreath and no lightning — so the medallion
 // stays the one thing on the controls bar that asks to be pressed.
-
-/**
- * The stakes the coins walk, low to high. Nothing is wagered anywhere in the
- * showcase; the stake only scales the readouts.
- */
-export const OLY_STAKES = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200];
-
-/** Opens on 1.00, as the original does — the coins are there to climb from it. */
-export const OLY_DEFAULT_INDEX = 2;
 
 export function OlympusBetStepper({
   value,

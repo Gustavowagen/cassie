@@ -8,8 +8,8 @@ import * as server from "../../supabase/functions/olympus/engine.ts";
 //
 // src/lib/olympusEngine.ts re-exports the edge function's engine rather than
 // mirroring it by hand (the pattern Tumble uses for its much smaller
-// paytable copy). That is the whole reason the showcase and the paytable
-// panel cannot describe odds the server does not actually run. If someone
+// paytable copy). That is the whole reason the board and the paytable panel
+// cannot describe odds the server does not actually run. If someone
 // later "tidies" the re-export into a local copy, everything still compiles
 // and every other test still passes — the two just quietly start to drift,
 // which is exactly the failure this guards against.

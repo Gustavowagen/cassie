@@ -156,7 +156,8 @@ export function olympusInfo(houseEdge: number, freeSpinsEnabled: boolean): GameI
       `Payouts at this machine's ${(houseEdge * 100).toFixed(0)}% house edge: ${pays} (per ${MIN_MATCH}+ up to 12+).`,
       ...(freeSpinsEnabled
         ? [
-            `The feature coin buys ${FREE_SPINS_COUNT} free spins for ${freeSpinsCostMultiplier()}× your chosen stake. Orbs land far more often during them, and — unlike the base game — the multiplier does NOT reset between spins: every orb collected keeps multiplying every win for the rest of the batch.`,
+            `The feature coin buys ${FREE_SPINS_COUNT} free spins for ${freeSpinsCostMultiplier()}× your chosen stake. Orbs land far more often during them, and — unlike the base game — the multiplier does NOT reset between spins: every orb collected is banked and stays banked for the rest of the batch.`,
+            "The bank only pays out on a spin that lands an orb of its own, though. Land one and your win is multiplied by the whole bank, that orb included — a 5× with 20× banked pays 25×. Win with no orb on the board and the win is paid flat, and the bank waits for the next spin that does land one.",
             `The price is what the house edge is taken on, so a batch returns the same ${(
               (1 - houseEdge) *
               100

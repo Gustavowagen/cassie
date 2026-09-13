@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// The showcase's spin control: a gold medallion in a laurel wreath with Zeus's
+// The cabinet's spin control: a gold medallion in a laurel wreath with Zeus's
 // bolt struck into its enamel face. It answers the machine rather than just
 // sitting there — lightning crackles round the rim now and then while it
 // waits, the milled edge turns while a round plays out, and the bolt runs

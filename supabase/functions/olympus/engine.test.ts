@@ -417,26 +417,52 @@ describe("playFreeSpins", () => {
     expect(playFreeSpins(makeRng(1), 0.03, 4).spins).toHaveLength(4);
   });
 
-  it("carries one multiplier across the whole batch", () => {
+  it("banks one multiplier across the whole batch", () => {
     const batch = playFreeSpins(makeRng(4242), 0.03);
     let expected = 0;
     for (const spin of batch.spins) {
       expect(spin.multiplierBefore).toBe(expected);
       expected += spin.round.multiplier;
       expect(spin.multiplierAfter).toBe(expected);
-      // It can only ever grow — nothing in a batch resets it.
+      // It can only ever grow — nothing in a batch spends, resets or wipes it.
       expect(spin.multiplierAfter).toBeGreaterThanOrEqual(spin.multiplierBefore);
     }
   });
 
-  it("pays each spin at the running total, not at its own orbs alone", () => {
+  it("pays a spin that collected an orb at the whole bank, its own orbs included", () => {
     const batch = playFreeSpins(makeRng(31415), 0.03);
+    let seen = 0;
     for (const spin of batch.spins) {
-      expect(spin.spinWin).toBeCloseTo(
-        roundMoney(spin.round.baseWin * (spin.multiplierAfter || 1)),
-        4
-      );
+      if (spin.round.multiplier === 0) continue;
+      seen++;
+      // The bank AFTER this spin's orbs joined it — a 5x on top of 20x banked
+      // pays at 25x, not at 20x and not at 5x.
+      expect(spin.multiplierApplied).toBe(spin.multiplierAfter);
+      expect(spin.spinWin).toBeCloseTo(roundMoney(spin.round.baseWin * spin.multiplierAfter), 4);
     }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it("leaves the bank locked on a spin that collected no orb of its own", () => {
+    // The rule this feature turns on: a bank is only worth what the next orb
+    // unlocks. A paying spin with no orb on its board pays flat, however much
+    // is standing — and the bank is still there afterwards, untouched.
+    const batch = playFreeSpins(makeRng(90210), 0.03, 400);
+    let seenWithBank = 0;
+    for (const spin of batch.spins) {
+      if (spin.round.multiplier > 0) continue;
+      expect(spin.multiplierApplied).toBe(0);
+      expect(spin.spinWin).toBeCloseTo(spin.round.baseWin, 4);
+      expect(spin.multiplierAfter).toBe(spin.multiplierBefore);
+      if (spin.multiplierBefore > 0 && spin.round.baseWin > 0) seenWithBank++;
+    }
+    // …and the case that actually distinguishes the new rule from the old one
+    // — paying, no orb, bank standing — really does occur in this sample.
+    expect(seenWithBank).toBeGreaterThan(0);
+  });
+
+  it("totals the batch as the sum of its spins", () => {
+    const batch = playFreeSpins(makeRng(31415), 0.03);
     expect(batch.totalWin).toBeCloseTo(
       roundMoney(batch.spins.reduce((s, x) => s + x.spinWin, 0)),
       4
@@ -549,11 +575,20 @@ describe("what a batch costs", () => {
 
   it("prices every whole-chip stake on the ladder at a whole number of chips", () => {
     // Olympus's STAKE_LADDER is a 1 / 2 / 5 progression per decade, so these
-    // are the stops a player actually walks past 0.1 chips.
-    const stakes = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1_000, 10_000, 1_000_000];
+    // are the stops a player actually walks from 1 chip up.
+    const stakes = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1_000, 10_000, 1_000_000];
     for (const stake of stakes) {
       expect(Number.isInteger(freeSpinsCost(stake))).toBe(true);
     }
+    // Sub-chip stakes bill whole only where the price shares the fraction's
+    // factors. 58 is even, so the 0.5 stop still does; 70 was also a multiple
+    // of ten, so before the bank was gated the 0.1 and 0.2 stops did too, and
+    // now they don't. Pinned so the asymmetry is a recorded fact rather than a
+    // surprise — closing it would mean moving the price 3% off fair, in the
+    // house's favour, which the test above forbids outright.
+    expect(Number.isInteger(freeSpinsCost(0.5))).toBe(true);
+    expect(Number.isInteger(freeSpinsCost(0.2))).toBe(false);
+    expect(Number.isInteger(freeSpinsCost(0.1))).toBe(false);
   });
 
   it("prices a batch well above its per-spin stake", () => {
@@ -605,7 +640,7 @@ describe("realized RTP", () => {
 
   it("pays out about a quarter of base spins", () => {
     // Not an RTP claim — a feel claim. A cascade slot that pays on 60% of
-    // spins (as the showcase's demo weights did) or on 5% is a different game
+    // spins (as the original demo weights did) or on 5% is a different game
     // from this one, and either would slip past the RTP tests above.
     const rng = makeRng(246800);
     const rounds = 200_000;

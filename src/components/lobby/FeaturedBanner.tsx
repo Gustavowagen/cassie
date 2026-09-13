@@ -1,13 +1,13 @@
-import { useNavigate } from "react-router-dom";
 import { Info, Play, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ACCENT_CTA, GLASS } from "./styles";
 
 // Promo banner for Gates of Olympus. On mobile the copy sits at the bottom
 // over an upward fade; from `md` it moves left over a sideways fade.
-export function FeaturedBanner() {
-  const navigate = useNavigate();
-  const playNow = () => navigate("/showcase/olympus");
+// `onPlay` opens this casino's own Olympus table via the dashboard's
+// handlePlayGame, so it lands on /casino/:slug/play/:gameId.
+export function FeaturedBanner({ onPlay }: { onPlay: () => void }) {
+  const playNow = onPlay;
 
   return (
     <section className="relative h-[228px] overflow-hidden rounded-2xl border border-white/10 shadow-[0_8px_32px_rgb(var(--lobby-accent)/0.15)] sm:h-[260px] md:h-[320px]">

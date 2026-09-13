@@ -125,8 +125,8 @@ export const SYMBOLS: OlySymbolId[] = [
  *
  * Deliberately shallow. MIN_MATCH is 8 of 30 cells, so a symbol's win
  * probability is a binomial tail that collapses fast as its weight drops: the
- * steep, low-symbol-heavy table the showcase used (sapphire 22 … bolt 4) hit
- * on 63% of spins, which is a demo, not a slot. Flattening toward uniform
+ * steep, low-symbol-heavy table this started out with (sapphire 22 … bolt 4)
+ * hit on 63% of spins, which is a demo, not a slot. Flattening toward uniform
  * pulls the board's hit rate down to roughly a quarter of spins — the band the
  * original game sits in — while keeping every symbol's ordering intact: a
  * rarer symbol still wins strictly less often than every commoner one
@@ -204,15 +204,24 @@ export const BASELINE_RTP = 1.0388484937004534;
 
 /**
  * Expected return of one FREE_SPINS_COUNT batch, in multiples of the PER-SPIN
- * stake, at scale 1. Far above 15x BASELINE_RTP because the multiplier
- * persists: every orb collected during the batch keeps multiplying every
- * later win. 2,000,000 simulated batches (30,000,000 spins): mean
- * 72.93133179997095, 95% interval ±0.187 (0.26% relative).
+ * stake, at scale 1. Far above 15x BASELINE_RTP because the bank persists:
+ * every orb collected during the batch keeps multiplying every later win that
+ * unlocks it. 2,000,000 simulated batches (30,000,000 spins): mean
+ * 60.52463467506568, 95% interval ±0.164 (0.27% relative).
  *
- * Together with BASELINE_RTP this prices a batch at 70.2x the per-spin stake
- * (see freeSpinsCostMultiplier).
+ * It was 72.93 before playFreeSpins gated the bank on the spin in front of it
+ * collecting an orb of its own. That gate costs the feature 17% of its value —
+ * roughly a third of paying free spins land no orb, and those now pay flat
+ * instead of riding whatever is banked — and the price below moves with it, so
+ * a batch still returns (1 - houseEdge) of what it cost.
+ *
+ * Together with BASELINE_RTP this prices a batch at 58.3x the per-spin stake
+ * (see freeSpinsCostMultiplier). BASELINE_RTP itself is untouched by that
+ * change — the base game has no bank — and the same run re-measured it at
+ * 1.0430 ±1.2% over 2,000,000 rounds, consistent with the far tighter 40M
+ * figure above, which is therefore the one kept.
  */
-export const FREE_SPINS_BASELINE_EV = 72.93133179997095;
+export const FREE_SPINS_BASELINE_EV = 60.52463467506568;
 
 /**
  * houseEdge only ever scales how much a win PAYS. It never touches the symbol
@@ -226,7 +235,7 @@ export function edgeScale(houseEdge: number): number {
 
 /**
  * The mathematically fair price of a batch, as a multiple of the per-spin
- * stake: 70.204 at the calibrated figures above.
+ * stake: 58.261 at the calibrated figures above.
  *
  * Note it takes no edge: the (1 - houseEdge) in edgeScale cancels against the
  * (1 - houseEdge) the price has to return, leaving FREE_SPINS_BASELINE_EV /
@@ -241,22 +250,26 @@ export const FREE_SPINS_FAIR_MULTIPLIER = FREE_SPINS_BASELINE_EV / BASELINE_RTP;
  * What a batch is actually charged at: the fair multiple, rounded to a whole
  * number.
  *
- * The rounding is the point. A price of 70.204x turns every stake on the
- * ladder into a fractional bill — 1 chip buys at 70.204, 5 at 351.02, 20 at
- * 1404.08 — and a player adjusting the stake watches a number with four
- * decimals in it slide around. At a whole 70x every stop on Olympus's
- * 1 / 2 / 5 STAKE_LADDER prices to a whole, round figure: 70, 140, 350, 700,
- * 1,400, 3,500.
+ * The rounding is the point. A price of 58.261x turns every stake on the
+ * ladder into a fractional bill — 1 chip buys at 58.261, 5 at 291.31, 20 at
+ * 1165.23 — and a player adjusting the stake watches a number with three
+ * decimals in it slide around. At a whole 58x every stop on Olympus's
+ * 1 / 2 / 5 STAKE_LADDER prices to a whole, round figure: 58, 116, 290, 580,
+ * 1,160, 2,900.
  *
- * What it costs is 0.29% of the price, and the direction matters: rounding
+ * What it costs is 0.45% of the price, and the direction matters: rounding
  * DOWN off the fair figure means a bought batch returns marginally more than
  * (1 - houseEdge) of what was paid for it, never less. A tidier number is
  * worth that much in the player's favour; it would not be worth it in the
  * house's, which is what the engine test pins.
  *
- * Stakes below 0.1 chips still bill fractionally (0.05 buys at 3.5) — no
- * multiple of a fraction of a chip is whole, and rounding the price itself at
- * that scale would distort it far past a rounding error.
+ * Sub-chip stakes bill whole only where the price shares the fraction's
+ * factors, and rounding the price itself at that scale would distort it far
+ * past a rounding error. 58 is even, so the 0.5 stop still buys at a whole 29;
+ * 70 was also a multiple of ten, so before the bank was gated the 0.1 and 0.2
+ * stops were whole too and now bill at 5.8 and 11.6. Buying that back with a
+ * tidier 60x would put the price 3% ABOVE fair — the one direction the
+ * rounding is not allowed to go.
  */
 export const FREE_SPINS_MULTIPLIER = Math.round(FREE_SPINS_FAIR_MULTIPLIER);
 
@@ -496,11 +509,18 @@ export interface OlyFreeSpin {
    * neither is the money. `spinWin` below is.
    */
   round: OlympusRound;
-  /** The running multiplier this spin started under. */
+  /** The banked multiplier this spin started under. */
   multiplierBefore: number;
   /** …and ended under, once its own orbs were added. */
   multiplierAfter: number;
-  /** What this spin pays, as a bet multiple: baseWin x the running total. */
+  /**
+   * The multiplier that actually multiplied THIS spin: the full bank when the
+   * spin collected an orb of its own, and 0 when it did not — see
+   * playFreeSpins. 0 means the spin paid its raw win, bank or no bank, so this
+   * is what the win banner must show rather than multiplierAfter.
+   */
+  multiplierApplied: number;
+  /** What this spin pays, as a bet multiple: baseWin x multiplierApplied. */
   spinWin: number;
 }
 
@@ -512,15 +532,24 @@ export interface OlyFreeSpinsBatch {
 
 /**
  * A bought batch of free spins. Unlike the base game — and unlike Tumble's
- * feature buy, which is genuinely just N prepaid spins — ONE multiplier runs
- * through the whole batch: every orb collected keeps multiplying every later
- * win, which is the original game's mechanic and the reason a batch is worth
- * many times its per-spin stake.
+ * feature buy, which is genuinely just N prepaid spins — ONE multiplier bank
+ * runs through the whole batch: every orb collected joins it, and it is never
+ * spent, reset or wiped.
+ *
+ * The bank is DORMANT, though, unless the spin in front of it collected an orb
+ * of its own. A spin that lands a 5x with 20x already banked pays its win at
+ * 25x; a spin that pays with no orb on its board pays its raw win and leaves
+ * the 20x sitting there for whichever later spin does land one. That gate is
+ * the whole tension of the feature — the bank is only ever worth what the next
+ * orb unlocks — and it is what separates a batch from fifteen spins that all
+ * ride one number for free.
  *
  * Orbs are collected on the same terms as the base game: only a spin that
  * actually pays sweeps the orbs standing on its settled board. Orbs left by a
  * spin that paid nothing are not banked — round.multiplier is already 0 in
- * that case, so this falls out rather than being special-cased.
+ * that case, so this falls out rather than being special-cased. The same 0 is
+ * what closes the gate above, so a spin that pays nothing also unlocks
+ * nothing.
  */
 export function playFreeSpins(
   rng: Rng,
@@ -535,10 +564,19 @@ export function playFreeSpins(
     const round = playRound(rng, houseEdge, FREE_SPINS_ORB_WEIGHT);
     const multiplierBefore = running;
     running += round.multiplier;
-    // `running || 1` rather than a branch: a batch that has banked nothing yet
-    // pays the raw win, exactly as an unmultiplied base round does.
-    const spinWin = roundMoney(round.baseWin * (running || 1));
-    spins.push({ round, multiplierBefore, multiplierAfter: running, spinWin });
+    // The gate: this spin's own orbs are the key to the bank. Without one the
+    // bank stays locked — whatever is standing in it — and the spin pays flat.
+    const multiplierApplied = round.multiplier > 0 ? running : 0;
+    // `|| 1` rather than a branch: a spin paying unmultiplied pays exactly what
+    // an unmultiplied base round does.
+    const spinWin = roundMoney(round.baseWin * (multiplierApplied || 1));
+    spins.push({
+      round,
+      multiplierBefore,
+      multiplierAfter: running,
+      multiplierApplied,
+      spinWin,
+    });
     totalWin += spinWin;
   }
 

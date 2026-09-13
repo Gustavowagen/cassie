@@ -1,4 +1,4 @@
-// The Gates of Olympus showcase's art components.
+// Gates of Olympus's art components.
 //
 // The symbols, the multiplier badges, Zeus and the scene are painted art
 // loaded from public/olympus (see olympusAssets.ts). Only the wordmark stays

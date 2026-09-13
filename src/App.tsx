@@ -12,7 +12,6 @@ import { CasinoGame } from "./pages/CasinoGame";
 import { ConfirmEmail } from "./pages/ConfirmEmail";
 import { SetupNickname } from "./pages/SetupNickname";
 import { NotFound } from "./pages/NotFound";
-import { OlympusShowcase } from "./pages/OlympusShowcase";
 
 function AppRoutes() {
   useAuthListener();
@@ -43,8 +42,6 @@ function AppRoutes() {
           route instead of in the dashboard modal the quick games use. */}
       <Route path="/casino/:slug/play/:gameId" element={<CasinoGame />} />
       <Route path="/profile" element={<Profile />} />
-      {/* Design showcase — no auth, no casino, nothing wagered. */}
-      <Route path="/showcase/olympus" element={<OlympusShowcase />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
