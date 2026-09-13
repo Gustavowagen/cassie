@@ -174,6 +174,26 @@ export interface ChipTransaction {
   created_at: string;
 }
 
+export type ChipRequestStatus = "pending" | "accepted" | "denied";
+
+export interface ChipRequest {
+  id: string;
+  user_id: string;
+  username: string | null;
+  amount: number;
+  created_at: string;
+}
+
+export type NotificationType = "chip_request_created" | "chip_request_accepted" | "chip_request_denied";
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  payload: { request_id: string; amount: number; requester_username?: string };
+  read_at: string | null;
+  created_at: string;
+}
+
 export type SlotSymbolId = "dot" | "square" | "diamond" | "star" | "seven";
 
 export type SlotBoardSize = "3x3" | "3x4" | "5x3" | "3x6" | "4x6";
@@ -380,7 +400,7 @@ export interface CrashState {
   balance: number;
 }
 
-// --------- olympus
+// ----------------------------------------------------------------- olympus
 
 // Gates of Olympus. Unlike every other game here, the round/board/step types
 // are not re-declared — they are exported by the engine itself

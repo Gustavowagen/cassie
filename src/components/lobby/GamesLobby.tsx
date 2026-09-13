@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Gamepad2, LayoutGrid, List, Search } from "lucide-react";
 import { GameTile } from "../GameTile";
 import {
@@ -9,10 +9,15 @@ import {
   type LobbyFilter,
 } from "../../lib/lobby";
 import { cn } from "../../lib/utils";
-import type { Casino, CasinoGame } from "../../types";
+import type { AppNotification, Casino, CasinoGame } from "../../types";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotifications } from "../../hooks/useNotifications";
+import { Modal } from "../ui/modal";
 import { FeaturedBanner } from "./FeaturedBanner";
+import { GetChipsModal } from "./GetChipsModal";
 import { LobbySidebar } from "./LobbySidebar";
 import { LobbyTopBar } from "./LobbyTopBar";
+import { NotificationsModal } from "./NotificationsModal";
 import { PromoCards } from "./PromoCards";
 import { RecentWins } from "./RecentWins";
 import { ACCENT_CTA, ACCENT_SOFT, ACCENT_TEXT, GLASS, SWIPE_ROW } from "./styles";
@@ -37,6 +42,44 @@ interface Props {
 export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack, canAdmin, codeCopied, onCopyCode, lastSpinAt }: Props) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LobbyFilter>("all");
+  const { user } = useAuthStore();
+  const [getChipsOpen, setGetChipsOpen] = useState(false);
+
+  const { listNotifications, markNotificationsRead } = useNotifications();
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const hasUnread = notifications.some((n) => !n.read_at);
+
+  useEffect(() => {
+    let cancelled = false;
+    setNotificationsLoading(true);
+    listNotifications(casino.id)
+      .then((rows) => {
+        if (!cancelled) setNotifications(rows);
+      })
+      .catch(() => {
+        // Best-effort: a failed fetch just leaves the bell showing no notifications/no dot,
+        // which is an acceptable degraded state — there's no dedicated error UI for the bell.
+      })
+      .finally(() => {
+        if (!cancelled) setNotificationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [casino.id]);
+
+  async function openNotifications() {
+    setNotificationsOpen(true);
+    if (!hasUnread) return;
+    setNotifications((prev) => prev.map((n) => (n.read_at ? n : { ...n, read_at: new Date().toISOString() })));
+    try {
+      await markNotificationsRead(casino.id);
+    } catch {
+      // Best-effort — a failed mark-as-read just means the dot may return on next load.
+    }
+  }
 
   const counts = useMemo(() => countByCategory(games), [games]);
   const accentVars = useMemo(() => lobbyAccentVars(casino.theme.primaryColor), [casino.theme.primaryColor]);
@@ -75,6 +118,9 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
           onBack={onBack}
           codeCopied={codeCopied}
           onCopyCode={onCopyCode}
+          onOpenGetChips={() => setGetChipsOpen(true)}
+          hasUnread={hasUnread}
+          onOpenNotifications={openNotifications}
         />
 
         <div className="lg:flex lg:items-start lg:gap-5">
@@ -165,6 +211,21 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
           </div>
         </div>
       </div>
+
+      {getChipsOpen && user && (
+        <Modal onClose={() => setGetChipsOpen(false)} size="md">
+          <GetChipsModal casinoId={casino.id} userId={user.id} onClose={() => setGetChipsOpen(false)} />
+        </Modal>
+      )}
+      {notificationsOpen && (
+        <Modal onClose={() => setNotificationsOpen(false)} size="md">
+          <NotificationsModal
+            notifications={notifications}
+            loading={notificationsLoading}
+            onClose={() => setNotificationsOpen(false)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

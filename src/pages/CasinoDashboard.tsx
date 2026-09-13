@@ -358,7 +358,7 @@ export function CasinoDashboard() {
             <StatsTab casinoId={currentCasino.id} casinoGames={casinoGames} gameTypes={gameTypes} />
           )}
           {activeTab === "trades" && (
-            <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn={canViewMembers} />
+            <ChipLedgerPanel casinoId={currentCasino.id} showUserColumn={canViewMembers} canManage={canManageMembers} />
           )}
           {canManageMembers && activeTab === "settings" && (
             <SettingsTab
