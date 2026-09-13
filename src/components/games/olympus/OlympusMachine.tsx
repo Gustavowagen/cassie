@@ -81,6 +81,28 @@ function dropsAfter(step: OlyStep): number[][] {
 const FULL_DROP = Array.from({ length: COLS }, () => Array<number>(ROWS).fill(ROWS));
 const NO_DROP = Array.from({ length: COLS }, () => Array<number>(ROWS).fill(0));
 
+/**
+ * Which of a win's cells carries its pay label: the one nearest the middle of
+ * the cluster. Symbols pay from anywhere on the board, so a win is usually
+ * scattered rather than in a line — labelling the first cell in scan order
+ * would park the figure in a corner, away from most of what earned it. Ties
+ * keep the engine's own col/row order, so the choice is stable for a board.
+ */
+function labelCell(positions: Pos[]): Pos {
+  const cx = positions.reduce((sum, p) => sum + p.col, 0) / positions.length;
+  const cy = positions.reduce((sum, p) => sum + p.row, 0) / positions.length;
+  let best = positions[0];
+  let bestDist = Infinity;
+  for (const p of positions) {
+    const dist = (p.col - cx) ** 2 + (p.row - cy) ** 2;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = p;
+    }
+  }
+  return best;
+}
+
 interface Flyer {
   id: number;
   value: number;
@@ -94,6 +116,13 @@ interface View {
   board: OlyBoard;
   drops: number[][];
   lit: Set<string>;
+  /**
+   * What each paying symbol earned, in chips, against the one cell of its own
+   * that shows it — already formatted, since the board only ever displays it.
+   * Rides alongside `lit`: it is set when a win lights and cleared when it
+   * pops, so a figure is only ever on the board beside the symbols it is for.
+   */
+  labels: Map<string, string>;
   popping: Set<string>;
   charged: boolean;
   /**
@@ -193,6 +222,7 @@ export function OlympusMachine({
     board: playRound(makeRng(Math.floor(Math.random() * 1e9))).steps.slice(-1)[0].board,
     drops: NO_DROP,
     lit: new Set(),
+    labels: new Map(),
     popping: new Set(),
     charged: false,
     wave: 0,
@@ -291,6 +321,7 @@ export function OlympusMachine({
       board: steps[0].board,
       drops: FULL_DROP,
       lit: new Set(),
+      labels: new Map(),
       popping: new Set(),
       charged: false,
       wave: v.wave + 1,
@@ -308,7 +339,15 @@ export function OlympusMachine({
       if (step.wins.length === 0) break;
 
       const winning = new Set(step.wins.flatMap((w) => w.positions).map(keyOf));
-      setView((v) => ({ ...v, lit: winning }));
+      // Each paying symbol says what IT earned, in its own cell: with several
+      // symbols paying off one board, the plaque's running total cannot show
+      // which of them brought what. The figure is the symbol's pay alone —
+      // edge-scaled, but never multiplied by the orbs, which are still
+      // standing and belong to the round rather than to this win.
+      const labels = new Map(
+        step.wins.map((w) => [keyOf(labelCell(w.positions)), amount(w.pay * bet)] as const),
+      );
+      setView((v) => ({ ...v, lit: winning, labels }));
       await sleep(HIGHLIGHT_MS);
       if (!alive()) return;
 
@@ -317,7 +356,7 @@ export function OlympusMachine({
 
       // Only the winners leave. Any orb among them stays put and falls with
       // the survivors into the board below.
-      setView((v) => ({ ...v, lit: new Set(), popping: winning }));
+      setView((v) => ({ ...v, lit: new Set(), labels: new Map(), popping: winning }));
       await sleep(POP_MS);
       if (!alive()) return;
 
@@ -326,6 +365,7 @@ export function OlympusMachine({
         board: next.board,
         drops: dropsAfter(step),
         lit: new Set(),
+        labels: new Map(),
         popping: new Set(),
         charged: false,
         wave: v.wave + 1,
@@ -365,16 +405,18 @@ export function OlympusMachine({
     if (!alive()) return;
     // A losing spin shows nothing at all — the board just goes quiet. Same
     // convention the rest of the games follow (see CLAUDE.md).
-    const amount = payout ?? round.totalWin * bet;
-    if (amount > 0) {
+    // Named `won` rather than `amount`, which is the formatter this scope
+    // needs for the pay labels above.
+    const won = payout ?? round.totalWin * bet;
+    if (won > 0) {
       setResult({
-        amount,
-        multipleOfBet: bet > 0 ? amount / bet : 0,
+        amount: won,
+        multipleOfBet: bet > 0 ? won / bet : 0,
         multiplier: applied ?? carry + round.multiplier,
       });
     }
     setTumbleWin(0);
-  }, [bet, launchOrb, onStrike]);
+  }, [amount, bet, launchOrb, onStrike]);
 
   const handleSpin = useCallback(async () => {
     if (spinning) return;
@@ -528,6 +570,12 @@ export function OlympusMachine({
                       <OlyOrbArt value={cell.value} />
                     ) : (
                       <OlySymbolArt id={cell} />
+                    )}
+                    {/* Sibling of the art, not a child of it: the lit cell's
+                        throb scales the symbol, and the figure has to hold
+                        still to be read. */}
+                    {view.labels.has(key) && (
+                      <span className="oly-cell-pay">{view.labels.get(key)}</span>
                     )}
                   </div>
                 );
@@ -699,6 +747,24 @@ function MachineStyles() {
         40% { transform: scale(1.16); filter: drop-shadow(0 0 14px rgba(255,220,130,0.95)); }
       }
 
+      /* The pay figure, sitting on one cell of the win it belongs to. Scaled
+         off --cell rather than the viewport so it keeps its proportion to the
+         symbol underneath at both ends of the board's own clamp, and left
+         unwrapped: a big stake makes a long figure, and spilling over the
+         neighbouring cells reads better than breaking across lines. */
+      .oly-cell-pay { position: absolute; z-index: 3; left: 50%; top: 50%; white-space: nowrap; pointer-events: none;
+        padding: 2px clamp(5px, 0.5vw, 9px); border-radius: 999px; border: 1px solid #f6c95f;
+        background: linear-gradient(180deg, rgba(92,15,16,0.95), rgba(38,5,7,0.95));
+        font-family: 'Barlow Semi Condensed', system-ui, sans-serif; font-weight: 800;
+        font-size: clamp(11px, calc(var(--cell) * 0.26), 26px); line-height: 1.15; color: #ffe9a8;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.6), 0 0 18px rgba(255,180,60,0.45);
+        animation: olyPay 200ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
+      @keyframes olyPay {
+        0% { opacity: 0; transform: translate(-50%, -24%) scale(0.72); }
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      }
+
       @keyframes olyPop {
         0% { transform: scale(1); opacity: 1; }
         40% { transform: scale(1.22); opacity: 1; }
@@ -801,6 +867,7 @@ function MachineStyles() {
          the sequence but drops the travel, scaling and spin. */
       @media (prefers-reduced-motion: reduce) {
         .oly-cell.oly-drop, .oly-cell.oly-pop, .oly-flyer, .oly-banner,
+        .oly-cell-pay,
         .oly-cell.oly-lit .oly-sym, .oly-cell.oly-charged .oly-sym {
           animation-duration: 1ms; animation-iteration-count: 1;
         }
