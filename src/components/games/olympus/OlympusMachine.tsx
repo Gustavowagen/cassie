@@ -42,6 +42,15 @@ const FLY_STAGGER_MS = 150;
 const POP_MS = 320;
 /** Beat between the board settling and the win banner arriving. */
 const SETTLE_MS = 340;
+/**
+ * The clash, on a win a multiplier applied to: the raw win and the multiplier
+ * arrive apart and are held long enough to be read as two separate figures,
+ * then rush together. The total is what comes out of the impact.
+ */
+const CLASH_SPLIT_MS = 760;
+const CLASH_HIT_MS = 460;
+/** Into the hit, the moment the two actually meet — flash and shake land here. */
+const CLASH_IMPACT_MS = 280;
 const COUNT_UP_MS = 900;
 /** The free-spins card holds the board this long before the first spin drops. */
 const INTRO_MS = 1900;
@@ -200,8 +209,19 @@ interface BannerWin {
   amount: number;
   /** As a bet multiple, which is what picks the banner's tier. */
   multipleOfBet: number;
-  /** The total multiplier that produced it, or 0 if none applied. */
+}
+
+/**
+ * The two halves of a multiplied win, before they are one number. `base` is
+ * what the tumbles paid on their own — the figure the plaque just finished
+ * counting up — and `multiplier` is what is about to be spent on it. They are
+ * shown apart, then `closing` sends them at each other; the banner's total is
+ * what the collision leaves behind.
+ */
+interface Clash {
+  base: number;
   multiplier: number;
+  closing: boolean;
 }
 
 export function OlympusMachine({
@@ -240,6 +260,8 @@ export function OlympusMachine({
    * batch's running multiplier is not the round's own).
    */
   const [result, setResult] = useState<BannerWin | null>(null);
+  /** Set only for the beat between the board settling and the total landing. */
+  const [clash, setClash] = useState<Clash | null>(null);
   /** Set while a free-spins batch plays: which spin this is, out of how many. */
   const [batch, setBatch] = useState<{ index: number; total: number } | null>(null);
   const [batchWin, setBatchWin] = useState(0);
@@ -312,6 +334,7 @@ export function OlympusMachine({
     applied?: number,
   ) => {
     setResult(null);
+    setClash(null);
     setTumbleWin(0);
     setMultiplier(carry);
 
@@ -408,12 +431,22 @@ export function OlympusMachine({
     // Named `won` rather than `amount`, which is the formatter this scope
     // needs for the pay labels above.
     const won = payout ?? round.totalWin * bet;
+    const mult = applied ?? carry + round.multiplier;
     if (won > 0) {
-      setResult({
-        amount: won,
-        multipleOfBet: bet > 0 ? won / bet : 0,
-        multiplier: applied ?? carry + round.multiplier,
-      });
+      // A multiplied win is arrived at rather than announced: the raw win and
+      // the multiplier are shown as two separate figures, then thrown at each
+      // other, and the total is what the impact produces. A win with no
+      // multiplier has nothing to collide, so its total simply arrives.
+      if (mult > 0) {
+        setClash({ base: round.baseWin * bet, multiplier: mult, closing: false });
+        await sleep(CLASH_SPLIT_MS);
+        if (!alive()) return;
+        setClash((c) => (c ? { ...c, closing: true } : c));
+        await sleep(CLASH_HIT_MS);
+        if (!alive()) return;
+        setClash(null);
+      }
+      setResult({ amount: won, multipleOfBet: bet > 0 ? won / bet : 0 });
     }
     setTumbleWin(0);
   }, [amount, bet, launchOrb, onStrike]);
@@ -464,6 +497,7 @@ export function OlympusMachine({
 
     setSpinning(true);
     setResult(null);
+    setClash(null);
     setSummary(null);
     setMultiplier(0);
 
@@ -500,6 +534,7 @@ export function OlympusMachine({
     }
 
     setResult(null);
+    setClash(null);
     setBatch(null);
     setBatchWin(0);
     setMultiplier(0);
@@ -539,7 +574,8 @@ export function OlympusMachine({
         <span className="oly-boss oly-boss-tr" aria-hidden />
         <span className="oly-boss oly-boss-bl" aria-hidden />
         <span className="oly-boss oly-boss-br" aria-hidden />
-        <div className="oly-grid">
+        {/* The board itself takes the hit when the two figures meet. */}
+        <div className={`oly-grid ${clash?.closing ? "oly-grid-hit" : ""}`}>
           {view.board.map((col, c) => (
             <div className="oly-col" key={c}>
               {col.map((cell, r) => {
@@ -590,11 +626,20 @@ export function OlympusMachine({
               {bigWin >= 200 ? "Mega win" : bigWin >= 50 ? "Big win" : "Win"}
             </span>
             <span className="oly-banner-amount">{amount(shownTotal)}</span>
-            {result.multiplier > 0 && (
-              <span className="oly-banner-mult">
-                {result.multiplier}x pays {amount(result.amount)}
-              </span>
-            )}
+          </div>
+        )}
+
+        {/* The win and the multiplier, apart and then not. Keyed on the pair so
+            a fresh clash always restarts the entrance rather than inheriting
+            the last one's finished animation. */}
+        {clash && (
+          <div
+            className={`oly-clash ${clash.closing ? "oly-clash-hit" : ""}`}
+            key={`c${clash.base}x${clash.multiplier}`}
+          >
+            <span className="oly-clash-part oly-clash-win">{amount(clash.base)}</span>
+            <span className="oly-clash-part oly-clash-x">{clash.multiplier}x</span>
+            <span className="oly-clash-flash" aria-hidden />
           </div>
         )}
 
@@ -809,10 +854,68 @@ function MachineStyles() {
       .oly-banner-amount { position: relative; font-family: 'Barlow Semi Condensed', system-ui, sans-serif; font-weight: 800; font-size: clamp(38px, 6vw, 108px); line-height: 0.95;
         background: linear-gradient(180deg, #fff7d6 0%, #ffd968 42%, #f0a01e 70%, #ffe89b 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
         filter: drop-shadow(0 3px 0 #7a3606) drop-shadow(0 0 26px rgba(255,180,60,0.75)); }
-      .oly-banner-mult { position: relative; font-family: 'Barlow Semi Condensed', system-ui, sans-serif; font-weight: 700; font-size: clamp(13px, 1.5vw, 24px); letter-spacing: 0.05em; color: #ffdf9a; text-shadow: 0 2px 8px rgba(90,20,0,0.9); }
       .oly-banner-mega .oly-banner-amount { font-size: clamp(44px, 7.4vw, 132px); }
       .oly-banner-mega::before, .oly-banner-big::before { background: radial-gradient(50% 50% at 50% 50%, rgba(255,215,110,0.6), transparent 74%); animation: olyFlare 2600ms ease-out forwards; }
       @keyframes olyFlare { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+
+      /* ------------------------------------------------------- the clash */
+      /* Both halves are pinned to the same point and pushed apart by --off,
+         rather than laid out in a row: however wide the two figures are, the
+         place they meet is the centre of the board, which is where the flash,
+         the shake and the total that replaces them all are. */
+      .oly-clash { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+      /* The board underneath is gold symbols on plum, and gold figures over
+         that are unreadable — so the clash darkens what it stands on, the way
+         the banner does. It fades in with the figures and is gone with them. */
+      .oly-clash::before { content: ""; position: absolute; inset: 0; border-radius: clamp(6px, 0.6vw, 12px);
+        background: radial-gradient(62% 58% at 50% 50%, rgba(26,4,14,0.9), rgba(26,4,14,0.7) 46%, rgba(26,4,14,0.12) 78%, transparent);
+        animation: olyClashScrim ${Math.round(CLASH_SPLIT_MS * 0.45)}ms ease-out both; }
+      @keyframes olyClashScrim { 0% { opacity: 0; } 100% { opacity: 1; } }
+      .oly-clash-hit::before { animation: olyClashScrimOut ${CLASH_HIT_MS}ms ease-in both; }
+      @keyframes olyClashScrimOut { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+      .oly-clash-part { position: absolute; left: 50%; top: 50%; white-space: nowrap;
+        font-family: 'Barlow Semi Condensed', system-ui, sans-serif; font-weight: 800; line-height: 1;
+        animation: olyClashIn ${Math.round(CLASH_SPLIT_MS * 0.45)}ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
+      .oly-clash-win { --off: calc(-1 * clamp(64px, 12vw, 210px)); font-size: clamp(26px, 4.2vw, 74px);
+        background: linear-gradient(180deg, #fff7d6 0%, #ffd968 42%, #f0a01e 70%, #ffe89b 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        filter: drop-shadow(0 3px 0 #7a3606) drop-shadow(0 0 20px rgba(255,180,60,0.7)); }
+      /* The multiplier keeps the orbs' colour rather than the gold of money —
+         it is the thing that was collected, not the thing that was won. */
+      .oly-clash-x { --off: clamp(64px, 12vw, 210px); font-size: clamp(30px, 4.8vw, 84px); color: #ffe9a8;
+        text-shadow: 0 0 6px rgba(255,214,110,0.9), 0 0 26px rgba(168,85,247,0.9), 0 3px 0 #4a1063; }
+      @keyframes olyClashIn {
+        0% { opacity: 0; transform: translate(-50%, -50%) translateX(calc(var(--off) * 2.4)) scale(0.8); }
+        72% { opacity: 1; transform: translate(-50%, -50%) translateX(calc(var(--off) * 0.9)) scale(1.04); }
+        100% { opacity: 1; transform: translate(-50%, -50%) translateX(var(--off)) scale(1); }
+      }
+      /* The replay holds them apart for CLASH_SPLIT_MS before adding this
+         class — that pause is what makes them read as two figures rather than
+         one composite that happens to slide. */
+      .oly-clash-hit .oly-clash-part { animation: olyClashHit ${CLASH_HIT_MS}ms cubic-bezier(0.55, 0, 0.85, 0.3) both; }
+      @keyframes olyClashHit {
+        0% { opacity: 1; transform: translate(-50%, -50%) translateX(var(--off)) scale(1); }
+        58% { opacity: 1; transform: translate(-50%, -50%) translateX(calc(var(--off) * 0.1)) scale(1.14); }
+        70% { opacity: 1; transform: translate(-50%, -50%) translateX(0) scale(1.22); }
+        100% { opacity: 0; transform: translate(-50%, -50%) translateX(0) scale(0.55); }
+      }
+      .oly-clash-flash { position: absolute; left: 50%; top: 50%; width: 46%; aspect-ratio: 1; border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0.2); opacity: 0;
+        background: radial-gradient(50% 50% at 50% 50%, rgba(255,255,255,0.95), rgba(255,200,90,0.75) 32%, rgba(168,85,247,0.35) 60%, transparent 72%); }
+      .oly-clash-hit .oly-clash-flash { animation: olyClashFlash ${CLASH_HIT_MS - CLASH_IMPACT_MS + 120}ms ease-out ${CLASH_IMPACT_MS}ms both; }
+      @keyframes olyClashFlash {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+        26% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+      }
+      .oly-grid-hit { animation: olyShake 260ms cubic-bezier(0.36, 0.07, 0.19, 0.97) ${CLASH_IMPACT_MS}ms both; }
+      @keyframes olyShake {
+        0%, 100% { transform: translate(0, 0); }
+        15% { transform: translate(-6px, 3px); }
+        35% { transform: translate(5px, -4px); }
+        55% { transform: translate(-4px, -2px); }
+        78% { transform: translate(3px, 2px); }
+      }
 
       /* ------------------------------------------------ free spins intro */
       /* Covers the board while the batch is dealt, so the first free spin
@@ -866,8 +969,11 @@ function MachineStyles() {
       /* Motion here is the whole point of the piece, so reduced motion keeps
          the sequence but drops the travel, scaling and spin. */
       @media (prefers-reduced-motion: reduce) {
+        /* The clash keeps its three beats — apart, together, total — but the
+           travel and the shake go: the figures simply appear at their marks
+           and are gone at the impact. */
         .oly-cell.oly-drop, .oly-cell.oly-pop, .oly-flyer, .oly-banner,
-        .oly-cell-pay,
+        .oly-cell-pay, .oly-clash-part, .oly-clash-flash, .oly-grid-hit,
         .oly-cell.oly-lit .oly-sym, .oly-cell.oly-charged .oly-sym {
           animation-duration: 1ms; animation-iteration-count: 1;
         }
