@@ -58,6 +58,10 @@ export function GamesLobby({ casino, balance, games, isPlayable, onPlay, onBack,
       .then((rows) => {
         if (!cancelled) setNotifications(rows);
       })
+      .catch(() => {
+        // Best-effort: a failed fetch just leaves the bell showing no notifications/no dot,
+        // which is an acceptable degraded state — there's no dedicated error UI for the bell.
+      })
       .finally(() => {
         if (!cancelled) setNotificationsLoading(false);
       });

@@ -32,6 +32,9 @@ export function GetChipsModal({
         if (cancelled) return;
         setPending(rows.find((r) => r.user_id === userId) ?? null);
       })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to check your request status");
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -107,8 +110,8 @@ export function GetChipsModal({
               <Input
                 id="get-chips-amount"
                 type="number"
-                min={0.0001}
-                step="any"
+                min={0.01}
+                step="0.01"
                 value={amountText}
                 onChange={(e) => setAmountText(e.target.value)}
                 placeholder="0"
