@@ -257,7 +257,7 @@ select
      'list_chip_requests','list_notifications','mark_notifications_read')) as rpc_count;
 ```
 
-Expected: `chip_requests_cols = 8`, `notifications_cols = 6`, both `*_rls = true`, both `*_policies = 0`, `rpc_count = 7`.
+Expected: `chip_requests_cols = 8`, `notifications_cols = 7`, both `*_rls = true`, both `*_policies = 0`, `rpc_count = 7`.
 
 - [ ] **Step 4: Commit**
 
