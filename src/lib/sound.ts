@@ -69,49 +69,19 @@ export function playLoseThud(): void {
   playTone({ freq: 90, duration: 0.4, volume: 0.1, type: "sine", delay: 0.05 });
 }
 
-function createNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
-  const frameCount = Math.max(1, Math.ceil(ctx.sampleRate * duration));
-  const buffer = ctx.createBuffer(1, frameCount, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < frameCount; i++) data[i] = Math.random() * 2 - 1;
-  return buffer;
-}
-
-// A card flicking onto the table: filtered noise for the papery snap, plus
-// a brief low thud as it lands. One sound for every card movement — the
-// player taking a card, the dealer's hole card turning face-up, and the
-// dealer drawing — it's physically the same motion each time.
+// A card flicking onto the table, played from a real recording rather than
+// synthesized. One sound for every card movement — the player taking a
+// card, the dealer's hole card turning face-up, and the dealer drawing —
+// it's physically the same motion each time. A fresh Audio instance per
+// call so staggered/overlapping deals don't cut each other off.
 export function playCardFlick(opts: { delay?: number } = {}): void {
   if (useSoundStore.getState().muted) return;
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  const start = ctx.currentTime + (opts.delay ?? 0);
-
-  const noise = ctx.createBufferSource();
-  noise.buffer = createNoiseBuffer(ctx, 0.06);
-  const filter = ctx.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.value = 3200;
-  filter.Q.value = 0.6;
-  const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.3, start);
-  noiseGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.055);
-  noise.connect(filter);
-  filter.connect(noiseGain);
-  noiseGain.connect(ctx.destination);
-  noise.start(start);
-  noise.stop(start + 0.06);
-
-  const thud = ctx.createOscillator();
-  const thudGain = ctx.createGain();
-  thud.type = "sine";
-  thud.frequency.setValueAtTime(200, start + 0.01);
-  thud.frequency.exponentialRampToValueAtTime(90, start + 0.06);
-  thudGain.gain.setValueAtTime(0.0001, start);
-  thudGain.gain.setValueAtTime(0.05, start + 0.01);
-  thudGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.065);
-  thud.connect(thudGain);
-  thudGain.connect(ctx.destination);
-  thud.start(start);
-  thud.stop(start + 0.07);
+  const audio = new Audio("/sounds/card_sound.wav");
+  audio.volume = 0.5;
+  const delay = opts.delay ?? 0;
+  if (delay > 0) {
+    setTimeout(() => void audio.play().catch(() => {}), delay * 1000);
+  } else {
+    void audio.play().catch(() => {});
+  }
 }
